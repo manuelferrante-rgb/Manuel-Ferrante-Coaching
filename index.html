@@ -4,24 +4,26 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Manuel Ferrante Coaching</title>
-  <meta name="description" content="Coaching Body Recomposition, Forza e Streetlifting. Programmi personalizzati, supporto 7/7 e feedback costante. Prenota una call gratuita o scrivimi su WhatsApp."/>
+  <meta name="description" content="Coaching Forza, Estetica e Streetlifting. Programmi personalizzati, supporto 7/7 e feedback costante. Prenota una call gratuita o scrivimi su WhatsApp."/>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
   <style>
-    :root{ --bg:#0d1117; --text:#e6edf3; --muted:#9aa4b2; --line:#21262d; --accent:#60a5fa; --accent-2:#3b82f6; --radius:16px; --shadow:0 10px 30px rgba(0,0,0,.25); }
+    :root{ --bg:#0d1117; --text:#e6edf3; --muted:#c9d1d9; --line:#21262d; --accent:#60a5fa; --accent-2:#3b82f6; --radius:16px; --shadow:0 10px 30px rgba(0,0,0,.35); }
     *{box-sizing:border-box}
-    html,body{margin:0;padding:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
+    html,body{margin:0;padding:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);background:url('logo.jpg') no-repeat center center fixed;background-size:cover;}
+    body::before{content:'';position:fixed;inset:0;background:rgba(13,17,23,.85);z-index:-1;}
     a{color:inherit;text-decoration:none}
     .container{max-width:980px;margin:0 auto;padding:0 20px}
     header{border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(13,17,23,.8);backdrop-filter:blur(8px);z-index:50}
-    .nav{display:flex;align-items:center;justify-content:space-between;height:64px}
-    .logo-img{height:40px}
+    .nav{display:flex;align-items:center;gap:12px;height:64px}
+    .logo-img-small{height:36px;border-radius:50%}
+    .site-title{font-weight:700;font-size:18px}
     main{padding:64px 0}
     h1{font-size:clamp(34px,5vw,52px);line-height:1.05;margin:8px 0 10px}
     p.lead{font-size:clamp(16px,2.2vw,19px);color:var(--muted);margin:0 0 18px}
     .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:26px}
-    .card{border:1px solid var(--line);border-radius:16px;padding:18px}
+    .card{border:1px solid var(--line);border-radius:16px;padding:18px;background:rgba(13,17,23,.9)}
     .list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
     .list li{display:flex;gap:10px}
     .dot{width:8px;height:8px;border-radius:999px;background:#34d399;margin-top:8px}
@@ -33,42 +35,39 @@
     .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 18px;border-radius:999px;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#081018;font-weight:800;box-shadow:var(--shadow)}
     .floating-wa{position:fixed;right:18px;bottom:18px;z-index:60}
     .wa-btn{display:inline-flex;align-items:center;gap:8px;background:#25D366;color:#081018;font-weight:800;border-radius:999px;padding:12px 18px;box-shadow:var(--shadow)}
-    .portrait{width:100%;aspect-ratio:1/1;border-radius:20px;object-fit:cover;border:1px solid var(--line);box-shadow:var(--shadow)}
-    @media(max-width:900px){.grid{grid-template-columns:1fr}}
+    .testi-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media(max-width:900px){.grid{grid-template-columns:1fr}.testi-grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
   <header>
     <div class="container nav">
-      <img src="logo.jpg" alt="Logo Manuel Ferrante Coaching" class="logo-img">
-      <div></div>
+      <img src="profilo.jpg" alt="Manuel Ferrante" class="logo-img-small">
+      <span class="site-title">Manuel Ferrante Coaching</span>
     </div>
   </header>
 
   <main class="container">
     <div class="grid">
       <div>
-        <h1>Body Recomposition, Forza & Streetlifting</h1>
+        <h1>Forza, Estetica & Streetlifting</h1>
         <p class="lead">Crescita di forza e massa con metodo. Programmazioni personalizzate, progressioni chiare e supporto 7/7.</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 20px">
           <a class="btn" href="https://wa.me/393386787740?text=Ciao%2C%20vorrei%20avere%20informazioni%20sul%20Coaching%2C%20possiamo%20fissare%20una%20call%20conoscitiva" target="_blank">Prenota call gratuita</a>
         </div>
       </div>
-      <div>
-        <img src="profilo.jpg" alt="Manuel Ferrante – Coach" class="portrait">
-        <div class="card" style="margin-top:14px">
-          <h2 style="margin-top:0">Cosa ti offro</h2>
-          <ul class="list">
-            <li><span class="dot"></span><span>Analizzo i tuoi bisogni e obiettivi</span></li>
-            <li><span class="dot"></span><span>Valuto la tua tecnica</span></li>
-            <li><span class="dot"></span><span>Imposto il piano su misura per te</span></li>
-          </ul>
-          <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap">
-            <a class="btn" href="https://wa.me/393386787740?text=Ciao%2C%20vorrei%20avere%20informazioni%20sul%20Coaching%2C%20possiamo%20fissare%20una%20call%20conoscitiva" target="_blank">Richiedi ora</a>
-            <a class="btn" href="https://www.instagram.com/_manuelferrante" target="_blank">Instagram</a>
-          </div>
-          <p class="muted" style="margin-top:8px">*risposta immediata</p>
+      <div class="card">
+        <h2 style="margin-top:0">Cosa ti offro</h2>
+        <ul class="list">
+          <li><span class="dot"></span><span>Analizzo i tuoi bisogni e obiettivi</span></li>
+          <li><span class="dot"></span><span>Valuto la tua tecnica</span></li>
+          <li><span class="dot"></span><span>Imposto il piano su misura per te</span></li>
+        </ul>
+        <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap">
+          <a class="btn" href="https://wa.me/393386787740?text=Ciao%2C%20vorrei%20avere%20informazioni%20sul%20Coaching%2C%20possiamo%20fissare%20una%20call%20conoscitiva" target="_blank">Richiedi ora</a>
+          <a class="btn" href="https://www.instagram.com/_manuelferrante" target="_blank">Instagram</a>
         </div>
+        <p class="muted" style="margin-top:8px">*risposta immediata</p>
       </div>
     </div>
   </main>
@@ -100,13 +99,15 @@
 
   <section class="container" id="testimonianze">
     <h2>Risultati & Testimonianze</h2>
-    <div class="card">
-      <strong>Lorenzo</strong>
-      <p>“+20 kg di massa con un percorso su misura e costanza: risultati visibili e duraturi.”</p>
-    </div>
-    <div class="card" style="margin-top:12px">
-      <strong>Arianna</strong>
-      <p>“Totale migliorato di oltre 50 kg: programmazione chiara e supporto continuo fanno la differenza.”</p>
+    <div class="card testi-grid">
+      <div>
+        <strong>Lorenzo</strong>
+        <p style="font-size:14px">“+20 kg di massa con un percorso su misura e costanza: risultati visibili e duraturi.”</p>
+      </div>
+      <div>
+        <strong>Arianna</strong>
+        <p style="font-size:14px">“Totale migliorato di oltre 50 kg: programmazione chiara e supporto continuo fanno la differenza.”</p>
+      </div>
     </div>
   </section>
 
@@ -124,7 +125,7 @@
 
   <!-- Pulsante flottante WhatsApp -->
   <div class="floating-wa">
-    <a class="wa-btn" href="https://wa.me/393386787740?text=Ciao%2C%20vorrei%20avere%20informazioni%20sul%20Coaching%2C%20possiamo%20fissare%20una%20call%20conoscitiva" target="_blank" rel="noopener">WhatsApp</a>
+    <a class="wa-btn" href="https://wa.me/393386787740?text=Ciao%2C%20vorrei%20avere%20informazioni%20sul%20Coaching%2C%20possiamo%20fissare%20una%20call%20conoscitiva" target="_blank" rel="noopener">Hai dubbi? Scrivimi su WhatsApp</a>
   </div>
 
   <script>
