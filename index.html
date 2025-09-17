@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
   <style>
-    :root{ --bg:#0d1117; --text:#e6edf3; --muted:#9aa4b2; --line:#21262d; --accent:#7dd3fc; --accent-2:#22d3ee; --radius:16px; --shadow:0 10px 30px rgba(0,0,0,.25); }
+    :root{ --bg:#0d1117; --text:#e6edf3; --muted:#9aa4b2; --line:#21262d; --accent:#60a5fa; --accent-2:#3b82f6; --radius:16px; --shadow:0 10px 30px rgba(0,0,0,.25); }
     *{box-sizing:border-box}
     html,body{margin:0;padding:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
     a{color:inherit;text-decoration:none}
@@ -30,8 +30,10 @@
     .muted{color:var(--muted)}
     footer{border-top:1px solid var(--line);padding:24px 0;color:var(--muted)}
     .footer-logo{height:25px}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 18px;border-radius:999px;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#081018;font-weight:800;box-shadow:var(--shadow)}
     .floating-wa{position:fixed;right:18px;bottom:18px;z-index:60}
     .wa-btn{display:inline-flex;align-items:center;gap:8px;background:#25D366;color:#081018;font-weight:800;border-radius:999px;padding:12px 18px;box-shadow:var(--shadow)}
+    .portrait{width:100%;aspect-ratio:1/1;border-radius:20px;object-fit:cover;border:1px solid var(--line);box-shadow:var(--shadow)}
     @media(max-width:900px){.grid{grid-template-columns:1fr}}
   </style>
 </head>
@@ -49,21 +51,24 @@
         <h1>Body Recomposition, Forza & Streetlifting</h1>
         <p class="lead">Crescita di forza e massa con metodo. Programmazioni personalizzate, progressioni chiare e supporto 7/7.</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 20px">
-          <a class="btn" href="https://wa.me/393386787740?text=Ciao%2C%20vorrei%20avere%20informazioni%20Sul%20Coaching%2C%20possiamo%20fissare%20una%20call%20conoscitiva" target="_blank">Prenota call gratuita</a>
+          <a class="btn" href="https://wa.me/393386787740?text=Ciao%2C%20vorrei%20avere%20informazioni%20sul%20Coaching%2C%20possiamo%20fissare%20una%20call%20conoscitiva" target="_blank">Prenota call gratuita</a>
         </div>
       </div>
-      <div class="card">
-        <h2 style="margin-top:0">Cosa ti offro</h2>
-        <ul class="list">
-          <li><span class="dot"></span><span>Analizzo i tuoi bisogni e obiettivi</span></li>
-          <li><span class="dot"></span><span>Valuto la tua tecnica</span></li>
-          <li><span class="dot"></span><span>Imposto il piano su misura per te</span></li>
-        </ul>
-        <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap">
-          <a class="btn" href="https://wa.me/393386787740?text=Ciao%2C%20vorrei%20avere%20informazioni%20Sul%20Coaching%2C%20possiamo%20fissare%20una%20call%20conoscitiva" target="_blank">Richiedi ora</a>
-          <a class="btn ghost" href="https://www.instagram.com/_manuelferrante" target="_blank">Instagram</a>
+      <div>
+        <img src="profilo.jpg" alt="Manuel Ferrante – Coach" class="portrait">
+        <div class="card" style="margin-top:14px">
+          <h2 style="margin-top:0">Cosa ti offro</h2>
+          <ul class="list">
+            <li><span class="dot"></span><span>Analizzo i tuoi bisogni e obiettivi</span></li>
+            <li><span class="dot"></span><span>Valuto la tua tecnica</span></li>
+            <li><span class="dot"></span><span>Imposto il piano su misura per te</span></li>
+          </ul>
+          <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap">
+            <a class="btn" href="https://wa.me/393386787740?text=Ciao%2C%20vorrei%20avere%20informazioni%20sul%20Coaching%2C%20possiamo%20fissare%20una%20call%20conoscitiva" target="_blank">Richiedi ora</a>
+            <a class="btn" href="https://www.instagram.com/_manuelferrante" target="_blank">Instagram</a>
+          </div>
+          <p class="muted" style="margin-top:8px">*risposta immediata</p>
         </div>
-        <p class="muted" style="margin-top:8px">*risposta immediata</p>
       </div>
     </div>
   </main>
@@ -89,7 +94,7 @@
     <div class="card">
       <h2 style="margin-top:0">Qual è il percorso giusto per te?</h2>
       <p class="muted">Ogni atleta ha obiettivi diversi: ti aiuto a trovare il percorso giusto per te, senza vincoli e con massima flessibilità.</p>
-      <a class="btn" href="https://wa.me/393386787740?text=Ciao%2C%20vorrei%20avere%20informazioni%20Sul%20Coaching%2C%20possiamo%20fissare%20una%20call%20conoscitiva" target="_blank">Scrivimi subito</a>
+      <a class="btn" href="https://wa.me/393386787740?text=Ciao%2C%20vorrei%20avere%20informazioni%20sul%20Coaching%2C%20possiamo%20fissare%20una%20call%20conoscitiva" target="_blank">Scrivimi subito</a>
     </div>
   </section>
 
@@ -119,7 +124,7 @@
 
   <!-- Pulsante flottante WhatsApp -->
   <div class="floating-wa">
-    <a class="wa-btn" href="https://wa.me/393386787740?text=Ciao%2C%20vorrei%20avere%20informazioni%20Sul%20Coaching%2C%20possiamo%20fissare%20una%20call%20conoscitiva" target="_blank" rel="noopener">WhatsApp</a>
+    <a class="wa-btn" href="https://wa.me/393386787740?text=Ciao%2C%20vorrei%20avere%20informazioni%20sul%20Coaching%2C%20possiamo%20fissare%20una%20call%20conoscitiva" target="_blank" rel="noopener">WhatsApp</a>
   </div>
 
   <script>
