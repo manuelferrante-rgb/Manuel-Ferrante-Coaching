@@ -86,8 +86,13 @@
   @keyframes marqueeScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 
   /* ── HERO ──────────────────────────────────── */
-  .hero{position:relative;z-index:2;padding:26px 24px 0}
-  .hero-grid{max-width:1280px;margin:0 auto;display:grid;grid-template-columns:1fr;gap:0}
+  .hero{position:relative;z-index:2;padding:26px 24px 0;overflow:hidden}
+  .hero-media-strip{position:absolute;inset:0;z-index:0;overflow:hidden}
+  .hero-media-track{display:flex;height:100%;width:max-content;animation:heroMediaScroll 60s linear infinite}
+  .hero-media-slide{flex:0 0 auto;width:220px;height:100%;background-size:cover;background-position:center;filter:grayscale(.3) brightness(.5)}
+  @keyframes heroMediaScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+  .hero-media-overlay{position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(13,13,13,.88) 0%,rgba(13,13,13,.94) 55%,var(--bg) 100%)}
+  .hero-grid{position:relative;z-index:2;max-width:1280px;margin:0 auto;display:grid;grid-template-columns:1fr;gap:0}
   .hero-text{padding:38px 0 0;position:relative;z-index:2}
   .hero-tag{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);background:rgba(var(--accent-rgb),.08);border:1px solid rgba(var(--accent-rgb),.25);padding:5px 14px;border-radius:100px;margin-bottom:16px;animation:fadeUp .6s ease both}
   .hero-title{font-family:var(--display);font-size:clamp(46px,13vw,84px);line-height:.92;letter-spacing:.01em;animation:fadeUp .6s .08s ease both}
@@ -198,13 +203,10 @@
   .btn-mini-top{font-family:var(--display);font-size:18px;letter-spacing:.04em;color:var(--accent);line-height:1.1}
   .btn-mini-sub{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:rgba(245,245,240,.45)}
 
-  /* ── BREAK (galleria foto scorrevole + citazione fissa) ── */
+  /* ── BREAK (foto squat full-bleed + citazione) ──── */
   .break-section{position:relative;z-index:2;min-height:64vh;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-top:80px}
-  .break-gallery{position:absolute;inset:0}
-  .break-gallery-track{display:flex;height:100%;width:max-content;animation:breakScroll 50s linear infinite}
-  .break-slide{flex:0 0 auto;width:240px;height:100%;background-size:cover;background-position:center 30%;filter:grayscale(.2) brightness(.8)}
-  @keyframes breakScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-  .break-overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(13,13,13,.6) 0%,rgba(13,13,13,.78) 55%,var(--bg) 100%)}
+  .break-bg{position:absolute;inset:0;background-image:url('images/squat-bg.jpg');background-size:cover;background-position:center 25%}
+  .break-overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(13,13,13,.55) 0%,rgba(13,13,13,.75) 55%,var(--bg) 100%)}
   .break-content{position:relative;z-index:2;text-align:center;padding:60px 24px;max-width:560px}
   .break-eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:var(--accent);margin-bottom:14px}
   .break-quote{font-family:var(--display);font-size:clamp(34px,7vw,60px);line-height:1.02;letter-spacing:.01em}
@@ -347,6 +349,19 @@
 
 <!-- ══ HERO + FORM ══════════════════════════════ -->
 <section class="hero">
+  <div class="hero-media-strip" aria-hidden="true">
+    <div class="hero-media-track">
+      <div class="hero-media-slide" style="background-image:url('images/metodo-bg.jpg')"></div>
+      <div class="hero-media-slide" style="background-image:url('images/pullup-bg.jpg')"></div>
+      <div class="hero-media-slide" style="background-image:url('images/testi-bg.jpg')"></div>
+      <div class="hero-media-slide" style="background-image:url('images/programmi-bg.jpg')"></div>
+      <div class="hero-media-slide" style="background-image:url('images/metodo-bg.jpg')"></div>
+      <div class="hero-media-slide" style="background-image:url('images/pullup-bg.jpg')"></div>
+      <div class="hero-media-slide" style="background-image:url('images/testi-bg.jpg')"></div>
+      <div class="hero-media-slide" style="background-image:url('images/programmi-bg.jpg')"></div>
+    </div>
+  </div>
+  <div class="hero-media-overlay"></div>
   <div class="hero-grid">
     <div class="hero-text">
       <span class="hero-tag">@_manuelferrante · Coaching 1:1</span>
@@ -461,24 +476,9 @@
 </section>
 
 
-<!-- ══ BREAK: galleria foto scorrevole + citazione ══ -->
+<!-- ══ BREAK: foto squat + citazione ═══════════ -->
 <section class="break-section" id="break">
-  <div class="break-gallery" aria-hidden="true">
-    <div class="break-gallery-track" id="break-gallery-track">
-      <div class="break-slide" style="background-image:url('images/hero-bg.jpg')"></div>
-      <div class="break-slide" style="background-image:url('images/pullup-bg.jpg')"></div>
-      <div class="break-slide" style="background-image:url('images/squat-bg.jpg')"></div>
-      <div class="break-slide" style="background-image:url('images/metodo-bg.jpg')"></div>
-      <div class="break-slide" style="background-image:url('images/testi-bg.jpg')"></div>
-      <div class="break-slide" style="background-image:url('images/programmi-bg.jpg')"></div>
-      <div class="break-slide" style="background-image:url('images/hero-bg.jpg')"></div>
-      <div class="break-slide" style="background-image:url('images/pullup-bg.jpg')"></div>
-      <div class="break-slide" style="background-image:url('images/squat-bg.jpg')"></div>
-      <div class="break-slide" style="background-image:url('images/metodo-bg.jpg')"></div>
-      <div class="break-slide" style="background-image:url('images/testi-bg.jpg')"></div>
-      <div class="break-slide" style="background-image:url('images/programmi-bg.jpg')"></div>
-    </div>
-  </div>
+  <div class="break-bg"></div>
   <div class="break-overlay"></div>
   <div class="break-content">
     <p class="break-eyebrow reveal-up">Il coach</p>
