@@ -87,10 +87,7 @@
 
   /* ── HERO ──────────────────────────────────── */
   .hero{position:relative;z-index:2;padding:26px 24px 0;overflow:hidden}
-  .hero-media-strip{position:absolute;inset:0;z-index:0;overflow:hidden;-webkit-transform:translateZ(0);transform:translateZ(0)}
-  .hero-media-track{display:flex;height:100%;width:max-content;animation:heroMediaScroll 40s linear infinite;will-change:transform;-webkit-backface-visibility:hidden;backface-visibility:hidden}
-  .hero-media-slide{flex:0 0 auto;width:220px;height:100%;background-size:cover;background-position:center;filter:grayscale(.15) brightness(.75)}
-  @keyframes heroMediaScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+  .hero-media-bg{position:absolute;inset:0;z-index:0;background-image:url('images/metodo-bg.jpg');background-size:cover;background-position:center 22%;filter:grayscale(.15) brightness(.75)}
   .hero-media-overlay{position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(13,13,13,.68) 0%,rgba(13,13,13,.82) 55%,var(--bg) 100%)}
   .hero-grid{position:relative;z-index:2;max-width:1280px;margin:0 auto;display:grid;grid-template-columns:1fr;gap:0}
   .hero-text{padding:38px 0 0;position:relative;z-index:2}
@@ -349,18 +346,7 @@
 
 <!-- ══ HERO + FORM ══════════════════════════════ -->
 <section class="hero">
-  <div class="hero-media-strip" aria-hidden="true">
-    <div class="hero-media-track">
-      <div class="hero-media-slide" style="background-image:url('images/pullup-bg.jpg')"></div>
-      <div class="hero-media-slide" style="background-image:url('images/metodo-bg.jpg')"></div>
-      <div class="hero-media-slide" style="background-image:url('images/pullup-bg.jpg')"></div>
-      <div class="hero-media-slide" style="background-image:url('images/metodo-bg.jpg')"></div>
-      <div class="hero-media-slide" style="background-image:url('images/pullup-bg.jpg')"></div>
-      <div class="hero-media-slide" style="background-image:url('images/metodo-bg.jpg')"></div>
-      <div class="hero-media-slide" style="background-image:url('images/pullup-bg.jpg')"></div>
-      <div class="hero-media-slide" style="background-image:url('images/metodo-bg.jpg')"></div>
-    </div>
-  </div>
+  <div class="hero-media-bg" aria-hidden="true"></div>
   <div class="hero-media-overlay"></div>
   <div class="hero-grid">
     <div class="hero-text">
