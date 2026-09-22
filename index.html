@@ -36,22 +36,28 @@
     --accent:#c9a35a;--accent-rgb:201,163,90;--white:#f5f5f0;
     --grey:#888;--grey2:#444;
     --display:'Bebas Neue',sans-serif;--body:'DM Sans',sans-serif;--mono:'DM Mono',monospace;
-    --r:6px;--max:640px;
+    --r:6px;--max:680px;--wide:1100px;
   }
   html{scroll-behavior:smooth}
-  body{background:var(--bg);color:var(--white);font-family:var(--body);font-size:15px;line-height:1.6;overflow-x:hidden}
+  body{background:var(--bg);color:var(--white);font-family:var(--body);font-size:15px;line-height:1.6;overflow-x:hidden;position:relative}
+  body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.035;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
   a{color:inherit}
   :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
+  img{max-width:100%;display:block}
   @media (prefers-reduced-motion: reduce){
     html{scroll-behavior:auto}
     *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
   }
 
+  /* ── SCROLL PROGRESS ───────────────────────── */
+  .scroll-progress{position:fixed;top:0;left:0;height:2px;width:0%;background:var(--accent);z-index:200;box-shadow:0 0 8px rgba(var(--accent-rgb),.6)}
+
   /* ── NAV ───────────────────────────────────── */
   .nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:linear-gradient(to bottom,rgba(13,13,13,.85),rgba(13,13,13,0));backdrop-filter:blur(2px);transition:background .3s ease,backdrop-filter .3s ease,border-color .3s ease;border-bottom:1px solid transparent}
   .nav.scrolled{background:rgba(13,13,13,.88);backdrop-filter:blur(10px);border-color:var(--border)}
   .nav-brand{display:flex;align-items:center;gap:9px;text-decoration:none;color:var(--white)}
-  .nav-brand img{width:30px;height:30px;border-radius:6px;display:block}
+  .nav-brand img{width:30px;height:30px;border-radius:6px}
   .nav-brand span{font-family:var(--display);font-size:16px;letter-spacing:.03em;line-height:1}
   .nav-links{display:none;align-items:center;gap:26px;list-style:none}
   .nav-links a{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:rgba(245,245,240,.65);text-decoration:none;transition:color .15s}
@@ -69,43 +75,42 @@
   .nav-drawer a{font-family:var(--display);font-size:28px;letter-spacing:.03em;color:var(--white);text-decoration:none}
   .nav-drawer a:hover{color:var(--accent)}
   .nav-drawer .nav-cta{font-family:var(--mono);font-size:13px;margin-top:8px}
-  @media(max-width:480px){
-    .nav-right .nav-cta{display:none}
-  }
-  @media(min-width:900px){
-    .nav-links{display:flex}
-    .nav-toggle{display:none}
-  }
+  @media(max-width:480px){.nav-right .nav-cta{display:none}}
+  @media(min-width:900px){.nav-links{display:flex}.nav-toggle{display:none}}
 
-  /* ── HERO / FORM COMBINATI ─────────────────── */
-  .hero{position:relative;min-height:100svh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:88px 24px 48px;overflow:hidden}
-  .hero-bg{position:absolute;inset:0;background:
-      radial-gradient(circle at 20% 0%, rgba(var(--accent-rgb),.06) 0%, transparent 45%),
-      radial-gradient(circle at 85% 15%, rgba(var(--accent-rgb),.04) 0%, transparent 40%),
-      var(--bg);
-    z-index:0}
-  .hero-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(13,13,13,0) 0%,rgba(13,13,13,.3) 70%,rgba(13,13,13,.85) 100%);z-index:1}
-  .hero-content{position:relative;z-index:2;text-align:center;max-width:var(--max);width:100%}
-  .hero-tag{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);background:rgba(var(--accent-rgb),.08);border:1px solid rgba(var(--accent-rgb),.25);padding:5px 14px;border-radius:100px;margin-bottom:16px;animation:fadeUp .5s ease both}
-  .hero-title{font-family:var(--display);font-size:clamp(52px,12vw,88px);line-height:.93;letter-spacing:.02em;animation:fadeUp .5s .08s ease both}
+  /* ── MARQUEE ───────────────────────────────── */
+  .marquee{position:relative;z-index:2;overflow:hidden;border-bottom:1px solid var(--border);background:var(--bg2);padding:9px 0}
+  .marquee-track{display:flex;width:max-content;gap:28px;animation:marqueeScroll 26s linear infinite}
+  .marquee-track span{font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--grey);white-space:nowrap}
+  .marquee-track span.dot{color:var(--accent)}
+  @keyframes marqueeScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+  /* ── HERO ──────────────────────────────────── */
+  .hero{position:relative;z-index:2;padding:26px 24px 0}
+  .hero-grid{max-width:1280px;margin:0 auto;display:grid;grid-template-columns:1fr;gap:0}
+  .hero-text{padding:38px 0 0;position:relative;z-index:2}
+  .hero-tag{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);background:rgba(var(--accent-rgb),.08);border:1px solid rgba(var(--accent-rgb),.25);padding:5px 14px;border-radius:100px;margin-bottom:16px;animation:fadeUp .6s ease both}
+  .hero-title{font-family:var(--display);font-size:clamp(46px,13vw,84px);line-height:.92;letter-spacing:.01em;animation:fadeUp .6s .08s ease both}
   .hero-title em{font-style:normal;color:var(--accent)}
-  .hero-sub{margin:14px auto 0;font-size:15px;color:rgba(245,245,240,.7);font-weight:300;max-width:380px;animation:fadeUp .5s .16s ease both}
-
-  .hero-ctas{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:20px;animation:fadeUp .5s .2s ease both}
+  .hero-sub{margin:16px 0 0;font-size:15.5px;color:rgba(245,245,240,.7);font-weight:300;max-width:380px;animation:fadeUp .6s .16s ease both}
+  .hero-ctas{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px;animation:fadeUp .6s .22s ease both}
   .btn-primary{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--bg);background:var(--accent);padding:12px 20px;border-radius:100px;text-decoration:none;font-weight:500;transition:transform .15s,box-shadow .15s}
   .btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(var(--accent-rgb),.3)}
   .btn-secondary{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--white);background:transparent;border:1px solid var(--border);padding:12px 20px;border-radius:100px;text-decoration:none;font-weight:500;transition:border-color .15s,color .15s}
   .btn-secondary:hover{border-color:var(--accent);color:var(--accent)}
 
-  /* Stats strip */
-  .stats{display:flex;margin:20px 0 0;background:rgba(13,13,13,.75);border:1px solid rgba(255,255,255,.08);border-radius:var(--r);overflow:hidden;animation:fadeUp .5s .26s ease both;backdrop-filter:blur(8px)}
+  .hero-photo{position:relative;margin:28px -24px 0;height:56vh;min-height:340px;overflow:hidden;animation:fadeIn .8s .1s ease both}
+  .hero-photo img{width:100%;height:100%;object-fit:cover;object-position:50% 20%;animation:kenBurns 18s ease-out forwards}
+  .hero-photo-overlay{position:absolute;inset:0;background:linear-gradient(to top,var(--bg) 0%,rgba(13,13,13,.15) 45%,rgba(13,13,13,.55) 100%)}
+  @keyframes kenBurns{from{transform:scale(1.12)}to{transform:scale(1)}}
+
+  .stats{display:flex;margin:24px 0 0;background:rgba(13,13,13,.75);border:1px solid rgba(255,255,255,.08);border-radius:var(--r);overflow:hidden;backdrop-filter:blur(8px)}
   .stat{flex:1;padding:13px 8px;text-align:center;border-right:1px solid rgba(255,255,255,.07)}
   .stat:last-child{border-right:none}
-  .stat-num{font-family:var(--display);font-size:28px;color:var(--accent);line-height:1;display:block}
+  .stat-num{font-family:var(--display);font-size:28px;color:var(--accent);line-height:1;display:block;font-variant-numeric:tabular-nums}
   .stat-label{font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--grey);margin-top:2px;display:block;font-family:var(--mono)}
 
-  /* ── FORM INLINE NELL'HERO ─────────────────── */
-  .hero-form-wrap{margin-top:24px;animation:fadeUp .5s .32s ease both;width:100%}
+  .hero-form-wrap{margin-top:24px;width:100%}
   .hero-form-card{background:rgba(20,20,20,.92);border:1px solid var(--border);border-radius:12px;padding:22px 20px 20px;backdrop-filter:blur(12px)}
 
   .field{margin-bottom:16px}
@@ -127,29 +132,13 @@
   .has-error .field-error{display:block}
   .has-error input,.has-error textarea{border-color:#ff5555!important}
 
-  /* Submit button — animated */
   .btn-submit{width:100%;background:var(--accent);color:#0d0d0d;border:none;border-radius:var(--r);padding:16px 20px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px;margin-top:4px;box-shadow:0 4px 14px rgba(var(--accent-rgb),.18);transition:transform .15s,box-shadow .15s}
   .btn-submit:hover{transform:translateY(-2px);box-shadow:0 10px 32px rgba(var(--accent-rgb),.35)}
   .btn-submit:disabled{opacity:.4;cursor:default;transform:none;box-shadow:none}
   .btn-submit-top{font-family:var(--display);font-size:26px;letter-spacing:.04em;line-height:1}
   .btn-submit-sub{font-family:var(--body);font-size:12px;font-weight:500;opacity:.75}
-
   .form-privacy{font-size:10px;color:var(--grey2);text-align:center;margin-top:10px;font-family:var(--mono);letter-spacing:.04em}
 
-  /* Scroll down hint */
-  .scroll-hint{display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:20px;opacity:.4;animation:fadeIn 1s 1s both;cursor:pointer;background:none;border:none;color:var(--white)}
-  .scroll-hint span{font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase}
-  .scroll-arrow{width:1px;height:22px;background:var(--white);position:relative;overflow:hidden}
-  .scroll-arrow::after{content:'';position:absolute;top:-100%;left:0;width:100%;height:100%;background:var(--accent);animation:scrollLine 1.8s ease-in-out infinite}
-
-  /* ── MINI CTA BUTTON (tra sezioni) ────────── */
-  .section-cta{text-align:center;padding:32px 24px 0}
-  .btn-mini-cta{display:inline-flex;flex-direction:column;align-items:center;gap:2px;background:transparent;border:1px solid rgba(var(--accent-rgb),.35);color:var(--white);padding:12px 24px;border-radius:var(--r);text-decoration:none;transition:border-color .2s,background .2s,transform .15s}
-  .btn-mini-cta:hover{border-color:var(--accent);background:rgba(var(--accent-rgb),.07);transform:translateY(-2px)}
-  .btn-mini-top{font-family:var(--display);font-size:18px;letter-spacing:.04em;color:var(--accent);line-height:1.1}
-  .btn-mini-sub{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:rgba(245,245,240,.45)}
-
-  /* ── SUCCESS SCREEN ───────────────────────── */
   #success-screen{display:none;position:relative;min-height:420px;border-radius:12px;overflow:hidden}
   .success-bg-video{position:absolute;inset:0;z-index:0}
   .success-bg-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(13,13,13,0) 40%,rgba(13,13,13,.88) 100%)}
@@ -157,13 +146,24 @@
   .success-title{font-family:var(--display);font-size:36px;letter-spacing:.03em;margin-bottom:5px;line-height:1}
   .success-sub{font-size:14px;color:rgba(245,245,240,.85);font-weight:300}
 
-  /* ── SEZIONI GENERICHE ─────────────────────── */
+  .scroll-hint{display:flex;flex-direction:column;align-items:center;gap:6px;margin:22px auto 0;opacity:.4;cursor:pointer;background:none;border:none;color:var(--white)}
+  .scroll-hint span{font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase}
+  .scroll-arrow{width:1px;height:22px;background:var(--white);position:relative;overflow:hidden}
+  .scroll-arrow::after{content:'';position:absolute;top:-100%;left:0;width:100%;height:100%;background:var(--accent);animation:scrollLine 1.8s ease-in-out infinite}
+
+  /* ── GENERIC SECTION FRAME ─────────────────── */
   .section-inner{max-width:var(--max);margin:0 auto;padding:0 24px}
+  .section-inner-wide{max-width:var(--wide);margin:0 auto;padding:0 24px}
   .section-label{font-family:var(--mono);font-size:10px;letter-spacing:.25em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
   .section-title{font-family:var(--display);font-size:clamp(32px,7vw,50px);line-height:1;margin-bottom:28px}
-  .results-section{padding:64px 0 0}
+  .reveal{clip-path:inset(0 0 100% 0);opacity:0;transition:clip-path .8s cubic-bezier(.2,.7,.2,1),opacity .5s ease}
+  .reveal.visible{clip-path:inset(0 0 0% 0);opacity:1}
+  .reveal-up{opacity:0;transform:translateY(22px);transition:opacity .6s ease,transform .6s ease}
+  .reveal-up.visible{opacity:1;transform:translateY(0)}
 
-  /* ── CAROUSEL ─────────────────────────────── */
+  .results-section{position:relative;z-index:2;padding:80px 0 0}
+
+  /* ── CAROUSEL (condiviso: risultati + programmi) ─ */
   .carousel-wrap{position:relative}
   .carousel-arrow{position:absolute;top:38%;transform:translateY(-50%);z-index:10;width:44px;height:44px;border-radius:50%;background:rgba(13,13,13,.65);border:1px solid rgba(var(--accent-rgb),.4);color:var(--accent);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:opacity .4s ease,background .2s,box-shadow .2s;backdrop-filter:blur(4px)}
   .carousel-arrow:hover{background:rgba(13,13,13,.9);border-color:var(--accent);box-shadow:0 0 18px rgba(var(--accent-rgb),.4)}
@@ -176,12 +176,12 @@
   .carousel-wrap::before{left:0;background:linear-gradient(to right,var(--bg),transparent)}
   .carousel-wrap::after{right:0;background:linear-gradient(to left,var(--bg),transparent)}
 
-  .vid-card{flex:0 0 185px;scroll-snap-align:start;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:var(--bg2);cursor:pointer;display:flex;flex-direction:column;opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .5s ease,border-color .2s}
+  .vid-card{flex:0 0 185px;scroll-snap-align:start;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:var(--bg2);cursor:pointer;display:flex;flex-direction:column;opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .3s ease,border-color .2s;will-change:transform}
   .vid-card.visible{opacity:1;transform:translateY(0)}
-  .vid-card:hover,.vid-card:focus-visible{border-color:rgba(var(--accent-rgb),.4);transform:translateY(-2px)}
+  .vid-card:hover,.vid-card:focus-visible{border-color:rgba(var(--accent-rgb),.4)}
   .vid-thumb-wrap{position:relative;width:100%;padding-bottom:177.77%;background:#111;overflow:hidden;flex-shrink:0}
   .vid-thumb-wrap video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;transition:transform .3s}
-  .vid-card:hover .vid-thumb-wrap video{transform:scale(1.03)}
+  .vid-card:hover .vid-thumb-wrap video{transform:scale(1.04)}
   .play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.65);border:2px solid rgba(255,255,255,.8);display:flex;align-items:center;justify-content:center;color:white;transition:all .2s;backdrop-filter:blur(4px)}
   .vid-card:hover .play-btn{background:var(--accent);color:#0d0d0d;transform:translate(-50%,-50%) scale(1.1)}
   .play-btn svg{width:18px;height:18px;margin-left:2px}
@@ -192,27 +192,55 @@
   .vid-desc{font-size:11px;color:rgba(245,245,240,.5);line-height:1.4}
   .vid-badge{display:inline-block;margin-top:6px;background:rgba(var(--accent-rgb),.07);border:1px solid rgba(var(--accent-rgb),.2);border-radius:4px;padding:2px 8px;font-family:var(--mono);font-size:10px;color:var(--accent)}
 
-  /* ── TESTIMONIANZE VIDEO ──────────────────── */
-  .testi-section{padding:64px 24px 0;max-width:var(--max);margin:0 auto}
+  .section-cta{text-align:center;padding:32px 24px 0}
+  .btn-mini-cta{display:inline-flex;flex-direction:column;align-items:center;gap:2px;background:transparent;border:1px solid rgba(var(--accent-rgb),.35);color:var(--white);padding:12px 24px;border-radius:var(--r);text-decoration:none;transition:border-color .2s,background .2s,transform .15s}
+  .btn-mini-cta:hover{border-color:var(--accent);background:rgba(var(--accent-rgb),.07);transform:translateY(-2px)}
+  .btn-mini-top{font-family:var(--display);font-size:18px;letter-spacing:.04em;color:var(--accent);line-height:1.1}
+  .btn-mini-sub{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:rgba(245,245,240,.45)}
+
+  /* ── BREAK (foto full-bleed + citazione) ──── */
+  .break-section{position:relative;z-index:2;min-height:64vh;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-top:80px}
+  .break-bg{position:absolute;inset:-8% 0;background-size:cover;background-position:center 25%;will-change:transform}
+  .break-overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(13,13,13,.55) 0%,rgba(13,13,13,.75) 55%,var(--bg) 100%)}
+  .break-content{position:relative;z-index:2;text-align:center;padding:60px 24px;max-width:560px}
+  .break-eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:var(--accent);margin-bottom:14px}
+  .break-quote{font-family:var(--display);font-size:clamp(34px,7vw,60px);line-height:1.02;letter-spacing:.01em}
+  .break-sub{margin-top:14px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:rgba(245,245,240,.55)}
+
+  /* ── TESTIMONIANZE ─────────────────────────── */
+  .testi-section{position:relative;z-index:2;padding:80px 24px 0}
+  .testi-bg-tex{position:absolute;inset:0;background-image:url('images/testi-bg.jpg');background-size:cover;background-position:center;opacity:.14;z-index:-1;filter:blur(1px)}
+  .testi-inner{max-width:var(--max);margin:0 auto}
   .testi-video-wrap{position:relative;width:100%;border-radius:12px;overflow:hidden;border:1px solid var(--border);background:#000;margin-top:20px}
   .testi-video-wrap::before{content:'';display:block;padding-bottom:177.77%}
   .testi-video-wrap video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 
-  /* ── METODO ────────────────────────────────── */
-  .metodo-section{padding:64px 24px 0;max-width:var(--max);margin:0 auto}
-  .metodo-list{list-style:none;margin-top:20px;display:grid;gap:0}
-  .metodo-item{display:flex;gap:16px;padding:18px 0;border-top:1px solid var(--border)}
+  /* ── METODO (sticky su desktop) ────────────── */
+  .metodo-section{position:relative;z-index:2;padding:80px 24px 0;max-width:1280px;margin:0 auto}
+  .metodo-grid{display:block}
+  .metodo-sticky-photo{position:relative;height:220px;border-radius:12px;overflow:hidden;margin:20px 0 8px;border:1px solid var(--border)}
+  .metodo-sticky-photo img{width:100%;height:100%;object-fit:cover;object-position:50% 20%}
+  .metodo-sticky-photo::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(13,13,13,.5),transparent 50%)}
+  .metodo-list{list-style:none;margin-top:8px;display:grid;gap:0}
+  .metodo-item{display:flex;gap:16px;padding:18px 0;border-top:1px solid var(--border);transition:border-color .3s}
   .metodo-item:last-child{border-bottom:1px solid var(--border)}
-  .metodo-num{font-family:var(--display);font-size:22px;color:var(--accent);line-height:1;flex-shrink:0;width:36px}
+  .metodo-num{font-family:var(--display);font-size:22px;color:var(--grey);line-height:1;flex-shrink:0;width:36px;transition:color .3s}
+  .metodo-item.active .metodo-num{color:var(--accent)}
   .metodo-body h3{font-family:var(--body);font-weight:600;font-size:15px;margin-bottom:3px}
   .metodo-body p{font-size:13px;color:rgba(245,245,240,.6);font-weight:300;line-height:1.5}
+  @media(min-width:900px){
+    .metodo-grid{display:grid;grid-template-columns:.85fr 1.15fr;gap:56px;align-items:start}
+    .metodo-sticky-photo{position:sticky;top:96px;height:420px;margin-top:20px}
+  }
 
-  /* ── PROGRAMMI ─────────────────────────────── */
-  .programmi-section{padding:64px 24px 0;max-width:var(--max);margin:0 auto}
-  .programmi-note{font-size:12.5px;color:rgba(245,245,240,.5);margin:-14px 0 20px;font-weight:300}
-  .programmi-grid{display:grid;gap:12px;grid-template-columns:1fr}
-  .prog-card{border:1px solid var(--border);border-radius:10px;padding:18px;background:var(--bg2);display:flex;flex-direction:column;gap:10px;position:relative}
-  .prog-card.unavailable{opacity:.55}
+  /* ── PROGRAMMI (carosello orizzontale) ─────── */
+  .programmi-section{position:relative;z-index:2;padding:80px 0 0}
+  .programmi-note{font-size:12.5px;color:rgba(245,245,240,.5);margin:-14px 24px 20px;font-weight:300;max-width:var(--max)}
+  .prog-card{flex:0 0 250px;scroll-snap-align:start;border:1px solid var(--border);border-radius:10px;padding:18px;background:var(--bg2);display:flex;flex-direction:column;gap:10px;position:relative;opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .3s ease,border-color .2s}
+  .prog-card.visible{opacity:1;transform:translateY(0)}
+  .prog-card:hover{border-color:rgba(var(--accent-rgb),.35)}
+  .prog-card.unavailable{opacity:.85}
+  .prog-card.unavailable.visible{opacity:.6}
   .prog-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
   .prog-name{font-family:var(--display);font-size:22px;letter-spacing:.02em;line-height:1}
   .prog-meta{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--grey);margin-top:4px}
@@ -220,11 +248,11 @@
   .prog-includes{list-style:none;font-size:12.5px;color:rgba(245,245,240,.6);display:grid;gap:4px}
   .prog-includes li{padding-left:14px;position:relative}
   .prog-includes li::before{content:'—';position:absolute;left:0;color:var(--accent)}
-  .prog-cta{align-self:flex-start;margin-top:4px}
-  .prog-soon{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--grey);border:1px solid var(--border);border-radius:100px;padding:8px 16px;display:inline-block}
+  .prog-cta{align-self:flex-start;margin-top:auto}
+  .prog-soon{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--grey);border:1px solid var(--border);border-radius:100px;padding:8px 16px;display:inline-block;margin-top:auto}
 
   /* ── FAQ ───────────────────────────────────── */
-  .faq-section{padding:64px 24px 0;max-width:var(--max);margin:0 auto}
+  .faq-section{position:relative;z-index:2;padding:80px 24px 0;max-width:var(--max);margin:0 auto}
   .faq-item{border-top:1px solid var(--border)}
   .faq-item:last-child{border-bottom:1px solid var(--border)}
   .faq-item summary{cursor:pointer;padding:16px 0;font-family:var(--body);font-weight:500;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px}
@@ -233,7 +261,7 @@
   .faq-item[open] summary::after{transform:rotate(45deg)}
   .faq-item p{font-size:13px;color:rgba(245,245,240,.6);font-weight:300;line-height:1.6;padding-bottom:18px;max-width:520px}
 
-  /* ── MODAL ────────────────────────────────── */
+  /* ── MODAL ─────────────────────────────────── */
   .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:1000;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)}
   .modal-overlay.open{display:flex}
   .modal-inner{position:relative;width:100%;max-width:340px}
@@ -246,7 +274,7 @@
   .modal-info .vid-desc{margin-top:2px}
 
   /* ── FOOTER ────────────────────────────────── */
-  footer{padding:36px 24px 28px;border-top:1px solid var(--border);margin-top:64px}
+  footer{position:relative;z-index:2;padding:36px 24px 28px;border-top:1px solid var(--border);margin-top:80px}
   .footer-inner{max-width:var(--max);margin:0 auto;display:flex;flex-direction:column;gap:18px;align-items:center;text-align:center}
   .footer-brand{display:flex;align-items:center;gap:8px}
   .footer-brand img{width:24px;height:24px;border-radius:6px}
@@ -256,12 +284,23 @@
   .footer-links a:hover{color:var(--accent)}
   .footer-copy{font-family:var(--mono);font-size:10px;color:var(--grey2);letter-spacing:.04em}
 
+  /* ── DESKTOP HERO SPLIT ────────────────────── */
+  @media(min-width:960px){
+    .hero{padding:30px 40px 0}
+    .hero-grid{grid-template-columns:1.05fr .95fr;gap:48px;align-items:center;min-height:92vh}
+    .hero-text{padding:0}
+    .hero-photo{margin:0;height:74vh;min-height:520px;border-radius:18px;clip-path:polygon(6% 0,100% 0,100% 100%,0% 100%)}
+    .hero-form-wrap,.hero-sub,.hero-ctas{max-width:460px}
+  }
+
   @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
   @keyframes fadeIn{from{opacity:0}to{opacity:1}}
   @keyframes scrollLine{0%{top:-100%}100%{top:100%}}
 </style>
 </head>
 <body>
+
+<div class="scroll-progress" id="scroll-progress"></div>
 
 <!-- ══ NAV ══════════════════════════════════════ -->
 <nav class="nav" id="nav">
@@ -293,94 +332,102 @@
   <a href="#top" class="nav-cta">Inizia ora</a>
 </div>
 
-<main>
+<!-- ══ MARQUEE ══════════════════════════════════ -->
+<div class="marquee" style="margin-top:58px" aria-hidden="true">
+  <div class="marquee-track">
+    <span>STREETLIFTING</span><span class="dot">·</span><span>CALISTHENICS</span><span class="dot">·</span><span>POWERLIFTING</span><span class="dot">·</span><span>COACHING 1:1</span><span class="dot">·</span><span>PROGRAMMAZIONE SU MISURA</span><span class="dot">·</span>
+    <span>STREETLIFTING</span><span class="dot">·</span><span>CALISTHENICS</span><span class="dot">·</span><span>POWERLIFTING</span><span class="dot">·</span><span>COACHING 1:1</span><span class="dot">·</span><span>PROGRAMMAZIONE SU MISURA</span><span class="dot">·</span>
+  </div>
+</div>
+
+<main id="top">
 
 <!-- ══ HERO + FORM ══════════════════════════════ -->
-<section class="hero" id="top">
-  <div class="hero-bg"></div>
-  <div class="hero-overlay"></div>
-  <div class="hero-content">
+<section class="hero">
+  <div class="hero-grid">
+    <div class="hero-text">
+      <span class="hero-tag">@_manuelferrante · Coaching 1:1</span>
+      <h1 class="hero-title">INIZIAMO<br>A <em>LAVORARE</em><br>INSIEME</h1>
+      <p class="hero-sub">Non solo allenarti — allenarti nel modo giusto, con chi ci crede quanto te.</p>
 
-    <span class="hero-tag">@_manuelferrante · Coaching 1:1</span>
-    <h1 class="hero-title">INIZIAMO<br>A <em>LAVORARE</em><br>INSIEME</h1>
-    <p class="hero-sub">Non solo allenarti — allenarti nel modo giusto, con chi ci crede quanto te.</p>
-
-    <div class="hero-ctas">
-      <a href="#coaching-form" class="btn-primary">Candidati ora</a>
-      <a href="#risultati" class="btn-secondary">Scopri i risultati</a>
-    </div>
-
-    <div class="stats">
-      <div class="stat"><span class="stat-num" data-target="100" data-suffix="+">100+</span><span class="stat-label">Atleti seguiti</span></div>
-      <div class="stat"><span class="stat-num" data-target="3" data-suffix="+">3+</span><span class="stat-label">Anni coaching</span></div>
-      <div class="stat"><span class="stat-num" data-target="100" data-suffix="%">100%</span><span class="stat-label">Risultati garantiti</span></div>
-    </div>
-
-    <!-- FORM SUBITO VISIBILE -->
-    <div class="hero-form-wrap">
-      <div class="hero-form-card">
-        <form id="coaching-form" action="https://formspree.io/f/xpqbjgqw" method="POST">
-
-          <div id="form-fields">
-            <div class="field" id="f-tipo_allenamento">
-              <label>Che sport fai? <span class="req">*</span></label>
-              <div class="chip-group">
-                <input type="radio" name="tipo_allenamento" id="t1" value="Palestra"><label for="t1">Palestra</label>
-                <input type="radio" name="tipo_allenamento" id="t2" value="Streetlifting / Calisthenics"><label for="t2">Streetlifting / Calisthenics</label>
-                <input type="radio" name="tipo_allenamento" id="t3" value="Powerlifting"><label for="t3">Powerlifting</label>
-                <input type="radio" name="tipo_allenamento" id="t4" value="Altro"><label for="t4">Altro</label>
-              </div>
-              <span class="field-error">Seleziona un'opzione</span>
-            </div>
-
-            <div class="field" id="f-motivazione">
-              <label>Cosa vuoi migliorare? <span class="req">*</span></label>
-              <textarea name="motivazione" placeholder="Scrivimi qualcosa — anche poche righe vanno bene" rows="3"></textarea>
-              <span class="field-error">Scrivi almeno qualcosa</span>
-            </div>
-
-            <div class="field" id="f-nome">
-              <label>Nome <span class="req">*</span></label>
-              <input type="text" name="nome" placeholder="Come ti chiami?">
-              <span class="field-error">Inserisci il tuo nome</span>
-            </div>
-
-            <div class="field" id="f-telefono">
-              <label>Numero <span class="req">*</span></label>
-              <input type="tel" name="telefono" placeholder="+39 …">
-              <span class="field-error">Inserisci un numero valido</span>
-            </div>
-
-            <button type="submit" class="btn-submit" id="submit-btn">
-              <span class="btn-submit-top">Invia,</span>
-              <span class="btn-submit-sub">ti contatto io!</span>
-            </button>
-
-            <p class="form-privacy">I tuoi dati vengono usati solo per contattarti. Niente spam.</p>
-          </div>
-
-          <!-- SUCCESS -->
-          <div id="success-screen">
-            <div class="success-bg-video">
-              <video id="success-video" src="videos/07_questo_e_lallenamento.mp4" muted playsinline loop style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></video>
-              <div class="success-bg-overlay"></div>
-            </div>
-            <div class="success-content">
-              <h3 class="success-title">Ti contatterò<br>a breve</h3>
-              <p class="success-sub">Tieni d'occhio WhatsApp 👀</p>
-            </div>
-          </div>
-
-        </form>
+      <div class="hero-ctas">
+        <a href="#coaching-form" class="btn-primary">Candidati ora</a>
+        <a href="#risultati" class="btn-secondary">Scopri i risultati</a>
       </div>
+
+      <div class="stats">
+        <div class="stat"><span class="stat-num" data-target="100" data-suffix="+">100+</span><span class="stat-label">Atleti seguiti</span></div>
+        <div class="stat"><span class="stat-num" data-target="3" data-suffix="+">3+</span><span class="stat-label">Anni coaching</span></div>
+        <div class="stat"><span class="stat-num" data-target="100" data-suffix="%">100%</span><span class="stat-label">Risultati garantiti</span></div>
+      </div>
+
+      <div class="hero-form-wrap">
+        <div class="hero-form-card">
+          <form id="coaching-form" action="https://formspree.io/f/xpqbjgqw" method="POST">
+
+            <div id="form-fields">
+              <div class="field" id="f-tipo_allenamento">
+                <label>Che sport fai? <span class="req">*</span></label>
+                <div class="chip-group">
+                  <input type="radio" name="tipo_allenamento" id="t1" value="Palestra"><label for="t1">Palestra</label>
+                  <input type="radio" name="tipo_allenamento" id="t2" value="Streetlifting / Calisthenics"><label for="t2">Streetlifting / Calisthenics</label>
+                  <input type="radio" name="tipo_allenamento" id="t3" value="Powerlifting"><label for="t3">Powerlifting</label>
+                  <input type="radio" name="tipo_allenamento" id="t4" value="Altro"><label for="t4">Altro</label>
+                </div>
+                <span class="field-error">Seleziona un'opzione</span>
+              </div>
+
+              <div class="field" id="f-motivazione">
+                <label>Cosa vuoi migliorare? <span class="req">*</span></label>
+                <textarea name="motivazione" placeholder="Scrivimi qualcosa — anche poche righe vanno bene" rows="3"></textarea>
+                <span class="field-error">Scrivi almeno qualcosa</span>
+              </div>
+
+              <div class="field" id="f-nome">
+                <label>Nome <span class="req">*</span></label>
+                <input type="text" name="nome" placeholder="Come ti chiami?">
+                <span class="field-error">Inserisci il tuo nome</span>
+              </div>
+
+              <div class="field" id="f-telefono">
+                <label>Numero <span class="req">*</span></label>
+                <input type="tel" name="telefono" placeholder="+39 …">
+                <span class="field-error">Inserisci un numero valido</span>
+              </div>
+
+              <button type="submit" class="btn-submit" id="submit-btn">
+                <span class="btn-submit-top">Invia,</span>
+                <span class="btn-submit-sub">ti contatto io!</span>
+              </button>
+
+              <p class="form-privacy">I tuoi dati vengono usati solo per contattarti. Niente spam.</p>
+            </div>
+
+            <div id="success-screen">
+              <div class="success-bg-video">
+                <video id="success-video" src="videos/07_questo_e_lallenamento.mp4" muted playsinline loop style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></video>
+                <div class="success-bg-overlay"></div>
+              </div>
+              <div class="success-content">
+                <h3 class="success-title">Ti contatterò<br>a breve</h3>
+                <p class="success-sub">Tieni d'occhio WhatsApp 👀</p>
+              </div>
+            </div>
+
+          </form>
+        </div>
+      </div>
+
+      <button class="scroll-hint" onclick="document.getElementById('risultati').scrollIntoView({behavior:'smooth'})" aria-label="Vai alla sezione risultati">
+        <span>Prima e dopo</span>
+        <div class="scroll-arrow"></div>
+      </button>
     </div>
 
-    <!-- Scroll down -->
-    <button class="scroll-hint" onclick="document.getElementById('risultati').scrollIntoView({behavior:'smooth'})" aria-label="Vai alla sezione risultati">
-      <span>Prima e dopo</span>
-      <div class="scroll-arrow"></div>
-    </button>
-
+    <div class="hero-photo">
+      <img src="images/hero-bg.jpg" alt="Manuel Ferrante durante un allenamento di trazioni zavorrate" width="726" height="1290" fetchpriority="high"/>
+      <div class="hero-photo-overlay"></div>
+    </div>
   </div>
 </section>
 
@@ -388,8 +435,8 @@
 <!-- ══ RESULTS LIBRARY (renderizzata da JS, vedi array `athletes`) ═ -->
 <section class="results-section" id="risultati" aria-label="Risultati degli atleti">
   <div class="section-inner">
-    <p class="section-label">I risultati parlano</p>
-    <h2 class="section-title">DA DOVE<br>SIAMO PARTITI</h2>
+    <p class="section-label reveal">I risultati parlano</p>
+    <h2 class="section-title reveal">DA DOVE<br>SIAMO PARTITI</h2>
   </div>
 
   <div class="carousel-wrap">
@@ -411,80 +458,112 @@
 </section>
 
 
+<!-- ══ BREAK: foto + citazione ══════════════════ -->
+<section class="break-section" id="break">
+  <div class="break-bg" id="break-bg" style="background-image:url('images/squat-bg.jpg')"></div>
+  <div class="break-overlay"></div>
+  <div class="break-content">
+    <p class="break-eyebrow reveal-up">Il coach</p>
+    <h2 class="break-quote reveal-up">"Alleno quello<br>che insegno."</h2>
+    <p class="break-sub reveal-up">— Manuel Ferrante</p>
+  </div>
+</section>
+
+
 <!-- ══ TESTIMONIANZE ════════════════════════════ -->
 <section class="testi-section" id="testimonianze">
-  <p class="section-label">Il coaching che funziona</p>
-  <h2 class="section-title">COSA<br>DICONO</h2>
-  <div class="testi-video-wrap">
-    <video id="testi-video" src="videos/08_testimonianze.mp4" controls playsinline preload="auto"></video>
-  </div>
+  <div class="testi-bg-tex"></div>
+  <div class="testi-inner">
+    <p class="section-label reveal">Il coaching che funziona</p>
+    <h2 class="section-title reveal">COSA<br>DICONO</h2>
+    <div class="testi-video-wrap reveal-up">
+      <video id="testi-video" src="videos/08_testimonianze.mp4" controls playsinline preload="auto"></video>
+    </div>
 
-  <div class="section-cta" style="padding-bottom:0">
-    <a href="#coaching-form" class="btn-mini-cta">
-      <span class="btn-mini-top">👉 Compila il form</span>
-      <span class="btn-mini-sub">ti contatto io</span>
-    </a>
+    <div class="section-cta" style="padding-bottom:0">
+      <a href="#coaching-form" class="btn-mini-cta">
+        <span class="btn-mini-top">👉 Compila il form</span>
+        <span class="btn-mini-sub">ti contatto io</span>
+      </a>
+    </div>
   </div>
 </section>
 
 
 <!-- ══ METODO ═══════════════════════════════════ -->
 <section class="metodo-section" id="metodo">
-  <p class="section-label">Come lavoro</p>
-  <h2 class="section-title">IL METODO</h2>
-  <ol class="metodo-list">
-    <li class="metodo-item">
-      <span class="metodo-num">01</span>
-      <div class="metodo-body">
-        <h3>Analisi</h3>
-        <p>Analizzo i tuoi bisogni, i tuoi obiettivi e valuto la tua tecnica di partenza.</p>
+  <div class="metodo-grid">
+    <div>
+      <p class="section-label reveal">Come lavoro</p>
+      <h2 class="section-title reveal">IL METODO</h2>
+      <div class="metodo-sticky-photo">
+        <img src="images/metodo-bg.jpg" alt="Manuel Ferrante durante un allenamento outdoor con anelli zavorrati" loading="lazy"/>
       </div>
-    </li>
-    <li class="metodo-item">
-      <span class="metodo-num">02</span>
-      <div class="metodo-body">
-        <h3>Programmazione</h3>
-        <p>Imposto un piano di allenamento su misura per te, senza schede standard.</p>
-      </div>
-    </li>
-    <li class="metodo-item">
-      <span class="metodo-num">03</span>
-      <div class="metodo-body">
-        <h3>Monitoraggio</h3>
-        <p>Monitoraggio settimanale e chat dedicata: sono sempre in contatto con te.</p>
-      </div>
-    </li>
-    <li class="metodo-item">
-      <span class="metodo-num">04</span>
-      <div class="metodo-body">
-        <h3>Correzione</h3>
-        <p>Video-review per correggere la tecnica ad ogni sessione di allenamento.</p>
-      </div>
-    </li>
-    <li class="metodo-item">
-      <span class="metodo-num">05</span>
-      <div class="metodo-body">
-        <h3>Progressione</h3>
-        <p>Check-in periodico per adattare il piano e continuare a crescere nel tempo.</p>
-      </div>
-    </li>
-  </ol>
+    </div>
+    <ol class="metodo-list">
+      <li class="metodo-item reveal-up">
+        <span class="metodo-num">01</span>
+        <div class="metodo-body">
+          <h3>Analisi</h3>
+          <p>Analizzo i tuoi bisogni, i tuoi obiettivi e valuto la tua tecnica di partenza.</p>
+        </div>
+      </li>
+      <li class="metodo-item reveal-up">
+        <span class="metodo-num">02</span>
+        <div class="metodo-body">
+          <h3>Programmazione</h3>
+          <p>Imposto un piano di allenamento su misura per te, senza schede standard.</p>
+        </div>
+      </li>
+      <li class="metodo-item reveal-up">
+        <span class="metodo-num">03</span>
+        <div class="metodo-body">
+          <h3>Monitoraggio</h3>
+          <p>Monitoraggio settimanale e chat dedicata: sono sempre in contatto con te.</p>
+        </div>
+      </li>
+      <li class="metodo-item reveal-up">
+        <span class="metodo-num">04</span>
+        <div class="metodo-body">
+          <h3>Correzione</h3>
+          <p>Video-review per correggere la tecnica ad ogni sessione di allenamento.</p>
+        </div>
+      </li>
+      <li class="metodo-item reveal-up">
+        <span class="metodo-num">05</span>
+        <div class="metodo-body">
+          <h3>Progressione</h3>
+          <p>Check-in periodico per adattare il piano e continuare a crescere nel tempo.</p>
+        </div>
+      </li>
+    </ol>
+  </div>
 </section>
 
 
 <!-- ══ PROGRAMMI (renderizzata da JS, vedi array `programs`) ══ -->
 <section class="programmi-section" id="programmi">
-  <p class="section-label">Percorsi guidati</p>
-  <h2 class="section-title">PROGRAMMI</h2>
+  <div class="section-inner-wide">
+    <p class="section-label reveal">Percorsi guidati</p>
+    <h2 class="section-title reveal">PROGRAMMI</h2>
+  </div>
   <p class="programmi-note">Programmi PDF da 12 settimane. Il sistema di pagamento online è in arrivo: per ora scrivimi su WhatsApp per il programma disponibile.</p>
-  <div class="programmi-grid" id="programmi-grid"></div>
+  <div class="carousel-wrap">
+    <button class="carousel-arrow arrow-left" id="prog-arrow-left" aria-label="Precedente">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <div class="carousel" id="programmi-grid"></div>
+    <button class="carousel-arrow arrow-right" id="prog-arrow-right" aria-label="Successivo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
+  </div>
 </section>
 
 
 <!-- ══ FAQ ═══════════════════════════════════════ -->
 <section class="faq-section" id="faq">
-  <p class="section-label">Domande frequenti</p>
-  <h2 class="section-title">FAQ</h2>
+  <p class="section-label reveal">Domande frequenti</p>
+  <h2 class="section-title reveal">FAQ</h2>
 
   <details class="faq-item">
     <summary>Come funziona il coaching online?</summary>
@@ -536,9 +615,21 @@
 </footer>
 
 <script>
-// ── DATI: ATLETI (schema riutilizzabile, aggiungi qui nuovi risultati) ──
-// Campi opzionali goal/before/work: se valorizzati vengono mostrati nel
-// modal come approfondimento "case study" senza bisogno di ridisegnare nulla.
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const hoverFine = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+// ── SCROLL PROGRESS ───────────────────────────
+const progressEl = document.getElementById('scroll-progress');
+function updateProgress() {
+  const h = document.documentElement;
+  const scrollable = h.scrollHeight - h.clientHeight;
+  const pct = scrollable > 0 ? (h.scrollTop / scrollable) * 100 : 0;
+  progressEl.style.width = pct + '%';
+}
+window.addEventListener('scroll', updateProgress, { passive: true });
+updateProgress();
+
+// ── DATI: ATLETI ──────────────────────────────
 const athletes = [
   { name:'Nicolò', discipline:'Streetlifting', title:'Trazioni', description:'Fai esplodere le tue trazioni', result:'Trazioni · 70kg', video:'videos/01_nicolo_trazioni.mp4', featured:true, featuredLabel:'▶ Inizia da qui' },
   { name:'Elisabetta', discipline:'Streetlifting', title:'Trazioni', description:'Da assistite a trazioni complete: il suo percorso', result:'Trazioni', video:'videos/02_elisabetta_trazioni.mp4' },
@@ -569,11 +660,12 @@ function renderAthletes() {
     const idx = +card.dataset.index;
     card.addEventListener('click', () => openModal(idx));
     card.addEventListener('keydown', e => { if (e.key === 'Enter') openModal(idx); });
+    if (hoverFine) attachTilt(card);
   });
 }
 renderAthletes();
 
-// ── DATI: PROGRAMMI (schema riutilizzabile, aggiungi qui nuovi programmi) ──
+// ── DATI: PROGRAMMI ───────────────────────────
 const WA_BASE = 'https://wa.me/393386787740?text=';
 const programs = [
   { name:'Trazioni', discipline:'Streetlifting', duration:'12 settimane', price:9, available:true,
@@ -604,8 +696,21 @@ function renderPrograms() {
       ${cta}
     </article>`;
   }).join('');
+
+  if (hoverFine) grid.querySelectorAll('.prog-card').forEach(attachTilt);
 }
 renderPrograms();
+
+// ── TILT ON HOVER (solo desktop, pointer fine) ─
+function attachTilt(el) {
+  el.addEventListener('mousemove', e => {
+    const r = el.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width - .5;
+    const y = (e.clientY - r.top) / r.height - .5;
+    el.style.transform = `translateY(-3px) perspective(600px) rotateX(${(-y * 6).toFixed(2)}deg) rotateY(${(x * 6).toFixed(2)}deg)`;
+  });
+  el.addEventListener('mouseleave', () => { el.style.transform = ''; });
+}
 
 // ── NAV background on scroll + mobile drawer ─
 const navEl = document.getElementById('nav');
@@ -647,25 +752,54 @@ new IntersectionObserver(entries => {
   });
 }, { threshold: 0.5 }).observe(statsEl);
 
-// ── SCROLL FADE-IN (sezioni) ─────────────────
-document.querySelectorAll('.section-label, .section-title, .testi-video-wrap, .btn-mini-cta, .metodo-item, .prog-card, .faq-item').forEach(el => {
-  el.style.cssText += 'opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s ease';
+// ── SCROLL REVEAL (clip-path + fade-up) ──────
+document.querySelectorAll('.reveal, .reveal-up').forEach(el => {
   new IntersectionObserver(entries => {
     if (!entries[0].isIntersecting) return;
-    entries[0].target.style.opacity = '1';
-    entries[0].target.style.transform = 'translateY(0)';
+    el.classList.add('visible');
   }, { threshold: 0.15 }).observe(el);
 });
 
-// ── VID-CARD fade-in staggered ────────────────
-let cardsShown = false;
-new IntersectionObserver(entries => {
-  if (!entries[0].isIntersecting || cardsShown) return;
-  cardsShown = true;
-  document.querySelectorAll('.vid-card').forEach((c, i) => {
-    setTimeout(() => c.classList.add('visible'), i * 85);
-  });
-}, { threshold: 0.1 }).observe(document.getElementById('risultati'));
+// ── VID-CARD / PROG-CARD fade-in staggered ────
+function staggerReveal(containerId, selector) {
+  let shown = false;
+  new IntersectionObserver(entries => {
+    if (!entries[0].isIntersecting || shown) return;
+    shown = true;
+    document.querySelectorAll(selector).forEach((c, i) => {
+      setTimeout(() => c.classList.add('visible'), i * 80);
+    });
+  }, { threshold: 0.1 }).observe(document.getElementById(containerId));
+}
+staggerReveal('risultati', '.vid-card');
+staggerReveal('programmi', '.prog-card');
+
+// ── METODO active step highlight ─────────────
+const metodoItems = document.querySelectorAll('.metodo-item');
+metodoItems.forEach(item => {
+  new IntersectionObserver(entries => {
+    entries.forEach(en => en.target.classList.toggle('active', en.isIntersecting));
+  }, { threshold: 0.5, rootMargin: '-30% 0px -30% 0px' }).observe(item);
+});
+
+// ── PARALLAX su break-bg (disabilitato con reduced motion) ─
+const breakBg = document.getElementById('break-bg');
+if (breakBg && !reducedMotion) {
+  let ticking = false;
+  function updateParallax() {
+    const r = breakBg.parentElement.getBoundingClientRect();
+    const vh = window.innerHeight;
+    if (r.bottom > 0 && r.top < vh) {
+      const progress = (r.top) / vh;
+      breakBg.style.transform = `translateY(${(progress * 40).toFixed(1)}px)`;
+    }
+    ticking = false;
+  }
+  window.addEventListener('scroll', () => {
+    if (!ticking) { requestAnimationFrame(updateParallax); ticking = true; }
+  }, { passive: true });
+  updateParallax();
+}
 
 // ── THUMB VIDEOS seek to midpoint ────────────
 document.querySelectorAll('.thumb-vid').forEach(v => {
@@ -724,44 +858,45 @@ function closeModal(e) {
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(null); });
 
-// ── CAROUSEL ARROWS ───────────────────────────
-const carousel = document.getElementById('carousel');
-function cardW() {
-  const c = carousel.querySelector('.vid-card');
-  return c ? c.offsetWidth + 14 : 200;
-}
-function smoothScroll(from, to, dur) {
-  const t0 = performance.now();
-  function step(now) {
-    const p = Math.min((now - t0) / dur, 1);
-    const e = p < 0.5 ? 2*p*p : -1+(4-2*p)*p;
-    carousel.scrollLeft = from + (to - from) * e;
-    if (p < 1) requestAnimationFrame(step);
-    else updateArrows();
+// ── CAROSELLI ORIZZONTALI (risultati + programmi) ─
+function setupCarousel(carousel, leftBtn, rightBtn) {
+  function cardW() {
+    const c = carousel.querySelector(':scope > *');
+    return c ? c.offsetWidth + 14 : 200;
   }
-  requestAnimationFrame(step);
+  function smoothScroll(from, to, dur) {
+    const t0 = performance.now();
+    function step(now) {
+      const p = Math.min((now - t0) / dur, 1);
+      const e = p < 0.5 ? 2*p*p : -1+(4-2*p)*p;
+      carousel.scrollLeft = from + (to - from) * e;
+      if (p < 1) requestAnimationFrame(step);
+      else updateArrows();
+    }
+    requestAnimationFrame(step);
+  }
+  function updateArrows() {
+    const max = carousel.scrollWidth - carousel.clientWidth;
+    const pos = Math.round(carousel.scrollLeft);
+    const atStart = pos <= 4;
+    const atEnd   = pos >= max - 4;
+    leftBtn.style.opacity       = atStart ? '0' : '0.55';
+    leftBtn.style.pointerEvents = atStart ? 'none' : 'auto';
+    rightBtn.style.opacity       = atEnd   ? '0' : '0.55';
+    rightBtn.style.pointerEvents = atEnd   ? 'none' : 'auto';
+  }
+  leftBtn.addEventListener('click', () => {
+    smoothScroll(carousel.scrollLeft, Math.max(0, carousel.scrollLeft - cardW()), 480);
+  });
+  rightBtn.addEventListener('click', () => {
+    const max = carousel.scrollWidth - carousel.clientWidth;
+    smoothScroll(carousel.scrollLeft, Math.min(max, carousel.scrollLeft + cardW()), 480);
+  });
+  carousel.addEventListener('scroll', updateArrows, { passive: true });
+  updateArrows();
 }
-function updateArrows() {
-  const max = carousel.scrollWidth - carousel.clientWidth;
-  const pos = Math.round(carousel.scrollLeft);
-  const L = document.getElementById('arrow-left');
-  const R = document.getElementById('arrow-right');
-  const atStart = pos <= 4;
-  const atEnd   = pos >= max - 4;
-  L.style.opacity       = atStart ? '0' : '0.55';
-  L.style.pointerEvents = atStart ? 'none' : 'auto';
-  R.style.opacity       = atEnd   ? '0' : '0.55';
-  R.style.pointerEvents = atEnd   ? 'none' : 'auto';
-}
-document.getElementById('arrow-left').addEventListener('click', () => {
-  smoothScroll(carousel.scrollLeft, Math.max(0, carousel.scrollLeft - cardW()), 480);
-});
-document.getElementById('arrow-right').addEventListener('click', () => {
-  const max = carousel.scrollWidth - carousel.clientWidth;
-  smoothScroll(carousel.scrollLeft, Math.min(max, carousel.scrollLeft + cardW()), 480);
-});
-carousel.addEventListener('scroll', updateArrows, { passive: true });
-updateArrows();
+setupCarousel(document.getElementById('carousel'), document.getElementById('arrow-left'), document.getElementById('arrow-right'));
+setupCarousel(document.getElementById('programmi-grid'), document.getElementById('prog-arrow-left'), document.getElementById('prog-arrow-right'));
 
 // ── FORM VALIDATION & SUBMIT ──────────────────
 function validateForm() {
