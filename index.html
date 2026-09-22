@@ -87,7 +87,7 @@
 
   /* ── HERO ──────────────────────────────────── */
   .hero{position:relative;z-index:2;padding:26px 24px 0;overflow:hidden}
-  .hero-media-bg{position:absolute;inset:0;z-index:0;background-image:url('images/metodo-bg.jpg');background-size:cover;background-position:center 22%;filter:grayscale(.15) brightness(.75)}
+  .hero-media-bg{position:absolute;top:0;left:0;right:0;z-index:0;height:600px;background-image:url('images/metodo-bg.jpg');background-size:cover;background-position:center 15%;filter:grayscale(.15) brightness(.75);mask-image:linear-gradient(to bottom,#000 60%,transparent 100%);-webkit-mask-image:linear-gradient(to bottom,#000 60%,transparent 100%)}
   .hero-media-overlay{position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(13,13,13,.68) 0%,rgba(13,13,13,.82) 55%,var(--bg) 100%)}
   .hero-grid{position:relative;z-index:2;max-width:1280px;margin:0 auto;display:grid;grid-template-columns:1fr;gap:0}
   .hero-text{padding:38px 0 0;position:relative;z-index:2}
