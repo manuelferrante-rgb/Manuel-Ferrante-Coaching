@@ -79,16 +79,16 @@
   @media(min-width:900px){.nav-links{display:flex}.nav-toggle{display:none}}
 
   /* ── MARQUEE ───────────────────────────────── */
-  .marquee{position:relative;z-index:2;overflow:hidden;border-bottom:1px solid var(--border);background:var(--bg2);padding:9px 0}
-  .marquee-track{display:flex;width:max-content;gap:28px;animation:marqueeScroll 26s linear infinite}
+  .marquee{position:relative;z-index:2;overflow:hidden;border-bottom:1px solid var(--border);background:var(--bg2);padding:9px 0;-webkit-transform:translateZ(0);transform:translateZ(0)}
+  .marquee-track{display:flex;width:max-content;gap:28px;animation:marqueeScroll 26s linear infinite;will-change:transform;-webkit-backface-visibility:hidden;backface-visibility:hidden}
   .marquee-track span{font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--grey);white-space:nowrap}
   .marquee-track span.dot{color:var(--accent)}
   @keyframes marqueeScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 
   /* ── HERO ──────────────────────────────────── */
   .hero{position:relative;z-index:2;padding:26px 24px 0;overflow:hidden}
-  .hero-media-strip{position:absolute;inset:0;z-index:0;overflow:hidden}
-  .hero-media-track{display:flex;height:100%;width:max-content;animation:heroMediaScroll 60s linear infinite}
+  .hero-media-strip{position:absolute;inset:0;z-index:0;overflow:hidden;-webkit-transform:translateZ(0);transform:translateZ(0)}
+  .hero-media-track{display:flex;height:100%;width:max-content;animation:heroMediaScroll 40s linear infinite;will-change:transform;-webkit-backface-visibility:hidden;backface-visibility:hidden}
   .hero-media-slide{flex:0 0 auto;width:220px;height:100%;background-size:cover;background-position:center;filter:grayscale(.15) brightness(.75)}
   @keyframes heroMediaScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
   .hero-media-overlay{position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(13,13,13,.68) 0%,rgba(13,13,13,.82) 55%,var(--bg) 100%)}
@@ -351,14 +351,14 @@
 <section class="hero">
   <div class="hero-media-strip" aria-hidden="true">
     <div class="hero-media-track">
+      <div class="hero-media-slide" style="background-image:url('images/pullup-bg.jpg')"></div>
       <div class="hero-media-slide" style="background-image:url('images/metodo-bg.jpg')"></div>
       <div class="hero-media-slide" style="background-image:url('images/pullup-bg.jpg')"></div>
-      <div class="hero-media-slide" style="background-image:url('images/testi-bg.jpg')"></div>
-      <div class="hero-media-slide" style="background-image:url('images/programmi-bg.jpg')"></div>
       <div class="hero-media-slide" style="background-image:url('images/metodo-bg.jpg')"></div>
       <div class="hero-media-slide" style="background-image:url('images/pullup-bg.jpg')"></div>
-      <div class="hero-media-slide" style="background-image:url('images/testi-bg.jpg')"></div>
-      <div class="hero-media-slide" style="background-image:url('images/programmi-bg.jpg')"></div>
+      <div class="hero-media-slide" style="background-image:url('images/metodo-bg.jpg')"></div>
+      <div class="hero-media-slide" style="background-image:url('images/pullup-bg.jpg')"></div>
+      <div class="hero-media-slide" style="background-image:url('images/metodo-bg.jpg')"></div>
     </div>
   </div>
   <div class="hero-media-overlay"></div>
