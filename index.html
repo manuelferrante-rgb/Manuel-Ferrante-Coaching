@@ -1,142 +1,827 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Manuel Ferrante Coaching</title>
-  <meta name="description" content="Coaching Forza, Estetica e Streetlifting. Programmi personalizzati, supporto 7/7 e feedback costante. Prenota una call gratuita o scrivimi su WhatsApp."/>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
-  <style>
-    :root{ --bg:#0d1117; --text:#e6edf3; --muted:#c9d1d9; --line:#21262d; --accent:#60a5fa; --accent-2:#3b82f6; --radius:16px; --shadow:0 10px 30px rgba(0,0,0,.35); }
-    *{box-sizing:border-box}
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Manuel Ferrante — Coaching Online Streetlifting & Calisthenics</title>
+<meta name="description" content="Coaching online 1:1 con Manuel Ferrante. Streetlifting, calisthenics e powerlifting: programmazione su misura, correzione tecnica, risultati reali."/>
+<link rel="canonical" href="https://www.manuelferrante.it/"/>
+<meta name="robots" content="index,follow"/>
+<meta property="og:type" content="website"/>
+<meta property="og:title" content="Manuel Ferrante — Coaching Online Streetlifting & Calisthenics"/>
+<meta property="og:description" content="Coaching online 1:1: programmazione su misura, correzione tecnica, risultati reali. 100+ atleti seguiti."/>
+<meta property="og:image" content="https://www.manuelferrante.it/logo.jpg"/>
+<meta property="og:url" content="https://www.manuelferrante.it/"/>
+<meta property="og:locale" content="it_IT"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<link rel="icon" href="logo.jpg"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "ProfessionalService",
+  "name": "Manuel Ferrante Coaching",
+  "url": "https://www.manuelferrante.it/",
+  "image": "https://www.manuelferrante.it/logo.jpg",
+  "sameAs": ["https://www.instagram.com/_manuelferrante"],
+  "description": "Coaching online 1:1 in streetlifting, calisthenics e powerlifting."
+}
+</script>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0d0d0d;--bg2:#141414;--bg3:#1c1c1c;--border:#2a2a2a;
+    --accent:#c9a35a;--accent-rgb:201,163,90;--white:#f5f5f0;
+    --grey:#888;--grey2:#444;
+    --display:'Bebas Neue',sans-serif;--body:'DM Sans',sans-serif;--mono:'DM Mono',monospace;
+    --r:6px;--max:640px;
+  }
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--white);font-family:var(--body);font-size:15px;line-height:1.6;overflow-x:hidden}
+  a{color:inherit}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto}
+    *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
+  }
 
-    /* ====== SFONDO: SOLO NERO ====== */
-    html,body{
-      margin:0;
-      padding:0;
-      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-      background:var(--bg);
-      color:var(--text);
-    }
+  /* ── NAV ───────────────────────────────────── */
+  .nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:linear-gradient(to bottom,rgba(13,13,13,.85),rgba(13,13,13,0));backdrop-filter:blur(2px);transition:background .3s ease,backdrop-filter .3s ease,border-color .3s ease;border-bottom:1px solid transparent}
+  .nav.scrolled{background:rgba(13,13,13,.88);backdrop-filter:blur(10px);border-color:var(--border)}
+  .nav-brand{display:flex;align-items:center;gap:9px;text-decoration:none;color:var(--white)}
+  .nav-brand img{width:30px;height:30px;border-radius:6px;display:block}
+  .nav-brand span{font-family:var(--display);font-size:16px;letter-spacing:.03em;line-height:1}
+  .nav-links{display:none;align-items:center;gap:26px;list-style:none}
+  .nav-links a{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:rgba(245,245,240,.65);text-decoration:none;transition:color .15s}
+  .nav-links a:hover{color:var(--white)}
+  .nav-right{display:flex;align-items:center;gap:18px}
+  .nav-cta{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--bg);background:var(--accent);padding:9px 16px;border-radius:100px;text-decoration:none;font-weight:500;transition:transform .15s,box-shadow .15s;white-space:nowrap}
+  .nav-cta:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(var(--accent-rgb),.3)}
+  .nav-toggle{display:flex;flex-direction:column;justify-content:center;gap:5px;width:34px;height:34px;background:transparent;border:1px solid var(--border);border-radius:8px;cursor:pointer}
+  .nav-toggle span{display:block;width:16px;height:1.5px;background:var(--white);margin:0 auto;transition:transform .2s,opacity .2s}
+  .nav-toggle[aria-expanded="true"] span:nth-child(1){transform:translateY(6px) rotate(45deg)}
+  .nav-toggle[aria-expanded="true"] span:nth-child(2){opacity:0}
+  .nav-toggle[aria-expanded="true"] span:nth-child(3){transform:translateY(-6px) rotate(-45deg)}
+  .nav-drawer{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(13,13,13,.98);backdrop-filter:blur(10px);z-index:99;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;opacity:0;pointer-events:none;transition:opacity .25s ease}
+  .nav-drawer.open{opacity:1;pointer-events:auto}
+  .nav-drawer a{font-family:var(--display);font-size:28px;letter-spacing:.03em;color:var(--white);text-decoration:none}
+  .nav-drawer a:hover{color:var(--accent)}
+  .nav-drawer .nav-cta{font-family:var(--mono);font-size:13px;margin-top:8px}
+  @media(max-width:480px){
+    .nav-right .nav-cta{display:none}
+  }
+  @media(min-width:900px){
+    .nav-links{display:flex}
+    .nav-toggle{display:none}
+  }
 
-    a{color:inherit;text-decoration:none}
-    .container{max-width:980px;margin:0 auto;padding:0 20px}
-    header{border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(13,17,23,.8);backdrop-filter:blur(8px);z-index:50}
-    .nav{display:flex;align-items:center;gap:12px;height:64px}
-    .logo-img-small{height:36px;border-radius:50%}
-    .site-title{font-weight:700;font-size:18px}
-    main{padding:64px 0}
-    h1{font-size:clamp(34px,5vw,52px);line-height:1.05;margin:8px 0 10px}
-    p.lead{font-size:clamp(16px,2.2vw,19px);color:var(--muted);margin:0 0 18px}
-    .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:26px}
-    .card{border:1px solid var(--line);border-radius:16px;padding:18px;background:rgba(13,17,23,.9)}
-    .list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
-    .list li{display:flex;gap:10px}
-    .dot{width:8px;height:8px;border-radius:999px;background:#34d399;margin-top:8px}
-    section{padding:40px 0;border-top:none}
-    h2{font-size:clamp(22px,3.5vw,30px);margin:0 0 8px}
-    .muted{color:var(--muted)}
-    footer{border-top:1px solid var(--line);padding:24px 0;color:var(--muted)}
-    .footer-logo{height:25px}
-    .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 18px;border-radius:999px;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#081018;font-weight:800;box-shadow:var(--shadow)}
-    .floating-wa{position:fixed;right:18px;bottom:18px;z-index:60}
-    .wa-btn{display:inline-flex;align-items:center;gap:8px;background:#25D366;color:#081018;font-weight:800;border-radius:999px;padding:12px 18px;box-shadow:var(--shadow)}
-    .testi-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    @media(max-width:900px){.grid{grid-template-columns:1fr}.testi-grid{grid-template-columns:1fr}}
-  </style>
+  /* ── HERO / FORM COMBINATI ─────────────────── */
+  .hero{position:relative;min-height:100svh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:88px 24px 48px;overflow:hidden}
+  .hero-bg{position:absolute;inset:0;background:
+      radial-gradient(circle at 20% 0%, rgba(var(--accent-rgb),.06) 0%, transparent 45%),
+      radial-gradient(circle at 85% 15%, rgba(var(--accent-rgb),.04) 0%, transparent 40%),
+      var(--bg);
+    z-index:0}
+  .hero-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(13,13,13,0) 0%,rgba(13,13,13,.3) 70%,rgba(13,13,13,.85) 100%);z-index:1}
+  .hero-content{position:relative;z-index:2;text-align:center;max-width:var(--max);width:100%}
+  .hero-tag{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);background:rgba(var(--accent-rgb),.08);border:1px solid rgba(var(--accent-rgb),.25);padding:5px 14px;border-radius:100px;margin-bottom:16px;animation:fadeUp .5s ease both}
+  .hero-title{font-family:var(--display);font-size:clamp(52px,12vw,88px);line-height:.93;letter-spacing:.02em;animation:fadeUp .5s .08s ease both}
+  .hero-title em{font-style:normal;color:var(--accent)}
+  .hero-sub{margin:14px auto 0;font-size:15px;color:rgba(245,245,240,.7);font-weight:300;max-width:380px;animation:fadeUp .5s .16s ease both}
+
+  .hero-ctas{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:20px;animation:fadeUp .5s .2s ease both}
+  .btn-primary{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--bg);background:var(--accent);padding:12px 20px;border-radius:100px;text-decoration:none;font-weight:500;transition:transform .15s,box-shadow .15s}
+  .btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(var(--accent-rgb),.3)}
+  .btn-secondary{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--white);background:transparent;border:1px solid var(--border);padding:12px 20px;border-radius:100px;text-decoration:none;font-weight:500;transition:border-color .15s,color .15s}
+  .btn-secondary:hover{border-color:var(--accent);color:var(--accent)}
+
+  /* Stats strip */
+  .stats{display:flex;margin:20px 0 0;background:rgba(13,13,13,.75);border:1px solid rgba(255,255,255,.08);border-radius:var(--r);overflow:hidden;animation:fadeUp .5s .26s ease both;backdrop-filter:blur(8px)}
+  .stat{flex:1;padding:13px 8px;text-align:center;border-right:1px solid rgba(255,255,255,.07)}
+  .stat:last-child{border-right:none}
+  .stat-num{font-family:var(--display);font-size:28px;color:var(--accent);line-height:1;display:block}
+  .stat-label{font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--grey);margin-top:2px;display:block;font-family:var(--mono)}
+
+  /* ── FORM INLINE NELL'HERO ─────────────────── */
+  .hero-form-wrap{margin-top:24px;animation:fadeUp .5s .32s ease both;width:100%}
+  .hero-form-card{background:rgba(20,20,20,.92);border:1px solid var(--border);border-radius:12px;padding:22px 20px 20px;backdrop-filter:blur(12px)}
+
+  .field{margin-bottom:16px}
+  .field>label:first-child{display:block;font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:rgba(245,245,240,.5);margin-bottom:7px;text-align:left}
+  .field>label:first-child .req{color:var(--accent)}
+  .chip-group{display:flex;flex-wrap:wrap;gap:6px}
+  .chip-group input[type="radio"]{position:absolute;opacity:0;width:1px;height:1px}
+  .chip-group label{display:inline-flex;align-items:center;padding:7px 13px;border:1px solid var(--border);border-radius:var(--r);font-size:12.5px;color:rgba(245,245,240,.6);cursor:pointer;transition:all .15s;background:var(--bg3);user-select:none}
+  .chip-group input:checked+label{border-color:var(--accent);background:rgba(var(--accent-rgb),.08);color:var(--accent);font-weight:500}
+  .chip-group input:focus-visible+label{outline:2px solid var(--accent);outline-offset:2px}
+  .chip-group label:hover{border-color:rgba(var(--accent-rgb),.35);color:var(--white)}
+  textarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--white);font-family:var(--body);font-size:14px;padding:12px 14px;resize:vertical;min-height:80px;outline:none;transition:border-color .15s}
+  textarea:focus{border-color:rgba(var(--accent-rgb),.5)}
+  textarea::placeholder{color:var(--grey2)}
+  input[type="text"],input[type="tel"]{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--white);font-family:var(--body);font-size:15px;padding:12px 14px;outline:none;transition:border-color .15s}
+  input:focus{border-color:rgba(var(--accent-rgb),.5)}
+  input::placeholder{color:var(--grey2)}
+  .field-error{font-size:11px;color:#ff5555;margin-top:4px;font-family:var(--mono);display:none;text-align:left}
+  .has-error .field-error{display:block}
+  .has-error input,.has-error textarea{border-color:#ff5555!important}
+
+  /* Submit button — animated */
+  .btn-submit{width:100%;background:var(--accent);color:#0d0d0d;border:none;border-radius:var(--r);padding:16px 20px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px;margin-top:4px;box-shadow:0 4px 14px rgba(var(--accent-rgb),.18);transition:transform .15s,box-shadow .15s}
+  .btn-submit:hover{transform:translateY(-2px);box-shadow:0 10px 32px rgba(var(--accent-rgb),.35)}
+  .btn-submit:disabled{opacity:.4;cursor:default;transform:none;box-shadow:none}
+  .btn-submit-top{font-family:var(--display);font-size:26px;letter-spacing:.04em;line-height:1}
+  .btn-submit-sub{font-family:var(--body);font-size:12px;font-weight:500;opacity:.75}
+
+  .form-privacy{font-size:10px;color:var(--grey2);text-align:center;margin-top:10px;font-family:var(--mono);letter-spacing:.04em}
+
+  /* Scroll down hint */
+  .scroll-hint{display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:20px;opacity:.4;animation:fadeIn 1s 1s both;cursor:pointer;background:none;border:none;color:var(--white)}
+  .scroll-hint span{font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase}
+  .scroll-arrow{width:1px;height:22px;background:var(--white);position:relative;overflow:hidden}
+  .scroll-arrow::after{content:'';position:absolute;top:-100%;left:0;width:100%;height:100%;background:var(--accent);animation:scrollLine 1.8s ease-in-out infinite}
+
+  /* ── MINI CTA BUTTON (tra sezioni) ────────── */
+  .section-cta{text-align:center;padding:32px 24px 0}
+  .btn-mini-cta{display:inline-flex;flex-direction:column;align-items:center;gap:2px;background:transparent;border:1px solid rgba(var(--accent-rgb),.35);color:var(--white);padding:12px 24px;border-radius:var(--r);text-decoration:none;transition:border-color .2s,background .2s,transform .15s}
+  .btn-mini-cta:hover{border-color:var(--accent);background:rgba(var(--accent-rgb),.07);transform:translateY(-2px)}
+  .btn-mini-top{font-family:var(--display);font-size:18px;letter-spacing:.04em;color:var(--accent);line-height:1.1}
+  .btn-mini-sub{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:rgba(245,245,240,.45)}
+
+  /* ── SUCCESS SCREEN ───────────────────────── */
+  #success-screen{display:none;position:relative;min-height:420px;border-radius:12px;overflow:hidden}
+  .success-bg-video{position:absolute;inset:0;z-index:0}
+  .success-bg-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(13,13,13,0) 40%,rgba(13,13,13,.88) 100%)}
+  .success-content{position:absolute;bottom:0;left:0;right:0;z-index:1;padding:0 26px 32px;text-align:center}
+  .success-title{font-family:var(--display);font-size:36px;letter-spacing:.03em;margin-bottom:5px;line-height:1}
+  .success-sub{font-size:14px;color:rgba(245,245,240,.85);font-weight:300}
+
+  /* ── SEZIONI GENERICHE ─────────────────────── */
+  .section-inner{max-width:var(--max);margin:0 auto;padding:0 24px}
+  .section-label{font-family:var(--mono);font-size:10px;letter-spacing:.25em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+  .section-title{font-family:var(--display);font-size:clamp(32px,7vw,50px);line-height:1;margin-bottom:28px}
+  .results-section{padding:64px 0 0}
+
+  /* ── CAROUSEL ─────────────────────────────── */
+  .carousel-wrap{position:relative}
+  .carousel-arrow{position:absolute;top:38%;transform:translateY(-50%);z-index:10;width:44px;height:44px;border-radius:50%;background:rgba(13,13,13,.65);border:1px solid rgba(var(--accent-rgb),.4);color:var(--accent);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:opacity .4s ease,background .2s,box-shadow .2s;backdrop-filter:blur(4px)}
+  .carousel-arrow:hover{background:rgba(13,13,13,.9);border-color:var(--accent);box-shadow:0 0 18px rgba(var(--accent-rgb),.4)}
+  .carousel-arrow svg{width:18px;height:18px}
+  .arrow-left{left:6px;opacity:0;pointer-events:none}
+  .arrow-right{right:6px;opacity:.55}
+  .carousel{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding:0 24px 16px;scrollbar-width:none}
+  .carousel::-webkit-scrollbar{display:none}
+  .carousel-wrap::before,.carousel-wrap::after{content:'';position:absolute;top:0;bottom:16px;width:40px;z-index:2;pointer-events:none}
+  .carousel-wrap::before{left:0;background:linear-gradient(to right,var(--bg),transparent)}
+  .carousel-wrap::after{right:0;background:linear-gradient(to left,var(--bg),transparent)}
+
+  .vid-card{flex:0 0 185px;scroll-snap-align:start;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:var(--bg2);cursor:pointer;display:flex;flex-direction:column;opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .5s ease,border-color .2s}
+  .vid-card.visible{opacity:1;transform:translateY(0)}
+  .vid-card:hover,.vid-card:focus-visible{border-color:rgba(var(--accent-rgb),.4);transform:translateY(-2px)}
+  .vid-thumb-wrap{position:relative;width:100%;padding-bottom:177.77%;background:#111;overflow:hidden;flex-shrink:0}
+  .vid-thumb-wrap video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;transition:transform .3s}
+  .vid-card:hover .vid-thumb-wrap video{transform:scale(1.03)}
+  .play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.65);border:2px solid rgba(255,255,255,.8);display:flex;align-items:center;justify-content:center;color:white;transition:all .2s;backdrop-filter:blur(4px)}
+  .vid-card:hover .play-btn{background:var(--accent);color:#0d0d0d;transform:translate(-50%,-50%) scale(1.1)}
+  .play-btn svg{width:18px;height:18px;margin-left:2px}
+  .featured-card{border-color:rgba(var(--accent-rgb),.45)!important;box-shadow:0 0 20px rgba(var(--accent-rgb),.13)}
+  .featured-badge{position:absolute;top:10px;left:10px;background:var(--accent);color:#0d0d0d;font-family:var(--mono);font-size:10px;font-weight:bold;letter-spacing:.08em;padding:4px 10px;border-radius:4px;z-index:2;text-transform:uppercase}
+  .vid-info{padding:11px 12px 13px}
+  .vid-athlete{font-family:var(--display);font-size:17px;letter-spacing:.03em;line-height:1.1;margin-bottom:3px}
+  .vid-desc{font-size:11px;color:rgba(245,245,240,.5);line-height:1.4}
+  .vid-badge{display:inline-block;margin-top:6px;background:rgba(var(--accent-rgb),.07);border:1px solid rgba(var(--accent-rgb),.2);border-radius:4px;padding:2px 8px;font-family:var(--mono);font-size:10px;color:var(--accent)}
+
+  /* ── TESTIMONIANZE VIDEO ──────────────────── */
+  .testi-section{padding:64px 24px 0;max-width:var(--max);margin:0 auto}
+  .testi-video-wrap{position:relative;width:100%;border-radius:12px;overflow:hidden;border:1px solid var(--border);background:#000;margin-top:20px}
+  .testi-video-wrap::before{content:'';display:block;padding-bottom:177.77%}
+  .testi-video-wrap video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+
+  /* ── METODO ────────────────────────────────── */
+  .metodo-section{padding:64px 24px 0;max-width:var(--max);margin:0 auto}
+  .metodo-list{list-style:none;margin-top:20px;display:grid;gap:0}
+  .metodo-item{display:flex;gap:16px;padding:18px 0;border-top:1px solid var(--border)}
+  .metodo-item:last-child{border-bottom:1px solid var(--border)}
+  .metodo-num{font-family:var(--display);font-size:22px;color:var(--accent);line-height:1;flex-shrink:0;width:36px}
+  .metodo-body h3{font-family:var(--body);font-weight:600;font-size:15px;margin-bottom:3px}
+  .metodo-body p{font-size:13px;color:rgba(245,245,240,.6);font-weight:300;line-height:1.5}
+
+  /* ── PROGRAMMI ─────────────────────────────── */
+  .programmi-section{padding:64px 24px 0;max-width:var(--max);margin:0 auto}
+  .programmi-note{font-size:12.5px;color:rgba(245,245,240,.5);margin:-14px 0 20px;font-weight:300}
+  .programmi-grid{display:grid;gap:12px;grid-template-columns:1fr}
+  .prog-card{border:1px solid var(--border);border-radius:10px;padding:18px;background:var(--bg2);display:flex;flex-direction:column;gap:10px;position:relative}
+  .prog-card.unavailable{opacity:.55}
+  .prog-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .prog-name{font-family:var(--display);font-size:22px;letter-spacing:.02em;line-height:1}
+  .prog-meta{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--grey);margin-top:4px}
+  .prog-price{font-family:var(--display);font-size:26px;color:var(--accent);white-space:nowrap}
+  .prog-includes{list-style:none;font-size:12.5px;color:rgba(245,245,240,.6);display:grid;gap:4px}
+  .prog-includes li{padding-left:14px;position:relative}
+  .prog-includes li::before{content:'—';position:absolute;left:0;color:var(--accent)}
+  .prog-cta{align-self:flex-start;margin-top:4px}
+  .prog-soon{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--grey);border:1px solid var(--border);border-radius:100px;padding:8px 16px;display:inline-block}
+
+  /* ── FAQ ───────────────────────────────────── */
+  .faq-section{padding:64px 24px 0;max-width:var(--max);margin:0 auto}
+  .faq-item{border-top:1px solid var(--border)}
+  .faq-item:last-child{border-bottom:1px solid var(--border)}
+  .faq-item summary{cursor:pointer;padding:16px 0;font-family:var(--body);font-weight:500;font-size:14.5px;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .faq-item summary::-webkit-details-marker{display:none}
+  .faq-item summary::after{content:'+';font-family:var(--mono);font-size:18px;color:var(--accent);flex-shrink:0;transition:transform .2s}
+  .faq-item[open] summary::after{transform:rotate(45deg)}
+  .faq-item p{font-size:13px;color:rgba(245,245,240,.6);font-weight:300;line-height:1.6;padding-bottom:18px;max-width:520px}
+
+  /* ── MODAL ────────────────────────────────── */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:1000;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)}
+  .modal-overlay.open{display:flex}
+  .modal-inner{position:relative;width:100%;max-width:340px}
+  .modal-video-wrap{position:relative;width:100%;padding-bottom:177.77%;border-radius:12px;overflow:hidden;background:#000}
+  .modal-video-wrap video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .modal-close{position:absolute;top:-44px;right:0;background:transparent;border:1px solid rgba(255,255,255,.3);color:white;font-size:20px;width:36px;height:36px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s}
+  .modal-close:hover{background:rgba(255,255,255,.15)}
+  .modal-info{margin-top:12px;text-align:left}
+  .modal-info .vid-athlete{font-size:20px}
+  .modal-info .vid-desc{margin-top:2px}
+
+  /* ── FOOTER ────────────────────────────────── */
+  footer{padding:36px 24px 28px;border-top:1px solid var(--border);margin-top:64px}
+  .footer-inner{max-width:var(--max);margin:0 auto;display:flex;flex-direction:column;gap:18px;align-items:center;text-align:center}
+  .footer-brand{display:flex;align-items:center;gap:8px}
+  .footer-brand img{width:24px;height:24px;border-radius:6px}
+  .footer-brand span{font-family:var(--display);font-size:14px;letter-spacing:.03em}
+  .footer-links{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;list-style:none}
+  .footer-links a{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--grey);text-decoration:none;transition:color .15s}
+  .footer-links a:hover{color:var(--accent)}
+  .footer-copy{font-family:var(--mono);font-size:10px;color:var(--grey2);letter-spacing:.04em}
+
+  @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  @keyframes scrollLine{0%{top:-100%}100%{top:100%}}
+</style>
 </head>
 <body>
-  <header>
-    <div class="container nav">
-      <img src="profilo.jpg" alt="Manuel Ferrante" class="logo-img-small">
-      <span class="site-title">Manuel Ferrante Coaching</span>
-    </div>
-  </header>
 
-  <main class="container">
-    <div class="grid">
-      <div>
-        <h1>Forza, Estetica & Streetlifting</h1>
-        <p class="lead">Crescita di forza e massa muscolare con metodo. Programmazioni personalizzate, progressioni chiare e supporto 7/7.</p>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 20px">
-          <a class="btn" href="https://wa.me/393386787740?text=Ciao%2C%20vorrei%20avere%20informazioni%20sul%20Coaching%2C%20possiamo%20fissare%20una%20call%20conoscitiva" target="_blank">Prenota call gratuita</a>
-        </div>
+<!-- ══ NAV ══════════════════════════════════════ -->
+<nav class="nav" id="nav">
+  <a href="#top" class="nav-brand">
+    <img src="logo.jpg" alt="Manuel Ferrante Coaching" width="30" height="30"/>
+    <span>MANUEL FERRANTE</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#risultati">Risultati</a></li>
+    <li><a href="#metodo">Coaching</a></li>
+    <li><a href="#programmi">Programmi</a></li>
+    <li><a href="#testimonianze">Testimonianze</a></li>
+    <li><a href="#faq">FAQ</a></li>
+  </ul>
+  <div class="nav-right">
+    <a href="#top" class="nav-cta">Inizia ora</a>
+    <button class="nav-toggle" id="nav-toggle" aria-label="Apri menu" aria-expanded="false" aria-controls="nav-drawer">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<div class="nav-drawer" id="nav-drawer">
+  <a href="#risultati">Risultati</a>
+  <a href="#metodo">Coaching</a>
+  <a href="#programmi">Programmi</a>
+  <a href="#testimonianze">Testimonianze</a>
+  <a href="#faq">FAQ</a>
+  <a href="#top" class="nav-cta">Inizia ora</a>
+</div>
+
+<main>
+
+<!-- ══ HERO + FORM ══════════════════════════════ -->
+<section class="hero" id="top">
+  <div class="hero-bg"></div>
+  <div class="hero-overlay"></div>
+  <div class="hero-content">
+
+    <span class="hero-tag">@_manuelferrante · Coaching 1:1</span>
+    <h1 class="hero-title">INIZIAMO<br>A <em>LAVORARE</em><br>INSIEME</h1>
+    <p class="hero-sub">Non solo allenarti — allenarti nel modo giusto, con chi ci crede quanto te.</p>
+
+    <div class="hero-ctas">
+      <a href="#coaching-form" class="btn-primary">Candidati ora</a>
+      <a href="#risultati" class="btn-secondary">Scopri i risultati</a>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><span class="stat-num" data-target="100" data-suffix="+">100+</span><span class="stat-label">Atleti seguiti</span></div>
+      <div class="stat"><span class="stat-num" data-target="3" data-suffix="+">3+</span><span class="stat-label">Anni coaching</span></div>
+      <div class="stat"><span class="stat-num" data-target="100" data-suffix="%">100%</span><span class="stat-label">Risultati garantiti</span></div>
+    </div>
+
+    <!-- FORM SUBITO VISIBILE -->
+    <div class="hero-form-wrap">
+      <div class="hero-form-card">
+        <form id="coaching-form" action="https://formspree.io/f/xpqbjgqw" method="POST">
+
+          <div id="form-fields">
+            <div class="field" id="f-tipo_allenamento">
+              <label>Che sport fai? <span class="req">*</span></label>
+              <div class="chip-group">
+                <input type="radio" name="tipo_allenamento" id="t1" value="Palestra"><label for="t1">Palestra</label>
+                <input type="radio" name="tipo_allenamento" id="t2" value="Streetlifting / Calisthenics"><label for="t2">Streetlifting / Calisthenics</label>
+                <input type="radio" name="tipo_allenamento" id="t3" value="Powerlifting"><label for="t3">Powerlifting</label>
+                <input type="radio" name="tipo_allenamento" id="t4" value="Altro"><label for="t4">Altro</label>
+              </div>
+              <span class="field-error">Seleziona un'opzione</span>
+            </div>
+
+            <div class="field" id="f-motivazione">
+              <label>Cosa vuoi migliorare? <span class="req">*</span></label>
+              <textarea name="motivazione" placeholder="Scrivimi qualcosa — anche poche righe vanno bene" rows="3"></textarea>
+              <span class="field-error">Scrivi almeno qualcosa</span>
+            </div>
+
+            <div class="field" id="f-nome">
+              <label>Nome <span class="req">*</span></label>
+              <input type="text" name="nome" placeholder="Come ti chiami?">
+              <span class="field-error">Inserisci il tuo nome</span>
+            </div>
+
+            <div class="field" id="f-telefono">
+              <label>Numero <span class="req">*</span></label>
+              <input type="tel" name="telefono" placeholder="+39 …">
+              <span class="field-error">Inserisci un numero valido</span>
+            </div>
+
+            <button type="submit" class="btn-submit" id="submit-btn">
+              <span class="btn-submit-top">Invia,</span>
+              <span class="btn-submit-sub">ti contatto io!</span>
+            </button>
+
+            <p class="form-privacy">I tuoi dati vengono usati solo per contattarti. Niente spam.</p>
+          </div>
+
+          <!-- SUCCESS -->
+          <div id="success-screen">
+            <div class="success-bg-video">
+              <video id="success-video" src="videos/07_questo_e_lallenamento.mp4" muted playsinline loop style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></video>
+              <div class="success-bg-overlay"></div>
+            </div>
+            <div class="success-content">
+              <h3 class="success-title">Ti contatterò<br>a breve</h3>
+              <p class="success-sub">Tieni d'occhio WhatsApp 👀</p>
+            </div>
+          </div>
+
+        </form>
       </div>
-      <div class="card">
-        <h2 style="margin-top:0">Cosa ti offro</h2>
-        <ul class="list">
-          <li><span class="dot"></span><span>Analizzo i tuoi bisogni e obiettivi</span></li>
-          <li><span class="dot"></span><span>Valuto la tua tecnica</span></li>
-          <li><span class="dot"></span><span>Imposto il piano su misura per te</span></li>
-        </ul>
-        <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap">
-          <a class="btn" href="https://wa.me/393386787740?text=Ciao%2C%20vorrei%20avere%20informazioni%20sul%20Coaching%2C%20possiamo%20fissare%20una%20call%20conoscitiva" target="_blank">Richiedi ora</a>
-          <a class="btn" href="https://www.instagram.com/_manuelferrante" target="_blank">Instagram</a>
-        </div>
-        <p class="muted" style="margin-top:8px">*risposta immediata</p>
+    </div>
+
+    <!-- Scroll down -->
+    <button class="scroll-hint" onclick="document.getElementById('risultati').scrollIntoView({behavior:'smooth'})" aria-label="Vai alla sezione risultati">
+      <span>Prima e dopo</span>
+      <div class="scroll-arrow"></div>
+    </button>
+
+  </div>
+</section>
+
+
+<!-- ══ RESULTS LIBRARY (renderizzata da JS, vedi array `athletes`) ═ -->
+<section class="results-section" id="risultati" aria-label="Risultati degli atleti">
+  <div class="section-inner">
+    <p class="section-label">I risultati parlano</p>
+    <h2 class="section-title">DA DOVE<br>SIAMO PARTITI</h2>
+  </div>
+
+  <div class="carousel-wrap">
+    <button class="carousel-arrow arrow-left" id="arrow-left" aria-label="Precedente">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <div class="carousel" id="carousel"></div>
+    <button class="carousel-arrow arrow-right" id="arrow-right" aria-label="Successivo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
+  </div>
+
+  <div class="section-cta">
+    <a href="#coaching-form" class="btn-mini-cta">
+      <span class="btn-mini-top">👉 Compila il form</span>
+      <span class="btn-mini-sub">ti contatto io</span>
+    </a>
+  </div>
+</section>
+
+
+<!-- ══ TESTIMONIANZE ════════════════════════════ -->
+<section class="testi-section" id="testimonianze">
+  <p class="section-label">Il coaching che funziona</p>
+  <h2 class="section-title">COSA<br>DICONO</h2>
+  <div class="testi-video-wrap">
+    <video id="testi-video" src="videos/08_testimonianze.mp4" controls playsinline preload="auto"></video>
+  </div>
+
+  <div class="section-cta" style="padding-bottom:0">
+    <a href="#coaching-form" class="btn-mini-cta">
+      <span class="btn-mini-top">👉 Compila il form</span>
+      <span class="btn-mini-sub">ti contatto io</span>
+    </a>
+  </div>
+</section>
+
+
+<!-- ══ METODO ═══════════════════════════════════ -->
+<section class="metodo-section" id="metodo">
+  <p class="section-label">Come lavoro</p>
+  <h2 class="section-title">IL METODO</h2>
+  <ol class="metodo-list">
+    <li class="metodo-item">
+      <span class="metodo-num">01</span>
+      <div class="metodo-body">
+        <h3>Analisi</h3>
+        <p>Analizzo i tuoi bisogni, i tuoi obiettivi e valuto la tua tecnica di partenza.</p>
       </div>
-    </div>
-  </main>
-
-  <section class="container" id="servizi">
-    <div class="card">
-      <h2 style="margin-top:0">Online Coaching</h2>
-      <p class="muted">Coaching 100% online con monitoraggio settimanale e chat dedicata.</p>
-      <ul class="list">
-        <li><span class="dot"></span><span>Scheda personalizzata</span></li>
-        <li><span class="dot"></span><span>Video-review</span></li>
-        <li><span class="dot"></span><span>Check-in periodico</span></li>
-      </ul>
-    </div>
-  </section>
-
-  <section class="container" id="metodo">
-    <h2>Il mio metodo</h2>
-    <p class="muted">Un metodo tecnico e personalizzato, con monitoraggio costante e feedback quotidiani, per risultati concreti e duraturi.</p>
-  </section>
-
-  <section class="container" id="pacchetti">
-    <div class="card">
-      <h2 style="margin-top:0">Qual è il percorso giusto per te?</h2>
-      <p class="muted">Ogni atleta ha obiettivi diversi: ti aiuto a trovare il percorso giusto per te, senza vincoli e con massima flessibilità.</p>
-      <a class="btn" href="https://wa.me/393386787740?text=Ciao%2C%20vorrei%20avere%20informazioni%20sul%20Coaching%2C%20possiamo%20fissare%20una%20call%20conoscitiva" target="_blank">Scrivimi subito</a>
-    </div>
-  </section>
-
-  <section class="container" id="testimonianze">
-    <h2>Risultati & Testimonianze</h2>
-    <div class="card testi-grid">
-      <div>
-        <strong>Lorenzo</strong>
-        <p style="font-size:14px">“+20 kg di massa con un percorso su misura e costanza: risultati visibili e duraturi.”</p>
+    </li>
+    <li class="metodo-item">
+      <span class="metodo-num">02</span>
+      <div class="metodo-body">
+        <h3>Programmazione</h3>
+        <p>Imposto un piano di allenamento su misura per te, senza schede standard.</p>
       </div>
-      <div>
-        <strong>Arianna</strong>
-        <p style="font-size:14px">“Totale migliorato di oltre 50 kg: programmazione chiara e supporto continuo fanno la differenza.”</p>
+    </li>
+    <li class="metodo-item">
+      <span class="metodo-num">03</span>
+      <div class="metodo-body">
+        <h3>Monitoraggio</h3>
+        <p>Monitoraggio settimanale e chat dedicata: sono sempre in contatto con te.</p>
       </div>
-    </div>
-  </section>
+    </li>
+    <li class="metodo-item">
+      <span class="metodo-num">04</span>
+      <div class="metodo-body">
+        <h3>Correzione</h3>
+        <p>Video-review per correggere la tecnica ad ogni sessione di allenamento.</p>
+      </div>
+    </li>
+    <li class="metodo-item">
+      <span class="metodo-num">05</span>
+      <div class="metodo-body">
+        <h3>Progressione</h3>
+        <p>Check-in periodico per adattare il piano e continuare a crescere nel tempo.</p>
+      </div>
+    </li>
+  </ol>
+</section>
 
-  <section class="container" id="contatti">
-    <h2>Parliamone</h2>
-    <p class="muted">Scrivimi direttamente su WhatsApp e prenota la tua call gratuita.</p>
-  </section>
+
+<!-- ══ PROGRAMMI (renderizzata da JS, vedi array `programs`) ══ -->
+<section class="programmi-section" id="programmi">
+  <p class="section-label">Percorsi guidati</p>
+  <h2 class="section-title">PROGRAMMI</h2>
+  <p class="programmi-note">Programmi PDF da 12 settimane. Il sistema di pagamento online è in arrivo: per ora scrivimi su WhatsApp per il programma disponibile.</p>
+  <div class="programmi-grid" id="programmi-grid"></div>
+</section>
+
+
+<!-- ══ FAQ ═══════════════════════════════════════ -->
+<section class="faq-section" id="faq">
+  <p class="section-label">Domande frequenti</p>
+  <h2 class="section-title">FAQ</h2>
+
+  <details class="faq-item">
+    <summary>Come funziona il coaching online?</summary>
+    <p>Dopo la candidatura definiamo insieme obiettivi e punto di partenza, ti imposto un piano su misura e ti seguo con monitoraggio settimanale, chat dedicata e video-review per correggere la tecnica.</p>
+  </details>
+  <details class="faq-item">
+    <summary>Che attrezzatura mi serve?</summary>
+    <p>Dipende dal tuo contesto: palestra attrezzata, calisthenics park o casa. Il piano viene costruito sulla base di ciò che hai a disposizione.</p>
+  </details>
+  <details class="faq-item">
+    <summary>Come avviene il monitoraggio?</summary>
+    <p>Tramite check-in periodici e chat dedicata: analizzo i tuoi progressi, i video delle esecuzioni e aggiorno la programmazione di conseguenza.</p>
+  </details>
+  <details class="faq-item">
+    <summary>Cosa succede dopo che invio la candidatura?</summary>
+    <p>Ricevo la tua richiesta e ti contatto direttamente su WhatsApp per parlare dei tuoi obiettivi e dei prossimi passi.</p>
+  </details>
+</section>
+
+</main>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal-inner">
+    <button class="modal-close" onclick="closeModal(null)" aria-label="Chiudi">✕</button>
+    <div class="modal-video-wrap">
+      <video id="modal-video" src="" controls playsinline autoplay></video>
+    </div>
+    <div class="modal-info" id="modal-info"></div>
+  </div>
+</div>
+
 <footer>
-  <div class="container" style="display:flex;justify-content:flex-start;align-items:center;flex-wrap:wrap;gap:8px">
-    <span>© <span id="year"></span> Manuel Ferrante Coaching</span>
-    <img src="logo.jpg" alt="Logo Manuel Ferrante Coaching" style="height:18px;">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <img src="logo.jpg" alt="Manuel Ferrante Coaching" width="24" height="24"/>
+      <span>MANUEL FERRANTE</span>
+    </div>
+    <ul class="footer-links">
+      <li><a href="#risultati">Risultati</a></li>
+      <li><a href="#metodo">Coaching</a></li>
+      <li><a href="#programmi">Programmi</a></li>
+      <li><a href="#testimonianze">Testimonianze</a></li>
+      <li><a href="#faq">FAQ</a></li>
+      <li><a href="https://instagram.com/_manuelferrante" target="_blank" rel="noopener">Instagram</a></li>
+    </ul>
+    <p class="footer-copy">© <span id="year"></span> Manuel Ferrante</p>
   </div>
 </footer>
 
-  <!-- Pulsante flottante WhatsApp -->
-  <div class="floating-wa">
-    <a class="wa-btn" href="https://wa.me/393386787740?text=Ciao%2C%20vorrei%20avere%20informazioni%20sul%20Coaching%2C%20possiamo%20fissare%20una%20call%20conoscitiva" target="_blank" rel="noopener">Hai dubbi? Scrivimi su WhatsApp</a>
-  </div>
+<script>
+// ── DATI: ATLETI (schema riutilizzabile, aggiungi qui nuovi risultati) ──
+// Campi opzionali goal/before/work: se valorizzati vengono mostrati nel
+// modal come approfondimento "case study" senza bisogno di ridisegnare nulla.
+const athletes = [
+  { name:'Nicolò', discipline:'Streetlifting', title:'Trazioni', description:'Fai esplodere le tue trazioni', result:'Trazioni · 70kg', video:'videos/01_nicolo_trazioni.mp4', featured:true, featuredLabel:'▶ Inizia da qui' },
+  { name:'Elisabetta', discipline:'Streetlifting', title:'Trazioni', description:'Da assistite a trazioni complete: il suo percorso', result:'Trazioni', video:'videos/02_elisabetta_trazioni.mp4' },
+  { name:'Jasmin', discipline:'Powerlifting', title:'Panca', description:'Migliora la tua panca piana', result:'Panca · 130kg', video:'videos/03_jasmin_panca.mp4' },
+  { name:'Nicolò', discipline:'Calisthenics', title:'Muscle Up', description:'Muscle Up, sblocca il movimento', result:'Muscle Up · 22,5kg', video:'videos/04_nicolo_muscleup.mp4' },
+  { name:'Vincenzo', discipline:'Powerlifting', title:'Squat', description:'Non rimanere sotto nello squat', result:'Squat', video:'videos/05_vincenzo_squat.mp4' },
+  { name:'Manuel', discipline:'Coach', title:'Squat', description:'Alleno quello che insegno', result:'Coach', video:'videos/06_manuel_squat.mp4' }
+];
 
-  <script>
-    document.getElementById('year').textContent=new Date().getFullYear();
-  </script>
+function renderAthletes() {
+  const carousel = document.getElementById('carousel');
+  carousel.innerHTML = athletes.map((a, i) => `
+    <div class="vid-card${a.featured ? ' featured-card' : ''}" tabindex="0" role="button" data-index="${i}" aria-label="Guarda il video di ${a.name}">
+      <div class="vid-thumb-wrap">
+        <video class="thumb-vid" src="${a.video}" muted playsinline preload="auto"></video>
+        <div class="play-btn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
+        ${a.featured ? `<div class="featured-badge">${a.featuredLabel}</div>` : ''}
+      </div>
+      <div class="vid-info">
+        <div class="vid-athlete">${a.name}</div>
+        <div class="vid-desc">${a.description}</div>
+        <span class="vid-badge">${a.result}</span>
+      </div>
+    </div>
+  `).join('');
+
+  carousel.querySelectorAll('.vid-card').forEach(card => {
+    const idx = +card.dataset.index;
+    card.addEventListener('click', () => openModal(idx));
+    card.addEventListener('keydown', e => { if (e.key === 'Enter') openModal(idx); });
+  });
+}
+renderAthletes();
+
+// ── DATI: PROGRAMMI (schema riutilizzabile, aggiungi qui nuovi programmi) ──
+const WA_BASE = 'https://wa.me/393386787740?text=';
+const programs = [
+  { name:'Trazioni', discipline:'Streetlifting', duration:'12 settimane', price:9, available:true,
+    includes:['Programma PDF · 12 settimane di progressione','Consegna via email dopo l\'acquisto'] },
+  { name:'Muscle Up', discipline:'Calisthenics', duration:'12 settimane', price:9, available:false, includes:['Programma PDF · 12 settimane di progressione'] },
+  { name:'Dip', discipline:'Calisthenics', duration:'12 settimane', price:9, available:false, includes:['Programma PDF · 12 settimane di progressione'] },
+  { name:'Squat', discipline:'Powerlifting', duration:'12 settimane', price:9, available:false, includes:['Programma PDF · 12 settimane di progressione'] },
+  { name:'Street 3', discipline:'Streetlifting', duration:'12 settimane', price:19, available:false, includes:['Programma completo senza muscle up','Programma PDF · 12 settimane di progressione'] },
+  { name:'Street 4', discipline:'Streetlifting', duration:'12 settimane', price:19, available:false, includes:['Programma completo con muscle up','Programma PDF · 12 settimane di progressione'] }
+];
+
+function renderPrograms() {
+  const grid = document.getElementById('programmi-grid');
+  grid.innerHTML = programs.map(p => {
+    const cta = p.available
+      ? `<a class="btn-secondary prog-cta" href="${WA_BASE}${encodeURIComponent('Ciao, vorrei il programma ' + p.name + ' (' + p.price + '€)')}" target="_blank" rel="noopener">Richiedi su WhatsApp</a>`
+      : `<span class="prog-soon prog-cta">In arrivo</span>`;
+    return `
+    <article class="prog-card${p.available ? '' : ' unavailable'}">
+      <div class="prog-top">
+        <div>
+          <div class="prog-name">${p.name}</div>
+          <div class="prog-meta">${p.discipline} · ${p.duration}</div>
+        </div>
+        <div class="prog-price">${p.price}€</div>
+      </div>
+      <ul class="prog-includes">${p.includes.map(i => `<li>${i}</li>`).join('')}</ul>
+      ${cta}
+    </article>`;
+  }).join('');
+}
+renderPrograms();
+
+// ── NAV background on scroll + mobile drawer ─
+const navEl = document.getElementById('nav');
+window.addEventListener('scroll', () => {
+  navEl.classList.toggle('scrolled', window.scrollY > 40);
+}, { passive: true });
+
+const navToggle = document.getElementById('nav-toggle');
+const navDrawer = document.getElementById('nav-drawer');
+function closeDrawer() {
+  navDrawer.classList.remove('open');
+  navToggle.setAttribute('aria-expanded', 'false');
+}
+navToggle.addEventListener('click', () => {
+  const open = navDrawer.classList.toggle('open');
+  navToggle.setAttribute('aria-expanded', String(open));
+});
+navDrawer.querySelectorAll('a').forEach(a => a.addEventListener('click', closeDrawer));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+
+// ── COUNTER ANIMATION ────────────────────────
+function animateCounter(el, target, suffix, dur) {
+  const t0 = performance.now();
+  function tick(now) {
+    const p = Math.min((now - t0) / dur, 1);
+    const e = 1 - Math.pow(1 - p, 3);
+    el.textContent = Math.round(e * target) + suffix;
+    if (p < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+let countered = false;
+const statsEl = document.querySelector('.stats');
+new IntersectionObserver(entries => {
+  if (!entries[0].isIntersecting || countered) return;
+  countered = true;
+  document.querySelectorAll('.stat-num[data-target]').forEach(el => {
+    animateCounter(el, +el.dataset.target, el.dataset.suffix, 1400);
+  });
+}, { threshold: 0.5 }).observe(statsEl);
+
+// ── SCROLL FADE-IN (sezioni) ─────────────────
+document.querySelectorAll('.section-label, .section-title, .testi-video-wrap, .btn-mini-cta, .metodo-item, .prog-card, .faq-item').forEach(el => {
+  el.style.cssText += 'opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s ease';
+  new IntersectionObserver(entries => {
+    if (!entries[0].isIntersecting) return;
+    entries[0].target.style.opacity = '1';
+    entries[0].target.style.transform = 'translateY(0)';
+  }, { threshold: 0.15 }).observe(el);
+});
+
+// ── VID-CARD fade-in staggered ────────────────
+let cardsShown = false;
+new IntersectionObserver(entries => {
+  if (!entries[0].isIntersecting || cardsShown) return;
+  cardsShown = true;
+  document.querySelectorAll('.vid-card').forEach((c, i) => {
+    setTimeout(() => c.classList.add('visible'), i * 85);
+  });
+}, { threshold: 0.1 }).observe(document.getElementById('risultati'));
+
+// ── THUMB VIDEOS seek to midpoint ────────────
+document.querySelectorAll('.thumb-vid').forEach(v => {
+  let done = false;
+  function seek() {
+    if (done || !v.duration) return;
+    done = true;
+    v.currentTime = v.duration * 0.5;
+  }
+  v.addEventListener('loadedmetadata', seek);
+  v.addEventListener('loadeddata', seek);
+  v.addEventListener('canplay', seek);
+  v.load();
+});
+
+// Testimonianze video: mostra secondo 24 come anteprima
+const testiVid = document.getElementById('testi-video');
+if (testiVid) {
+  let testiSeeked = false;
+  function seekTesti() {
+    if (testiSeeked) return;
+    testiSeeked = true;
+    testiVid.currentTime = 24;
+  }
+  testiVid.addEventListener('loadedmetadata', seekTesti);
+  testiVid.addEventListener('loadeddata', seekTesti);
+  testiVid.addEventListener('canplay', seekTesti);
+  testiVid.addEventListener('play', () => {
+    if (testiSeeked && testiVid.currentTime >= 23 && testiVid.currentTime <= 25) {
+      testiVid.currentTime = 0;
+    }
+  });
+  testiVid.load();
+}
+
+// ── MODAL ─────────────────────────────────────
+function openModal(index) {
+  const a = athletes[index];
+  const vid = document.getElementById('modal-video');
+  vid.src = a.video; vid.load();
+  document.getElementById('modal-info').innerHTML = `
+    <div class="vid-athlete">${a.name}</div>
+    <div class="vid-desc">${a.description}</div>
+    <span class="vid-badge">${a.result}</span>
+  `;
+  document.getElementById('modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  vid.play().catch(() => {});
+}
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('modal')) return;
+  const vid = document.getElementById('modal-video');
+  vid.pause(); vid.removeAttribute('src'); vid.load();
+  document.getElementById('modal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(null); });
+
+// ── CAROUSEL ARROWS ───────────────────────────
+const carousel = document.getElementById('carousel');
+function cardW() {
+  const c = carousel.querySelector('.vid-card');
+  return c ? c.offsetWidth + 14 : 200;
+}
+function smoothScroll(from, to, dur) {
+  const t0 = performance.now();
+  function step(now) {
+    const p = Math.min((now - t0) / dur, 1);
+    const e = p < 0.5 ? 2*p*p : -1+(4-2*p)*p;
+    carousel.scrollLeft = from + (to - from) * e;
+    if (p < 1) requestAnimationFrame(step);
+    else updateArrows();
+  }
+  requestAnimationFrame(step);
+}
+function updateArrows() {
+  const max = carousel.scrollWidth - carousel.clientWidth;
+  const pos = Math.round(carousel.scrollLeft);
+  const L = document.getElementById('arrow-left');
+  const R = document.getElementById('arrow-right');
+  const atStart = pos <= 4;
+  const atEnd   = pos >= max - 4;
+  L.style.opacity       = atStart ? '0' : '0.55';
+  L.style.pointerEvents = atStart ? 'none' : 'auto';
+  R.style.opacity       = atEnd   ? '0' : '0.55';
+  R.style.pointerEvents = atEnd   ? 'none' : 'auto';
+}
+document.getElementById('arrow-left').addEventListener('click', () => {
+  smoothScroll(carousel.scrollLeft, Math.max(0, carousel.scrollLeft - cardW()), 480);
+});
+document.getElementById('arrow-right').addEventListener('click', () => {
+  const max = carousel.scrollWidth - carousel.clientWidth;
+  smoothScroll(carousel.scrollLeft, Math.min(max, carousel.scrollLeft + cardW()), 480);
+});
+carousel.addEventListener('scroll', updateArrows, { passive: true });
+updateArrows();
+
+// ── FORM VALIDATION & SUBMIT ──────────────────
+function validateForm() {
+  let ok = true;
+  const tw = document.getElementById('f-tipo_allenamento');
+  const te = tw.querySelector('.field-error');
+  const tok = !!document.querySelector('input[name="tipo_allenamento"]:checked');
+  te.style.display = tok ? 'none' : 'block'; tw.classList.toggle('has-error', !tok);
+  if (!tok) ok = false;
+
+  const mw = document.getElementById('f-motivazione');
+  const me = mw.querySelector('.field-error');
+  const mv = document.querySelector('textarea[name="motivazione"]').value.trim();
+  me.style.display = mv ? 'none' : 'block'; mw.classList.toggle('has-error', !mv);
+  if (!mv) ok = false;
+
+  const nw = document.getElementById('f-nome');
+  const ne = nw.querySelector('.field-error');
+  const nv = document.querySelector('input[name="nome"]').value.trim();
+  ne.style.display = nv ? 'none' : 'block'; nw.classList.toggle('has-error', !nv);
+  if (!nv) ok = false;
+
+  const pw = document.getElementById('f-telefono');
+  const pe = pw.querySelector('.field-error');
+  const pv = document.querySelector('input[name="telefono"]').value.replace(/\s/g,'');
+  const pok = pv.length >= 8;
+  pe.style.display = pok ? 'none' : 'block'; pw.classList.toggle('has-error', !pok);
+  if (!pok) ok = false;
+
+  return ok;
+}
+
+document.getElementById('coaching-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  if (!validateForm()) return;
+  const btn = document.getElementById('submit-btn');
+  btn.querySelector('.btn-submit-top').textContent = 'Invio…';
+  btn.disabled = true;
+  try {
+    const resp = await fetch(this.action, {
+      method: 'POST', body: new FormData(this), headers: { Accept: 'application/json' }
+    });
+    if (resp.ok) {
+      document.getElementById('form-fields').style.display = 'none';
+      const ss = document.getElementById('success-screen');
+      ss.style.display = 'block';
+      const sv = document.getElementById('success-video');
+      sv.load(); sv.play().catch(() => {});
+      document.getElementById('top').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      btn.querySelector('.btn-submit-top').textContent = 'Invia,';
+      btn.disabled = false;
+    }
+  } catch {
+    btn.querySelector('.btn-submit-top').textContent = 'Invia,';
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('year').textContent = new Date().getFullYear();
+</script>
 </body>
 </html>
