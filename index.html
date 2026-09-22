@@ -100,7 +100,7 @@
   .btn-secondary:hover{border-color:var(--accent);color:var(--accent)}
 
   .hero-photo{position:relative;margin:28px -24px 0;height:56vh;min-height:340px;overflow:hidden;animation:fadeIn .8s .1s ease both}
-  .hero-photo img{width:100%;height:100%;object-fit:cover;object-position:50% 20%;animation:kenBurns 18s ease-out forwards}
+  .hero-photo img{width:100%;height:100%;object-fit:cover;object-position:50% 42%;animation:kenBurns 18s ease-out forwards}
   .hero-photo-overlay{position:absolute;inset:0;background:linear-gradient(to top,var(--bg) 0%,rgba(13,13,13,.15) 45%,rgba(13,13,13,.55) 100%)}
   @keyframes kenBurns{from{transform:scale(1.12)}to{transform:scale(1)}}
 
@@ -198,10 +198,13 @@
   .btn-mini-top{font-family:var(--display);font-size:18px;letter-spacing:.04em;color:var(--accent);line-height:1.1}
   .btn-mini-sub{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:rgba(245,245,240,.45)}
 
-  /* ── BREAK (foto full-bleed + citazione) ──── */
+  /* ── BREAK (galleria foto scorrevole + citazione fissa) ── */
   .break-section{position:relative;z-index:2;min-height:64vh;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-top:80px}
-  .break-bg{position:absolute;inset:-8% 0;background-size:cover;background-position:center 25%;will-change:transform}
-  .break-overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(13,13,13,.55) 0%,rgba(13,13,13,.75) 55%,var(--bg) 100%)}
+  .break-gallery{position:absolute;inset:0}
+  .break-gallery-track{display:flex;height:100%;width:max-content;animation:breakScroll 50s linear infinite}
+  .break-slide{flex:0 0 auto;width:240px;height:100%;background-size:cover;background-position:center 30%;filter:grayscale(.2) brightness(.8)}
+  @keyframes breakScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+  .break-overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(13,13,13,.6) 0%,rgba(13,13,13,.78) 55%,var(--bg) 100%)}
   .break-content{position:relative;z-index:2;text-align:center;padding:60px 24px;max-width:560px}
   .break-eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:var(--accent);margin-bottom:14px}
   .break-quote{font-family:var(--display);font-size:clamp(34px,7vw,60px);line-height:1.02;letter-spacing:.01em}
@@ -209,7 +212,7 @@
 
   /* ── TESTIMONIANZE ─────────────────────────── */
   .testi-section{position:relative;z-index:2;padding:80px 24px 0}
-  .testi-bg-tex{position:absolute;inset:0;background-image:url('images/testi-bg.jpg');background-size:cover;background-position:center;opacity:.14;z-index:-1;filter:blur(1px)}
+  .testi-bg-tex{position:absolute;top:0;left:0;right:0;height:440px;background-image:url('images/testi-bg.jpg');background-size:cover;background-position:center 35%;opacity:.16;z-index:-1;filter:blur(1px);mask-image:linear-gradient(to bottom,#000 0%,transparent 100%);-webkit-mask-image:linear-gradient(to bottom,#000 0%,transparent 100%)}
   .testi-inner{max-width:var(--max);margin:0 auto}
   .testi-video-wrap{position:relative;width:100%;border-radius:12px;overflow:hidden;border:1px solid var(--border);background:#000;margin-top:20px}
   .testi-video-wrap::before{content:'';display:block;padding-bottom:177.77%}
@@ -219,7 +222,7 @@
   .metodo-section{position:relative;z-index:2;padding:80px 24px 0;max-width:1280px;margin:0 auto}
   .metodo-grid{display:block}
   .metodo-sticky-photo{position:relative;height:220px;border-radius:12px;overflow:hidden;margin:20px 0 8px;border:1px solid var(--border)}
-  .metodo-sticky-photo img{width:100%;height:100%;object-fit:cover;object-position:50% 20%}
+  .metodo-sticky-photo img{width:100%;height:100%;object-fit:cover;object-position:50% 34%}
   .metodo-sticky-photo::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(13,13,13,.5),transparent 50%)}
   .metodo-list{list-style:none;margin-top:8px;display:grid;gap:0}
   .metodo-item{display:flex;gap:16px;padding:18px 0;border-top:1px solid var(--border);transition:border-color .3s}
@@ -458,9 +461,24 @@
 </section>
 
 
-<!-- ══ BREAK: foto + citazione ══════════════════ -->
+<!-- ══ BREAK: galleria foto scorrevole + citazione ══ -->
 <section class="break-section" id="break">
-  <div class="break-bg" id="break-bg" style="background-image:url('images/squat-bg.jpg')"></div>
+  <div class="break-gallery" aria-hidden="true">
+    <div class="break-gallery-track" id="break-gallery-track">
+      <div class="break-slide" style="background-image:url('images/hero-bg.jpg')"></div>
+      <div class="break-slide" style="background-image:url('images/pullup-bg.jpg')"></div>
+      <div class="break-slide" style="background-image:url('images/squat-bg.jpg')"></div>
+      <div class="break-slide" style="background-image:url('images/metodo-bg.jpg')"></div>
+      <div class="break-slide" style="background-image:url('images/testi-bg.jpg')"></div>
+      <div class="break-slide" style="background-image:url('images/programmi-bg.jpg')"></div>
+      <div class="break-slide" style="background-image:url('images/hero-bg.jpg')"></div>
+      <div class="break-slide" style="background-image:url('images/pullup-bg.jpg')"></div>
+      <div class="break-slide" style="background-image:url('images/squat-bg.jpg')"></div>
+      <div class="break-slide" style="background-image:url('images/metodo-bg.jpg')"></div>
+      <div class="break-slide" style="background-image:url('images/testi-bg.jpg')"></div>
+      <div class="break-slide" style="background-image:url('images/programmi-bg.jpg')"></div>
+    </div>
+  </div>
   <div class="break-overlay"></div>
   <div class="break-content">
     <p class="break-eyebrow reveal-up">Il coach</p>
@@ -615,7 +633,6 @@
 </footer>
 
 <script>
-const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const hoverFine = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
 // ── SCROLL PROGRESS ───────────────────────────
@@ -781,25 +798,6 @@ metodoItems.forEach(item => {
     entries.forEach(en => en.target.classList.toggle('active', en.isIntersecting));
   }, { threshold: 0.5, rootMargin: '-30% 0px -30% 0px' }).observe(item);
 });
-
-// ── PARALLAX su break-bg (disabilitato con reduced motion) ─
-const breakBg = document.getElementById('break-bg');
-if (breakBg && !reducedMotion) {
-  let ticking = false;
-  function updateParallax() {
-    const r = breakBg.parentElement.getBoundingClientRect();
-    const vh = window.innerHeight;
-    if (r.bottom > 0 && r.top < vh) {
-      const progress = (r.top) / vh;
-      breakBg.style.transform = `translateY(${(progress * 40).toFixed(1)}px)`;
-    }
-    ticking = false;
-  }
-  window.addEventListener('scroll', () => {
-    if (!ticking) { requestAnimationFrame(updateParallax); ticking = true; }
-  }, { passive: true });
-  updateParallax();
-}
 
 // ── THUMB VIDEOS seek to midpoint ────────────
 document.querySelectorAll('.thumb-vid').forEach(v => {
