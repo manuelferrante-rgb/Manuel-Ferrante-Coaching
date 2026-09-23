@@ -550,7 +550,7 @@
     <p class="section-label reveal">Percorsi guidati</p>
     <h2 class="section-title reveal">PROGRAMMI</h2>
   </div>
-  <p class="programmi-note">Programmi PDF da 12 settimane. Il sistema di pagamento online è in arrivo: per ora scrivimi su WhatsApp per il programma disponibile.</p>
+  <p class="programmi-note">Programmi PDF da 12 settimane. Trazioni è già acquistabile online, gli altri sono in arrivo.</p>
   <div class="carousel-wrap">
     <button class="carousel-arrow arrow-left" id="prog-arrow-left" aria-label="Precedente">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
@@ -671,6 +671,7 @@ renderAthletes();
 const WA_BASE = 'https://wa.me/393386787740?text=';
 const programs = [
   { name:'Trazioni', discipline:'Streetlifting', duration:'12 settimane', price:9, available:true,
+    payhipUrl:'https://payhip.com/b/0LndZ',
     includes:['Programma PDF · 12 settimane di progressione','Consegna via email dopo l\'acquisto'] },
   { name:'Muscle Up', discipline:'Calisthenics', duration:'12 settimane', price:9, available:false, includes:['Programma PDF · 12 settimane di progressione'] },
   { name:'Dip', discipline:'Calisthenics', duration:'12 settimane', price:9, available:false, includes:['Programma PDF · 12 settimane di progressione'] },
@@ -682,9 +683,11 @@ const programs = [
 function renderPrograms() {
   const grid = document.getElementById('programmi-grid');
   grid.innerHTML = programs.map(p => {
-    const cta = p.available
-      ? `<a class="btn-secondary prog-cta" href="${WA_BASE}${encodeURIComponent('Ciao, vorrei il programma ' + p.name + ' (' + p.price + '€)')}" target="_blank" rel="noopener">Richiedi su WhatsApp</a>`
-      : `<span class="prog-soon prog-cta">In arrivo</span>`;
+    const cta = p.payhipUrl
+      ? `<a class="btn-primary prog-cta" href="${p.payhipUrl}" target="_blank" rel="noopener">Acquista ora</a>`
+      : p.available
+        ? `<a class="btn-secondary prog-cta" href="${WA_BASE}${encodeURIComponent('Ciao, vorrei il programma ' + p.name + ' (' + p.price + '€)')}" target="_blank" rel="noopener">Richiedi su WhatsApp</a>`
+        : `<span class="prog-soon prog-cta">In arrivo</span>`;
     return `
     <article class="prog-card${p.available ? '' : ' unavailable'}">
       <div class="prog-top">
