@@ -871,12 +871,18 @@ if (metodoListEl) {
 const floatingCta = document.getElementById('floating-cta');
 const coachingFormEl = document.getElementById('coaching-form');
 if (floatingCta && coachingFormEl) {
-  let hasEnteredForm = false;
-  new IntersectionObserver(entries => {
-    const e = entries[0];
-    if (e.isIntersecting) hasEnteredForm = true;
-    floatingCta.classList.toggle('visible', hasEnteredForm && !e.isIntersecting);
-  }, { threshold: 0, rootMargin: '-20% 0px 0px 0px' }).observe(coachingFormEl);
+  let fctaTicking = false;
+  function syncFloatingCta() {
+    const r = coachingFormEl.getBoundingClientRect();
+    const margin = window.innerHeight * 0.15;
+    floatingCta.classList.toggle('visible', r.bottom < -margin);
+    fctaTicking = false;
+  }
+  window.addEventListener('scroll', () => {
+    if (!fctaTicking) { requestAnimationFrame(syncFloatingCta); fctaTicking = true; }
+  }, { passive: true });
+  window.addEventListener('resize', syncFloatingCta);
+  syncFloatingCta();
 }
 
 // ── PARALLAX foto "Il coach" (disabilitato con reduced motion) ─
