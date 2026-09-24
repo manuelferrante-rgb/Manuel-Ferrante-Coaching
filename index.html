@@ -558,7 +558,7 @@
     <p class="section-label reveal">Percorsi guidati</p>
     <h2 class="section-title reveal">PROGRAMMI</h2>
   </div>
-  <p class="programmi-note">Programmi PDF da 12 settimane. Trazioni è già acquistabile online, gli altri sono in arrivo.</p>
+  <p class="programmi-note">Programmi PDF da 8 settimane. Trazioni è già acquistabile online, gli altri sono in arrivo.</p>
   <div class="carousel-wrap">
     <button class="carousel-arrow arrow-left" id="prog-arrow-left" aria-label="Precedente">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
@@ -683,14 +683,14 @@ const IMG_DIP = { src:'images/prog-dip.jpg', alt:'Dip' };
 const IMG_SQUAT = { src:'images/prog-squat.jpg', alt:'Squat' };
 
 const programs = [
-  { name:'Trazioni', discipline:'Streetlifting', duration:'12 settimane', price:9, available:true,
+  { name:'Trazioni', discipline:'Streetlifting', duration:'8 settimane', price:9, available:true,
     payhipUrl:'https://payhip.com/b/0LndZ', images:[IMG_TRAZIONI],
-    includes:['Programma PDF · 12 settimane di progressione','Consegna via email dopo l\'acquisto'] },
-  { name:'Muscle Up', discipline:'Calisthenics', duration:'12 settimane', price:9, available:false, images:[IMG_MUSCLEUP], includes:['Programma PDF · 12 settimane di progressione'] },
-  { name:'Dip', discipline:'Calisthenics', duration:'12 settimane', price:9, available:false, images:[IMG_DIP], includes:['Programma PDF · 12 settimane di progressione'] },
-  { name:'Squat', discipline:'Powerlifting', duration:'12 settimane', price:9, available:false, images:[IMG_SQUAT], includes:['Programma PDF · 12 settimane di progressione'] },
-  { name:'Street 3', discipline:'Streetlifting', duration:'12 settimane', price:19, available:false, images:[IMG_TRAZIONI, IMG_DIP, IMG_SQUAT], includes:['Programma completo senza muscle up','Programma PDF · 12 settimane di progressione'] },
-  { name:'Street 4', discipline:'Streetlifting', duration:'12 settimane', price:19, available:false, images:[IMG_TRAZIONI, IMG_MUSCLEUP, IMG_DIP, IMG_SQUAT], includes:['Programma completo con muscle up','Programma PDF · 12 settimane di progressione'] }
+    includes:['Programma PDF · 8 settimane di progressione','Consegna via email dopo l\'acquisto'] },
+  { name:'Muscle Up', discipline:'Calisthenics', duration:'8 settimane', price:9, available:false, images:[IMG_MUSCLEUP], includes:['Programma PDF · 8 settimane di progressione'] },
+  { name:'Dip', discipline:'Calisthenics', duration:'8 settimane', price:9, available:false, images:[IMG_DIP], includes:['Programma PDF · 8 settimane di progressione'] },
+  { name:'Squat', discipline:'Powerlifting', duration:'8 settimane', price:9, available:false, images:[IMG_SQUAT], includes:['Programma PDF · 8 settimane di progressione'] },
+  { name:'Street 3', discipline:'Streetlifting', duration:'8 settimane', price:19, available:false, images:[IMG_TRAZIONI, IMG_DIP, IMG_SQUAT], includes:['Programma completo senza muscle up','Programma PDF · 8 settimane di progressione'] },
+  { name:'Street 4', discipline:'Streetlifting', duration:'8 settimane', price:19, available:false, images:[IMG_TRAZIONI, IMG_MUSCLEUP, IMG_DIP, IMG_SQUAT], includes:['Programma completo con muscle up','Programma PDF · 8 settimane di progressione'] }
 ];
 
 function renderPrograms() {
