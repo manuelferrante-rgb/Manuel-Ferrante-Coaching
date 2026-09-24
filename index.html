@@ -305,6 +305,7 @@
   .floating-cta:hover{box-shadow:0 10px 28px rgba(var(--accent-rgb),.35)}
   @media(min-width:900px){.floating-cta{left:auto;right:24px;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateY(140%)}.floating-cta.visible{transform:translateY(0)}}
 
+
   /* ── CAROUSEL DOTS ─────────────────────────── */
   .carousel-dots{display:flex;justify-content:center;gap:6px;margin-top:14px}
   .carousel-dot{width:5px;height:5px;border-radius:50%;background:var(--border);transition:background .25s,transform .25s}
@@ -871,18 +872,25 @@ if (metodoListEl) {
 const floatingCta = document.getElementById('floating-cta');
 const coachingFormEl = document.getElementById('coaching-form');
 if (floatingCta && coachingFormEl) {
-  let fctaTicking = false;
   function syncFloatingCta() {
     const r = coachingFormEl.getBoundingClientRect();
     const margin = window.innerHeight * 0.15;
     floatingCta.classList.toggle('visible', r.bottom < -margin);
-    fctaTicking = false;
   }
-  window.addEventListener('scroll', () => {
-    if (!fctaTicking) { requestAnimationFrame(syncFloatingCta); fctaTicking = true; }
-  }, { passive: true });
-  window.addEventListener('resize', syncFloatingCta);
+  let fctaTicking = false;
+  function onScrollOrResize() {
+    if (!fctaTicking) {
+      requestAnimationFrame(() => { syncFloatingCta(); fctaTicking = false; });
+      fctaTicking = true;
+    }
+  }
+  window.addEventListener('scroll', onScrollOrResize, { passive: true });
+  window.addEventListener('resize', onScrollOrResize);
+  // il layout iniziale può cambiare quando font/immagini finiscono di caricare:
+  // ricalcola subito, dopo un frame, e di nuovo al load completo della pagina
   syncFloatingCta();
+  requestAnimationFrame(syncFloatingCta);
+  window.addEventListener('load', syncFloatingCta);
 }
 
 // ── PARALLAX foto "Il coach" (disabilitato con reduced motion) ─
