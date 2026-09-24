@@ -205,15 +205,6 @@
   .btn-mini-top{font-family:var(--display);font-size:18px;letter-spacing:.04em;color:var(--accent);line-height:1.1}
   .btn-mini-sub{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:rgba(245,245,240,.45)}
 
-  /* ── BREAK (foto squat full-bleed + citazione) ──── */
-  .break-section{position:relative;z-index:2;min-height:64vh;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-top:80px}
-  .break-bg{position:absolute;inset:-8% 0;background-image:url('images/squat-bg.jpg');background-size:cover;background-position:center 25%;will-change:transform}
-  .break-overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(13,13,13,.55) 0%,rgba(13,13,13,.75) 55%,var(--bg) 100%)}
-  .break-content{position:relative;z-index:2;text-align:center;padding:60px 24px;max-width:560px}
-  .break-eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:var(--accent);margin-bottom:14px}
-  .break-quote{font-family:var(--display);font-size:clamp(34px,7vw,60px);line-height:1.02;letter-spacing:.01em}
-  .break-sub{margin-top:14px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:rgba(245,245,240,.55)}
-
   /* ── TESTIMONIANZE ─────────────────────────── */
   .testi-section{position:relative;z-index:2;padding:80px 24px 0}
   .testi-bg-tex{position:absolute;top:0;left:0;right:0;height:440px;background-image:url('images/testi-bg.jpg');background-size:cover;background-position:center 35%;opacity:.16;z-index:-1;filter:blur(1px);mask-image:linear-gradient(to bottom,#000 0%,transparent 100%);-webkit-mask-image:linear-gradient(to bottom,#000 0%,transparent 100%)}
@@ -491,38 +482,6 @@
 </section>
 
 
-<!-- ══ BREAK: foto squat + citazione ═══════════ -->
-<section class="break-section" id="break">
-  <div class="break-bg" id="break-bg"></div>
-  <div class="break-overlay"></div>
-  <div class="break-content">
-    <p class="break-eyebrow reveal-up">Il coach</p>
-    <h2 class="break-quote reveal-up">"Alleno quello<br>che insegno."</h2>
-    <p class="break-sub reveal-up">— Manuel Ferrante</p>
-  </div>
-</section>
-
-
-<!-- ══ TESTIMONIANZE ════════════════════════════ -->
-<section class="testi-section" id="testimonianze">
-  <div class="testi-bg-tex"></div>
-  <div class="testi-inner">
-    <p class="section-label reveal">Il coaching che funziona</p>
-    <h2 class="section-title reveal">COSA<br>DICONO</h2>
-    <div class="testi-video-wrap reveal-up">
-      <video id="testi-video" src="videos/08_testimonianze.mp4" controls playsinline preload="auto"></video>
-    </div>
-
-    <div class="section-cta" style="padding-bottom:0">
-      <a href="#coaching-form" class="btn-mini-cta">
-        <span class="btn-mini-top">👉 Compila il form</span>
-        <span class="btn-mini-sub">ti contatto io</span>
-      </a>
-    </div>
-  </div>
-</section>
-
-
 <!-- ══ METODO ═══════════════════════════════════ -->
 <section class="metodo-section" id="metodo">
   <div class="metodo-grid">
@@ -597,6 +556,26 @@
       <span class="btn-mini-top">👉 Preferisci essere seguito?</span>
       <span class="btn-mini-sub">compila il form</span>
     </a>
+  </div>
+</section>
+
+
+<!-- ══ TESTIMONIANZE ════════════════════════════ -->
+<section class="testi-section" id="testimonianze">
+  <div class="testi-bg-tex"></div>
+  <div class="testi-inner">
+    <p class="section-label reveal">Il coaching che funziona</p>
+    <h2 class="section-title reveal">COSA<br>DICONO</h2>
+    <div class="testi-video-wrap reveal-up">
+      <video id="testi-video" src="videos/08_testimonianze.mp4" controls playsinline preload="auto"></video>
+    </div>
+
+    <div class="section-cta" style="padding-bottom:0">
+      <a href="#coaching-form" class="btn-mini-cta">
+        <span class="btn-mini-top">👉 Compila il form</span>
+        <span class="btn-mini-sub">ti contatto io</span>
+      </a>
+    </div>
   </div>
 </section>
 
@@ -859,25 +838,6 @@ if (metodoListEl) {
   }
   window.addEventListener('scroll', updateMetodoProgress, { passive: true });
   updateMetodoProgress();
-}
-
-// ── PARALLAX foto "Il coach" (disabilitato con reduced motion) ─
-const breakBgEl = document.getElementById('break-bg');
-if (breakBgEl && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-  let breakTicking = false;
-  function updateBreakParallax() {
-    const r = breakBgEl.parentElement.getBoundingClientRect();
-    const vh = window.innerHeight;
-    if (r.bottom > 0 && r.top < vh) {
-      const progress = r.top / vh;
-      breakBgEl.style.transform = `translateY(${(progress * 30).toFixed(1)}px)`;
-    }
-    breakTicking = false;
-  }
-  window.addEventListener('scroll', () => {
-    if (!breakTicking) { requestAnimationFrame(updateBreakParallax); breakTicking = true; }
-  }, { passive: true });
-  updateBreakParallax();
 }
 
 // ── THUMB VIDEOS seek to midpoint ────────────
