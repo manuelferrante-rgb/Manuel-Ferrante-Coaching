@@ -255,6 +255,8 @@
   .prog-name{font-family:var(--display);font-size:22px;letter-spacing:.02em;line-height:1}
   .prog-meta{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--grey);margin-top:4px}
   .prog-price{font-family:var(--display);font-size:26px;color:var(--accent);white-space:nowrap}
+  .prog-audience{font-size:12.5px;color:rgba(245,245,240,.55);font-style:italic;line-height:1.5}
+  .prog-outcome{font-size:12.5px;color:rgba(245,245,240,.8);line-height:1.5}
   .prog-includes{list-style:none;font-size:12.5px;color:rgba(245,245,240,.6);display:grid;gap:4px}
   .prog-includes li{padding-left:14px;position:relative}
   .prog-includes li::before{content:'—';position:absolute;left:0;color:var(--accent)}
@@ -685,12 +687,29 @@ const IMG_SQUAT = { src:'images/prog-squat.jpg', alt:'Squat' };
 const programs = [
   { name:'Trazioni', discipline:'Streetlifting', duration:'8 settimane', price:9, available:true,
     payhipUrl:'https://payhip.com/b/0LndZ', images:[IMG_TRAZIONI],
-    includes:['Programma PDF · 8 settimane di progressione','Consegna via email dopo l\'acquisto'] },
-  { name:'Muscle Up', discipline:'Calisthenics', duration:'8 settimane', price:9, available:false, images:[IMG_MUSCLEUP], includes:['Programma PDF · 8 settimane di progressione'] },
-  { name:'Dip', discipline:'Calisthenics', duration:'8 settimane', price:9, available:false, images:[IMG_DIP], includes:['Programma PDF · 8 settimane di progressione'] },
-  { name:'Squat', discipline:'Powerlifting', duration:'8 settimane', price:9, available:false, images:[IMG_SQUAT], includes:['Programma PDF · 8 settimane di progressione'] },
-  { name:'Street 3', discipline:'Streetlifting', duration:'8 settimane', price:19, available:false, images:[IMG_TRAZIONI, IMG_DIP, IMG_SQUAT], includes:['Programma completo senza muscle up','Programma PDF · 8 settimane di progressione'] },
-  { name:'Street 4', discipline:'Streetlifting', duration:'8 settimane', price:19, available:false, images:[IMG_TRAZIONI, IMG_MUSCLEUP, IMG_DIP, IMG_SQUAT], includes:['Programma completo con muscle up','Programma PDF · 8 settimane di progressione'] }
+    audience:'Per chi ha già una trazione libera o zavorrata.',
+    outcome:'Un protocollo autoregolato di 8 settimane per far salire il carico in trazione zavorrata con progressione strutturata.',
+    includes:['Consegna via email dopo l\'acquisto'] },
+  { name:'Muscle Up', discipline:'Calisthenics', duration:'8 settimane', price:9, available:false, images:[IMG_MUSCLEUP],
+    audience:'Per chi vuole imparare il muscle up o incrementare la zavorra.',
+    outcome:'8 settimane di lavoro su transizione, forza specifica e timing per arrivare a un muscle up pulito e ripetibile.',
+    includes:[] },
+  { name:'Dip', discipline:'Calisthenics', duration:'8 settimane', price:9, available:false, images:[IMG_DIP],
+    audience:'Per chi vuole aumentare il carico sui dip zavorrati o consolidarli.',
+    outcome:'Programma di 8 settimane con progressione di carico autoregolata sui dip.',
+    includes:[] },
+  { name:'Squat', discipline:'Powerlifting', duration:'8 settimane', price:9, available:false, images:[IMG_SQUAT],
+    audience:'Per chi è fermo nello squat e vuole uscire dallo stallo con una programmazione strutturata.',
+    outcome:'8 settimane di programmazione su squat con progressione di carico/volume mirata.',
+    includes:[] },
+  { name:'Street 3', discipline:'Streetlifting', duration:'8 settimane', price:19, available:false, images:[IMG_TRAZIONI, IMG_DIP, IMG_SQUAT],
+    audience:'Per chi vuole allenare insieme trazioni, dip e squat zavorrati con un\'unica programmazione coordinata.',
+    outcome:'Percorso completo di 8 settimane sui tre movimenti, con carichi bilanciati tra loro.',
+    includes:['Programma completo senza muscle up'] },
+  { name:'Street 4', discipline:'Streetlifting', duration:'8 settimane', price:19, available:false, images:[IMG_TRAZIONI, IMG_MUSCLEUP, IMG_DIP, IMG_SQUAT],
+    audience:'Per chi vuole il percorso streetlifting completo, muscle up incluso.',
+    outcome:'Programmazione di 8 settimane su tutti e 4 i movimenti insieme, bilanciata per evitare stalli.',
+    includes:['Programma completo con muscle up'] }
 ];
 
 function renderPrograms() {
@@ -713,7 +732,9 @@ function renderPrograms() {
           </div>
           <div class="prog-price">${p.price}€</div>
         </div>
-        <ul class="prog-includes">${p.includes.map(i => `<li>${i}</li>`).join('')}</ul>
+        <p class="prog-audience">${p.audience}</p>
+        <p class="prog-outcome">${p.outcome}</p>
+        ${p.includes.length ? `<ul class="prog-includes">${p.includes.map(i => `<li>${i}</li>`).join('')}</ul>` : ''}
         ${cta}
       </div>
     </article>`;
