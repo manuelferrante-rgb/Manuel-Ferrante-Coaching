@@ -829,27 +829,23 @@ function staggerReveal(containerId, selector) {
 staggerReveal('risultati', '.vid-card');
 staggerReveal('programmi', '.prog-card');
 
-// ── FLOATING CTA (appare solo dopo aver superato ampiamente il form) ─
+// ── FLOATING CTA (appare solo dopo aver superato il form scrollando) ─
 const floatingCta = document.getElementById('floating-cta');
 const coachingFormEl = document.getElementById('coaching-form');
 if (floatingCta && coachingFormEl) {
   function syncFloatingCta() {
-    const r = coachingFormEl.getBoundingClientRect();
-    const margin = window.innerHeight * 0.15;
-    floatingCta.classList.toggle('visible', r.bottom < -margin);
-  }
-  let fctaTicking = false;
-  function onScrollOrResize() {
-    if (!fctaTicking) {
-      requestAnimationFrame(() => { syncFloatingCta(); fctaTicking = false; });
-      fctaTicking = true;
+    const formBottom = coachingFormEl.getBoundingClientRect().bottom;
+    if (formBottom < 0) {
+      floatingCta.classList.add('visible');
+    } else {
+      floatingCta.classList.remove('visible');
     }
   }
-  window.addEventListener('scroll', onScrollOrResize, { passive: true });
-  window.addEventListener('resize', onScrollOrResize);
-  syncFloatingCta();
-  requestAnimationFrame(syncFloatingCta);
+  document.addEventListener('scroll', syncFloatingCta, { passive: true, capture: true });
+  window.addEventListener('scroll', syncFloatingCta, { passive: true });
+  window.addEventListener('resize', syncFloatingCta);
   window.addEventListener('load', syncFloatingCta);
+  syncFloatingCta();
 }
 
 // ── METODO active step highlight + linea di progresso ─
