@@ -238,11 +238,18 @@
   /* ── PROGRAMMI (carosello orizzontale) ─────── */
   .programmi-section{position:relative;z-index:2;padding:80px 0 0}
   .programmi-note{font-size:12.5px;color:rgba(245,245,240,.5);margin:-14px 24px 20px;font-weight:300;max-width:var(--max)}
-  .prog-card{flex:0 0 250px;scroll-snap-align:start;border:1px solid var(--border);border-radius:10px;padding:18px;background:var(--bg2);display:flex;flex-direction:column;gap:10px;position:relative;opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .3s ease,border-color .2s}
+  .prog-card{flex:0 0 250px;scroll-snap-align:start;border:1px solid var(--border);border-radius:10px;background:var(--bg2);display:flex;flex-direction:column;position:relative;opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .3s ease,border-color .2s;overflow:hidden}
   .prog-card.visible{opacity:1;transform:translateY(0)}
   .prog-card:hover{border-color:rgba(var(--accent-rgb),.35)}
   .prog-card.unavailable{opacity:.85}
   .prog-card.unavailable.visible{opacity:.6}
+  .prog-img-wrap{width:100%;aspect-ratio:1/1;background:var(--bg3);border-bottom:1px solid var(--border)}
+  .prog-img-grid{display:grid;width:100%;height:100%;gap:2px}
+  .prog-img-grid.cols-1{grid-template-columns:1fr}
+  .prog-img-grid.cols-3{grid-template-columns:repeat(3,1fr)}
+  .prog-img-grid.cols-4{grid-template-columns:repeat(2,1fr)}
+  .prog-img-grid img{width:100%;height:100%;object-fit:cover;display:block}
+  .prog-body{padding:18px;display:flex;flex-direction:column;gap:10px;flex:1}
   .prog-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
   .prog-name{font-family:var(--display);font-size:22px;letter-spacing:.02em;line-height:1}
   .prog-meta{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--grey);margin-top:4px}
@@ -669,15 +676,20 @@ renderAthletes();
 
 // ── DATI: PROGRAMMI ───────────────────────────
 const WA_BASE = 'https://wa.me/393386787740?text=';
+const IMG_TRAZIONI = { src:'images/prog-trazioni.jpg', alt:'Trazioni zavorrate' };
+const IMG_MUSCLEUP = { src:'images/prog-muscleup.jpg', alt:'Muscle Up' };
+const IMG_DIP = { src:'images/prog-dip.jpg', alt:'Dip' };
+const IMG_SQUAT = { src:'images/prog-squat.jpg', alt:'Squat' };
+
 const programs = [
   { name:'Trazioni', discipline:'Streetlifting', duration:'12 settimane', price:9, available:true,
-    payhipUrl:'https://payhip.com/b/0LndZ',
+    payhipUrl:'https://payhip.com/b/0LndZ', images:[IMG_TRAZIONI],
     includes:['Programma PDF · 12 settimane di progressione','Consegna via email dopo l\'acquisto'] },
-  { name:'Muscle Up', discipline:'Calisthenics', duration:'12 settimane', price:9, available:false, includes:['Programma PDF · 12 settimane di progressione'] },
-  { name:'Dip', discipline:'Calisthenics', duration:'12 settimane', price:9, available:false, includes:['Programma PDF · 12 settimane di progressione'] },
-  { name:'Squat', discipline:'Powerlifting', duration:'12 settimane', price:9, available:false, includes:['Programma PDF · 12 settimane di progressione'] },
-  { name:'Street 3', discipline:'Streetlifting', duration:'12 settimane', price:19, available:false, includes:['Programma completo senza muscle up','Programma PDF · 12 settimane di progressione'] },
-  { name:'Street 4', discipline:'Streetlifting', duration:'12 settimane', price:19, available:false, includes:['Programma completo con muscle up','Programma PDF · 12 settimane di progressione'] }
+  { name:'Muscle Up', discipline:'Calisthenics', duration:'12 settimane', price:9, available:false, images:[IMG_MUSCLEUP], includes:['Programma PDF · 12 settimane di progressione'] },
+  { name:'Dip', discipline:'Calisthenics', duration:'12 settimane', price:9, available:false, images:[IMG_DIP], includes:['Programma PDF · 12 settimane di progressione'] },
+  { name:'Squat', discipline:'Powerlifting', duration:'12 settimane', price:9, available:false, images:[IMG_SQUAT], includes:['Programma PDF · 12 settimane di progressione'] },
+  { name:'Street 3', discipline:'Streetlifting', duration:'12 settimane', price:19, available:false, images:[IMG_TRAZIONI, IMG_DIP, IMG_SQUAT], includes:['Programma completo senza muscle up','Programma PDF · 12 settimane di progressione'] },
+  { name:'Street 4', discipline:'Streetlifting', duration:'12 settimane', price:19, available:false, images:[IMG_TRAZIONI, IMG_MUSCLEUP, IMG_DIP, IMG_SQUAT], includes:['Programma completo con muscle up','Programma PDF · 12 settimane di progressione'] }
 ];
 
 function renderPrograms() {
@@ -688,17 +700,21 @@ function renderPrograms() {
       : p.available
         ? `<a class="btn-secondary prog-cta" href="${WA_BASE}${encodeURIComponent('Ciao, vorrei il programma ' + p.name + ' (' + p.price + '€)')}" target="_blank" rel="noopener">Richiedi su WhatsApp</a>`
         : `<span class="prog-soon prog-cta">In arrivo</span>`;
+    const imgs = p.images.map(im => `<img src="${im.src}" alt="${im.alt}" loading="lazy"/>`).join('');
     return `
     <article class="prog-card${p.available ? '' : ' unavailable'}">
-      <div class="prog-top">
-        <div>
-          <div class="prog-name">${p.name}</div>
-          <div class="prog-meta">${p.discipline} · ${p.duration}</div>
+      <div class="prog-img-wrap"><div class="prog-img-grid cols-${p.images.length}">${imgs}</div></div>
+      <div class="prog-body">
+        <div class="prog-top">
+          <div>
+            <div class="prog-name">${p.name}</div>
+            <div class="prog-meta">${p.discipline} · ${p.duration}</div>
+          </div>
+          <div class="prog-price">${p.price}€</div>
         </div>
-        <div class="prog-price">${p.price}€</div>
+        <ul class="prog-includes">${p.includes.map(i => `<li>${i}</li>`).join('')}</ul>
+        ${cta}
       </div>
-      <ul class="prog-includes">${p.includes.map(i => `<li>${i}</li>`).join('')}</ul>
-      ${cta}
     </article>`;
   }).join('');
 
