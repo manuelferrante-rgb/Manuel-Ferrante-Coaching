@@ -101,6 +101,9 @@
   .btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(var(--accent-rgb),.3)}
   .btn-secondary{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--white);background:transparent;border:1px solid var(--border);padding:12px 20px;border-radius:100px;text-decoration:none;font-weight:500;transition:border-color .15s,color .15s}
   .btn-secondary:hover{border-color:var(--accent);color:var(--accent)}
+  .btn-secondary-stack{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:8px 20px;line-height:1.15}
+  .btn-secondary-top{font-size:12px}
+  .btn-secondary-sub{font-size:9px;letter-spacing:.05em;color:rgba(245,245,240,.5)}
 
   .hero-photo{position:relative;margin:28px -24px 0;height:56vh;min-height:340px;overflow:hidden;animation:fadeIn .8s .1s ease both}
   .hero-photo img{width:100%;height:100%;object-fit:cover;object-position:50% 42%;animation:kenBurns 18s ease-out forwards}
@@ -366,6 +369,10 @@
       <div class="hero-ctas">
         <a href="#coaching-form" class="btn-primary">Candidati ora</a>
         <a href="#risultati" class="btn-secondary">Scopri i risultati</a>
+        <a href="#programmi" class="btn-secondary btn-secondary-stack">
+          <span class="btn-secondary-top">Allenati da solo</span>
+          <span class="btn-secondary-sub">Programmi pronti</span>
+        </a>
       </div>
 
       <div class="stats">
