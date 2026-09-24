@@ -867,23 +867,16 @@ if (metodoListEl) {
   updateMetodoProgress();
 }
 
-// ── FLOATING CTA (appare mentre scorri, sparisce nell'hero e sul form) ─
+// ── FLOATING CTA (appare solo dopo aver superato ampiamente il form) ─
 const floatingCta = document.getElementById('floating-cta');
-const heroCtasEl = document.querySelector('.hero-ctas');
 const coachingFormEl = document.getElementById('coaching-form');
-if (floatingCta && heroCtasEl && coachingFormEl) {
-  let heroVisible = true, formVisible = false;
-  function syncFloatingCta() {
-    floatingCta.classList.toggle('visible', !heroVisible && !formVisible);
-  }
+if (floatingCta && coachingFormEl) {
+  let hasEnteredForm = false;
   new IntersectionObserver(entries => {
-    heroVisible = entries[0].isIntersecting;
-    syncFloatingCta();
-  }, { threshold: 0 }).observe(heroCtasEl);
-  new IntersectionObserver(entries => {
-    formVisible = entries[0].isIntersecting;
-    syncFloatingCta();
-  }, { threshold: 0, rootMargin: '-10% 0px -10% 0px' }).observe(coachingFormEl);
+    const e = entries[0];
+    if (e.isIntersecting) hasEnteredForm = true;
+    floatingCta.classList.toggle('visible', hasEnteredForm && !e.isIntersecting);
+  }, { threshold: 0, rootMargin: '-20% 0px 0px 0px' }).observe(coachingFormEl);
 }
 
 // ── PARALLAX foto "Il coach" (disabilitato con reduced motion) ─
