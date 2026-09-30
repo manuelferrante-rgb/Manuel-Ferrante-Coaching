@@ -106,10 +106,6 @@
   .btn-secondary-top{font-size:12px}
   .btn-secondary-sub{font-size:9px;letter-spacing:.05em;color:rgba(245,245,240,.5)}
 
-  .hero-photo{position:relative;margin:28px -24px 0;height:56vh;min-height:340px;overflow:hidden;animation:fadeIn .8s .1s ease both}
-  .hero-photo img{width:100%;height:100%;object-fit:cover;object-position:50% 42%;animation:kenBurns 18s ease-out forwards}
-  .hero-photo-overlay{position:absolute;inset:0;background:linear-gradient(to top,var(--bg) 0%,rgba(13,13,13,.15) 45%,rgba(13,13,13,.55) 100%)}
-  @keyframes kenBurns{from{transform:scale(1.12)}to{transform:scale(1)}}
 
   .stats{display:flex;margin:24px 0 0;background:rgba(13,13,13,.75);border:1px solid rgba(255,255,255,.08);border-radius:var(--r);overflow:hidden;backdrop-filter:blur(8px)}
   .stat{flex:1;padding:13px 8px;text-align:center;border-right:1px solid rgba(255,255,255,.07)}
@@ -292,12 +288,11 @@
   .metodo-list::before{content:'';position:absolute;left:44px;top:0;bottom:0;width:1px;background:var(--border)}
   .metodo-list::after{content:'';position:absolute;left:44px;top:0;width:1px;height:var(--metodo-progress,0%);background:var(--accent);transition:height .15s linear;box-shadow:0 0 6px rgba(var(--accent-rgb),.5)}
 
-  /* ── DESKTOP HERO SPLIT ────────────────────── */
+  /* ── DESKTOP HERO ──────────────────────────── */
   @media(min-width:960px){
     .hero{padding:30px 40px 0}
-    .hero-grid{grid-template-columns:1.05fr .95fr;gap:48px;align-items:center;min-height:92vh}
+    .hero-grid{grid-template-columns:1fr;max-width:720px;align-items:center;min-height:92vh}
     .hero-text{padding:0}
-    .hero-photo{margin:0;height:74vh;min-height:520px;border-radius:18px;clip-path:polygon(6% 0,100% 0,100% 100%,0% 100%)}
     .hero-form-wrap,.hero-sub,.hero-ctas{max-width:460px}
   }
 
@@ -437,10 +432,6 @@
       </button>
     </div>
 
-    <div class="hero-photo">
-      <img src="images/hero-bg.jpg" alt="Manuel Ferrante durante un allenamento di trazioni zavorrate" width="726" height="1290" fetchpriority="high"/>
-      <div class="hero-photo-overlay"></div>
-    </div>
   </div>
 </section>
 
