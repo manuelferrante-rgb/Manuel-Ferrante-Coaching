@@ -230,6 +230,7 @@
   .prog-img-wrap{width:100%;aspect-ratio:1/1;background:var(--bg3);border-bottom:1px solid var(--border);overflow:hidden}
   .prog-img-grid{display:grid;width:100%;height:100%;gap:2px}
   .prog-img-grid.cols-1{grid-template-columns:1fr}
+  .prog-img-grid.cols-2{grid-template-columns:repeat(2,1fr)}
   .prog-img-grid.cols-3{grid-template-columns:repeat(3,1fr)}
   .prog-img-grid.cols-4{grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(2,1fr)}
   .prog-img-grid img{width:100%;height:100%;object-fit:cover;display:block;min-width:0;min-height:0}
@@ -635,7 +636,7 @@ function renderAthletes() {
   carousel.innerHTML = athletes.map((a, i) => `
     <div class="vid-card${a.featured ? ' featured-card' : ''}" aria-label="Risultato di ${a.name}">
       <div class="vid-thumb-wrap">
-        <video class="thumb-vid" src="${a.video}" muted loop playsinline preload="auto"></video>
+        <video class="thumb-vid" src="${a.video}" muted loop playsinline preload="metadata"></video>
         ${a.featured ? `<div class="featured-badge">${a.featuredLabel}</div>` : ''}
       </div>
       <div class="vid-info">
@@ -671,6 +672,8 @@ const IMG_MUSCLEUP = { src:'images/prog-muscleup.jpg', alt:'Muscle Up' };
 const IMG_DIP = { src:'images/prog-dip.jpg', alt:'Dip' };
 const IMG_SQUAT = { src:'images/prog-squat.jpg', alt:'Squat' };
 const IMG_DONNA = { src:'images/prog-donna.jpg', alt:'Stacco da terra, programma Forza & Fisico' };
+const IMG_PL_SQUAT = { src:'images/prog-powerlifting-squat.jpg', alt:'Squat, programma Powerlifting' };
+const IMG_PL_PANCA = { src:'images/prog-powerlifting-panca.jpg', alt:'Panca piana, programma Powerlifting' };
 
 const programs = [
   { name:'Trazioni', price:9, available:true,
@@ -702,6 +705,10 @@ const programs = [
   { name:'Forza & Fisico', price:19, available:false, images:[IMG_DONNA],
     audience:'Per lei che vuole allenarsi con un obiettivo, non a caso in sala pesi.',
     outcome:'Diventa forte e costruisci un fisico estetico — basta annoiarti in palestra. Programmazione strutturata pensata per il corpo femminile, tra forza e composizione corporea.',
+    includes:[] },
+  { name:'Powerlifting', price:19, available:false, images:[IMG_PL_SQUAT, IMG_PL_PANCA],
+    audience:'Per chi vuole affrontare il powerlifting con una programmazione strutturata.',
+    outcome:'Percorso dedicato ai fondamentali del powerlifting, con progressione di carico mirata.',
     includes:[] }
 ];
 
