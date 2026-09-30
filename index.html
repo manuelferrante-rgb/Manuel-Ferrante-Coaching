@@ -183,15 +183,11 @@
   .carousel-wrap::before{left:0;background:linear-gradient(to right,var(--bg),transparent)}
   .carousel-wrap::after{right:0;background:linear-gradient(to left,var(--bg),transparent)}
 
-  .vid-card{flex:0 0 185px;scroll-snap-align:start;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:var(--bg2);cursor:pointer;display:flex;flex-direction:column;opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .3s ease,border-color .2s;will-change:transform}
+  .vid-card{flex:0 0 185px;scroll-snap-align:start;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:var(--bg2);display:flex;flex-direction:column;opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .3s ease,border-color .2s;will-change:transform}
   .vid-card.visible{opacity:1;transform:translateY(0)}
   .vid-card:hover,.vid-card:focus-visible{border-color:rgba(var(--accent-rgb),.4)}
   .vid-thumb-wrap{position:relative;width:100%;padding-bottom:177.77%;background:#111;overflow:hidden;flex-shrink:0}
-  .vid-thumb-wrap video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;transition:transform .3s}
-  .vid-card:hover .vid-thumb-wrap video{transform:scale(1.04)}
-  .play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.65);border:2px solid rgba(255,255,255,.8);display:flex;align-items:center;justify-content:center;color:white;transition:all .2s;backdrop-filter:blur(4px)}
-  .vid-card:hover .play-btn{background:var(--accent);color:#0d0d0d;transform:translate(-50%,-50%) scale(1.1)}
-  .play-btn svg{width:18px;height:18px;margin-left:2px}
+  .vid-thumb-wrap video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
   .featured-card{border-color:rgba(var(--accent-rgb),.45)!important;box-shadow:0 0 20px rgba(var(--accent-rgb),.13)}
   .featured-badge{position:absolute;top:10px;left:10px;background:var(--accent);color:#0d0d0d;font-family:var(--mono);font-size:10px;font-weight:bold;letter-spacing:.08em;padding:4px 10px;border-radius:4px;z-index:2;text-transform:uppercase}
   .vid-info{padding:11px 12px 13px}
@@ -266,18 +262,6 @@
   .faq-item summary::after{content:'+';font-family:var(--mono);font-size:18px;color:var(--accent);flex-shrink:0;transition:transform .2s}
   .faq-item[open] summary::after{transform:rotate(45deg)}
   .faq-item p{font-size:13px;color:rgba(245,245,240,.6);font-weight:300;line-height:1.6;padding-bottom:18px;max-width:520px}
-
-  /* ── MODAL ─────────────────────────────────── */
-  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:1000;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)}
-  .modal-overlay.open{display:flex}
-  .modal-inner{position:relative;width:100%;max-width:340px}
-  .modal-video-wrap{position:relative;width:100%;padding-bottom:177.77%;border-radius:12px;overflow:hidden;background:#000}
-  .modal-video-wrap video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-  .modal-close{position:absolute;top:-44px;right:0;background:transparent;border:1px solid rgba(255,255,255,.3);color:white;font-size:20px;width:36px;height:36px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s}
-  .modal-close:hover{background:rgba(255,255,255,.15)}
-  .modal-info{margin-top:12px;text-align:left}
-  .modal-info .vid-athlete{font-size:20px}
-  .modal-info .vid-desc{margin-top:2px}
 
   /* ── FOOTER ────────────────────────────────── */
   footer{position:relative;z-index:2;padding:36px 24px 28px;border-top:1px solid var(--border);margin-top:80px}
@@ -465,7 +449,7 @@
 <section class="results-section" id="risultati" aria-label="Risultati degli atleti">
   <div class="section-inner">
     <p class="section-label reveal">I risultati parlano</p>
-    <h2 class="section-title reveal">DA DOVE<br>SIAMO PARTITI</h2>
+    <h2 class="section-title reveal">I RISULTATI<br>DEI MIEI ATLETI</h2>
   </div>
 
   <div class="carousel-wrap">
@@ -611,17 +595,6 @@
 
 </main>
 
-<!-- MODAL -->
-<div class="modal-overlay" id="modal" onclick="closeModal(event)">
-  <div class="modal-inner">
-    <button class="modal-close" onclick="closeModal(null)" aria-label="Chiudi">✕</button>
-    <div class="modal-video-wrap">
-      <video id="modal-video" src="" controls playsinline autoplay></video>
-    </div>
-    <div class="modal-info" id="modal-info"></div>
-  </div>
-</div>
-
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">
@@ -669,26 +642,34 @@ const athletes = [
 function renderAthletes() {
   const carousel = document.getElementById('carousel');
   carousel.innerHTML = athletes.map((a, i) => `
-    <div class="vid-card${a.featured ? ' featured-card' : ''}" tabindex="0" role="button" data-index="${i}" aria-label="Guarda il video di ${a.name}">
+    <div class="vid-card${a.featured ? ' featured-card' : ''}" aria-label="Risultato di ${a.name}">
       <div class="vid-thumb-wrap">
-        <video class="thumb-vid" src="${a.video}" muted playsinline preload="auto"></video>
-        <div class="play-btn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
+        <video class="thumb-vid" src="${a.video}" muted loop playsinline preload="auto"></video>
         ${a.featured ? `<div class="featured-badge">${a.featuredLabel}</div>` : ''}
       </div>
       <div class="vid-info">
         <div class="vid-athlete">${a.name}</div>
-        <div class="vid-desc">${a.description}</div>
         <span class="vid-badge">${a.result}</span>
       </div>
     </div>
   `).join('');
 
   carousel.querySelectorAll('.vid-card').forEach(card => {
-    const idx = +card.dataset.index;
-    card.addEventListener('click', () => openModal(idx));
-    card.addEventListener('keydown', e => { if (e.key === 'Enter') openModal(idx); });
     if (hoverFine) attachTilt(card);
   });
+
+  const videoObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      const vid = entry.target;
+      if (entry.isIntersecting) {
+        vid.play().catch(() => {});
+      } else {
+        vid.pause();
+        vid.currentTime = 0;
+      }
+    });
+  }, { root: carousel, threshold: 0.6 });
+  carousel.querySelectorAll('.thumb-vid').forEach(vid => videoObserver.observe(vid));
 }
 renderAthletes();
 
@@ -900,29 +881,6 @@ if (testiVid) {
   });
   testiVid.load();
 }
-
-// ── MODAL ─────────────────────────────────────
-function openModal(index) {
-  const a = athletes[index];
-  const vid = document.getElementById('modal-video');
-  vid.src = a.video; vid.load();
-  document.getElementById('modal-info').innerHTML = `
-    <div class="vid-athlete">${a.name}</div>
-    <div class="vid-desc">${a.description}</div>
-    <span class="vid-badge">${a.result}</span>
-  `;
-  document.getElementById('modal').classList.add('open');
-  document.body.style.overflow = 'hidden';
-  vid.play().catch(() => {});
-}
-function closeModal(e) {
-  if (e && e.target !== document.getElementById('modal')) return;
-  const vid = document.getElementById('modal-video');
-  vid.pause(); vid.removeAttribute('src'); vid.load();
-  document.getElementById('modal').classList.remove('open');
-  document.body.style.overflow = '';
-}
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(null); });
 
 // ── CAROSELLI ORIZZONTALI (risultati + programmi) ─
 function setupCarousel(carousel, leftBtn, rightBtn, dotsEl) {
