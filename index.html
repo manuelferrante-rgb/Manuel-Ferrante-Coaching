@@ -246,6 +246,20 @@
   .prog-cta{align-self:flex-start;margin-top:auto}
   .prog-soon{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--grey);border:1px solid var(--border);border-radius:100px;padding:8px 16px;display:inline-block;margin-top:auto}
 
+  /* ── MODAL (programmi singolo movimento) ───── */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;backdrop-filter:blur(8px)}
+  .modal-overlay.open{display:flex}
+  .modal-inner{position:relative;width:100%;max-width:420px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:28px 20px 20px}
+  .modal-close{position:absolute;top:14px;right:14px;background:transparent;border:1px solid rgba(255,255,255,.3);color:white;font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s}
+  .modal-close:hover{background:rgba(255,255,255,.15)}
+  .single-lifts-title{font-family:var(--display);font-size:26px;margin:4px 0 18px}
+  .single-lifts-list{display:flex;flex-direction:column;gap:14px}
+  .single-lift-row{display:flex;gap:12px;border:1px solid var(--border);border-radius:10px;padding:10px;background:var(--bg3)}
+  .single-lift-row img{width:72px;height:72px;border-radius:8px;object-fit:cover;flex-shrink:0}
+  .single-lift-body{display:flex;flex-direction:column;gap:6px;flex:1;min-width:0}
+  .single-lift-body .prog-outcome{font-size:12px}
+  .single-lift-body .prog-cta{align-self:flex-start}
+
   /* ── FAQ ───────────────────────────────────── */
   .faq-section{position:relative;z-index:2;padding:80px 24px 0;max-width:var(--max);margin:0 auto}
   .faq-item{border-top:1px solid var(--border)}
@@ -511,7 +525,7 @@
     <p class="section-label reveal">Percorsi guidati</p>
     <h2 class="section-title reveal">PROGRAMMI</h2>
   </div>
-  <p class="programmi-note">Programmi PDF da 8 settimane. Trazioni è già acquistabile online, gli altri sono in arrivo.</p>
+  <p class="programmi-note">Programmi PDF da 8 settimane. Trazioni e Muscle Up sono già acquistabili online, gli altri sono in arrivo.</p>
   <div class="carousel-wrap">
     <button class="carousel-arrow arrow-left" id="prog-arrow-left" aria-label="Precedente">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
@@ -530,6 +544,16 @@
     </a>
   </div>
 </section>
+
+<!-- ══ MODAL PROGRAMMI SINGOLO MOVIMENTO ════════ -->
+<div class="modal-overlay" id="single-lifts-modal" onclick="closeSingleLifts(event)">
+  <div class="modal-inner single-lifts-inner">
+    <button class="modal-close" onclick="closeSingleLifts(null)" aria-label="Chiudi">✕</button>
+    <p class="section-label">Scegli il tuo movimento</p>
+    <h3 class="single-lifts-title">Programmi singolo movimento</h3>
+    <div class="single-lifts-list" id="single-lifts-list"></div>
+  </div>
+</div>
 
 
 <!-- ══ TESTIMONIANZE ════════════════════════════ -->
@@ -675,25 +699,28 @@ const IMG_DONNA = { src:'images/prog-donna.jpg', alt:'Stacco da terra, programma
 const IMG_PL_SQUAT = { src:'images/prog-powerlifting-squat.jpg', alt:'Squat, programma Powerlifting' };
 const IMG_PL_PANCA = { src:'images/prog-powerlifting-panca.jpg', alt:'Panca piana, programma Powerlifting' };
 
-const programs = [
+// Programmi "singolo movimento" — raccolti in un'unica card apribile (vedi openSingleLifts())
+const singleLifts = [
   { name:'Trazioni', price:9, available:true,
     payhipUrl:'https://payhip.com/b/0LndZ', images:[IMG_TRAZIONI],
     audience:'Per chi ha già una trazione libera o zavorrata.',
-    outcome:'Un protocollo autoregolato di 8 settimane per far salire il carico in trazione zavorrata con progressione strutturata.',
-    includes:[] },
+    outcome:'Un protocollo autoregolato di 8 settimane per far salire il carico in trazione zavorrata con progressione strutturata.' },
   { name:'Muscle Up', price:9, available:true,
     payhipUrl:'https://payhip.com/b/glDM4', images:[IMG_MUSCLEUP],
     audience:'Per chi vuole imparare il muscle up o incrementare la zavorra.',
-    outcome:'8 settimane di lavoro su transizione, forza specifica e timing per arrivare a un muscle up pulito e ripetibile.',
-    includes:[] },
+    outcome:'8 settimane di lavoro su transizione, forza specifica e timing per arrivare a un muscle up pulito e ripetibile.' },
   { name:'Dip', price:9, available:false, images:[IMG_DIP],
     audience:'Per chi vuole aumentare il carico sui dip zavorrati o consolidarli.',
-    outcome:'Programma di 8 settimane con progressione di carico autoregolata sui dip.',
-    includes:[] },
+    outcome:'Programma di 8 settimane con progressione di carico autoregolata sui dip.' },
   { name:'Squat', price:9, available:false, images:[IMG_SQUAT],
     audience:'Per chi è fermo nello squat e vuole uscire dallo stallo con una programmazione strutturata.',
-    outcome:'8 settimane di programmazione su squat con progressione di carico/volume mirata.',
-    includes:[] },
+    outcome:'8 settimane di programmazione su squat con progressione di carico/volume mirata.' }
+];
+
+const programs = [
+  { name:'Programmi singolo movimento', bundleTrigger:true, images:[IMG_TRAZIONI, IMG_MUSCLEUP, IMG_DIP, IMG_SQUAT],
+    audience:'Trazioni, Muscle Up, Dip o Squat: scegli il movimento su cui vuoi concentrarti.',
+    outcome:'4 protocolli da 8 settimane, uno per movimento.' },
   { name:'Street 3', price:19, available:false, images:[IMG_TRAZIONI, IMG_DIP, IMG_SQUAT],
     audience:'Per chi vuole allenare insieme trazioni, dip e squat zavorrati con un\'unica programmazione coordinata.',
     outcome:'Percorso completo di 8 settimane sui tre movimenti, con carichi bilanciati tra loro.',
@@ -714,13 +741,29 @@ const programs = [
 
 function renderPrograms() {
   const grid = document.getElementById('programmi-grid');
-  grid.innerHTML = programs.map(p => {
+  grid.innerHTML = programs.map((p, i) => {
+    const imgs = p.images.map(im => `<img src="${im.src}" alt="${im.alt}" loading="lazy"/>`).join('');
+
+    if (p.bundleTrigger) {
+      return `
+      <article class="prog-card" tabindex="0" role="button" aria-label="Scopri i programmi singolo movimento" onclick="openSingleLifts()" onkeydown="if(event.key==='Enter')openSingleLifts()">
+        <div class="prog-img-wrap"><div class="prog-img-grid cols-${p.images.length}">${imgs}</div></div>
+        <div class="prog-body">
+          <div class="prog-top">
+            <div class="prog-name">${p.name}</div>
+          </div>
+          <p class="prog-audience">${p.audience}</p>
+          <p class="prog-outcome">${p.outcome}</p>
+          <span class="btn-secondary prog-cta">Scopri i 4 programmi</span>
+        </div>
+      </article>`;
+    }
+
     const cta = p.payhipUrl
       ? `<a class="btn-primary prog-cta" href="${p.payhipUrl}" target="_blank" rel="noopener">Acquista ora</a>`
       : p.available
         ? `<a class="btn-secondary prog-cta" href="${WA_BASE}${encodeURIComponent('Ciao, vorrei il programma ' + p.name + ' (' + p.price + '€)')}" target="_blank" rel="noopener">Richiedi su WhatsApp</a>`
         : `<span class="prog-soon prog-cta">In arrivo</span>`;
-    const imgs = p.images.map(im => `<img src="${im.src}" alt="${im.alt}" loading="lazy"/>`).join('');
     return `
     <article class="prog-card${p.available ? '' : ' unavailable'}">
       <div class="prog-img-wrap"><div class="prog-img-grid cols-${p.images.length}">${imgs}</div></div>
@@ -740,6 +783,42 @@ function renderPrograms() {
   if (hoverFine) grid.querySelectorAll('.prog-card').forEach(attachTilt);
 }
 renderPrograms();
+
+// ── MODAL PROGRAMMI SINGOLO MOVIMENTO ─────────
+function renderSingleLifts() {
+  const list = document.getElementById('single-lifts-list');
+  list.innerHTML = singleLifts.map(p => {
+    const cta = p.payhipUrl
+      ? `<a class="btn-primary prog-cta" href="${p.payhipUrl}" target="_blank" rel="noopener">Acquista ora</a>`
+      : p.available
+        ? `<a class="btn-secondary prog-cta" href="${WA_BASE}${encodeURIComponent('Ciao, vorrei il programma ' + p.name + ' (' + p.price + '€)')}" target="_blank" rel="noopener">Richiedi su WhatsApp</a>`
+        : `<span class="prog-soon prog-cta">In arrivo</span>`;
+    return `
+    <article class="single-lift-row">
+      <img src="${p.images[0].src}" alt="${p.images[0].alt}" loading="lazy"/>
+      <div class="single-lift-body">
+        <div class="prog-top">
+          <div class="prog-name">${p.name}</div>
+          <div class="prog-price">${p.price}€</div>
+        </div>
+        <p class="prog-outcome">${p.outcome}</p>
+        ${cta}
+      </div>
+    </article>`;
+  }).join('');
+}
+renderSingleLifts();
+
+function openSingleLifts() {
+  document.getElementById('single-lifts-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeSingleLifts(e) {
+  if (e && e.target !== document.getElementById('single-lifts-modal')) return;
+  document.getElementById('single-lifts-modal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSingleLifts(null); });
 
 // ── TILT ON HOVER (solo desktop, pointer fine) ─
 function attachTilt(el) {
