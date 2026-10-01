@@ -525,7 +525,7 @@
     <p class="section-label reveal">Percorsi guidati</p>
     <h2 class="section-title reveal">PROGRAMMI</h2>
   </div>
-  <p class="programmi-note">Programmi PDF da 8 settimane. Trazioni e Muscle Up sono già acquistabili online, gli altri sono in arrivo.</p>
+  <p class="programmi-note">Programmi PDF da 8 settimane. Forza & Fisico e Powerlifting sono in arrivo, tutti gli altri sono già acquistabili online.</p>
   <div class="carousel-wrap">
     <button class="carousel-arrow arrow-left" id="prog-arrow-left" aria-label="Precedente">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
@@ -709,10 +709,12 @@ const singleLifts = [
     payhipUrl:'https://payhip.com/b/glDM4', images:[IMG_MUSCLEUP],
     audience:'Per chi vuole imparare il muscle up o incrementare la zavorra.',
     outcome:'8 settimane di lavoro su transizione, forza specifica e timing per arrivare a un muscle up pulito e ripetibile.' },
-  { name:'Dip', price:9, available:false, images:[IMG_DIP],
+  { name:'Dip', price:9, available:true,
+    payhipUrl:'https://payhip.com/b/CmvQb', images:[IMG_DIP],
     audience:'Per chi vuole aumentare il carico sui dip zavorrati o consolidarli.',
     outcome:'Programma di 8 settimane con progressione di carico autoregolata sui dip.' },
-  { name:'Squat', price:9, available:false, images:[IMG_SQUAT],
+  { name:'Squat', price:9, available:true,
+    payhipUrl:'https://payhip.com/b/KiNUX', images:[IMG_SQUAT],
     audience:'Per chi è fermo nello squat e vuole uscire dallo stallo con una programmazione strutturata.',
     outcome:'8 settimane di programmazione su squat con progressione di carico/volume mirata.' }
 ];
@@ -721,14 +723,16 @@ const programs = [
   { name:'Programmi singolo movimento', bundleTrigger:true, images:[IMG_TRAZIONI, IMG_MUSCLEUP, IMG_DIP, IMG_SQUAT],
     audience:'Trazioni, Muscle Up, Dip o Squat: scegli il movimento su cui vuoi concentrarti.',
     outcome:'4 protocolli da 8 settimane, uno per movimento.' },
-  { name:'Street 3', price:19, available:false, images:[IMG_TRAZIONI, IMG_DIP, IMG_SQUAT],
-    audience:'Per chi vuole allenare insieme trazioni, dip e squat zavorrati con un\'unica programmazione coordinata.',
-    outcome:'Percorso completo di 8 settimane sui tre movimenti, con carichi bilanciati tra loro.',
-    includes:['Programma completo senza muscle up'] },
-  { name:'Street 4', price:19, available:false, images:[IMG_TRAZIONI, IMG_MUSCLEUP, IMG_DIP, IMG_SQUAT],
+  { name:'Street 4', price:19, available:true,
+    payhipUrl:'https://payhip.com/b/QdDoU', images:[IMG_TRAZIONI, IMG_MUSCLEUP, IMG_DIP, IMG_SQUAT],
     audience:'Per chi vuole il percorso streetlifting completo, muscle up incluso.',
     outcome:'Programmazione di 8 settimane su tutti e 4 i movimenti insieme, bilanciata per evitare stalli.',
     includes:['Programma completo con muscle up'] },
+  { name:'Street 3', price:19, available:true,
+    payhipUrl:'https://payhip.com/b/t9HXU', images:[IMG_TRAZIONI, IMG_DIP, IMG_SQUAT],
+    audience:'Per chi vuole allenare insieme trazioni, dip e squat zavorrati con un\'unica programmazione coordinata.',
+    outcome:'Percorso completo di 8 settimane sui tre movimenti, con carichi bilanciati tra loro.',
+    includes:['Programma completo senza muscle up'] },
   { name:'Forza & Fisico', price:19, available:false, images:[IMG_DONNA],
     audience:'Per lei che vuole allenarsi con un obiettivo, non a caso in sala pesi.',
     outcome:'Diventa forte e costruisci un fisico estetico — basta annoiarti in palestra. Programmazione strutturata pensata per il corpo femminile, tra forza e composizione corporea.',
