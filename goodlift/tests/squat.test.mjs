@@ -60,9 +60,21 @@ const cases = [
   ['buca coperta, squat alto', hideLower(clip([hold(1.4), down, up, hold(1.4)], SQUAT.depthMinDeg - 12), f => f.t > 2.4 && f.t < 2.85), r => r.verdict === 'norep' && st(r, 'depth') === 'fail'],
   ['3 ripetizioni, la seconda alta', clip([hold(1.4), down, up, hold(0.3), { ...down, d: SQUAT.depthMinDeg - 12 }, { ...up, d: SQUAT.depthMinDeg - 12 }, hold(0.3), down, up, hold(1.4)], 6),
     r => r.verdict === 'norep' && r.reps?.length === 3 && r.reps.map(x => x.verdict).join() === 'good,norep,good' && r.summary === '2 valide su 3'],
+  ['5 ripetizioni, poi esce dall\'inquadratura', ghostTail(clip([hold(1.4), down, up, hold(0.3), down, up, hold(0.3), down, up, hold(0.3), down, up, hold(0.3), down, up, hold(1.4)], 6)),
+    r => r.reps?.length === 5 && r.verdict === 'good'],
   ['niente squat', clip([hold(3)], 6), r => r.verdict === 'unclear'],
 ];
 
+// dopo l'alzata: qualche fotogramma vuoto e poi un "fantasma" (rilevamento sbagliato, più in basso e a gambe dritte)
+function ghostTail(frames) {
+  const t0 = frames[frames.length - 1].t;
+  const out = frames.slice();
+  for (let i = 1; i <= 40; i++) {
+    const t = t0 + i / FPS;
+    out.push(i < 10 ? { t, lm: null } : { t, lm: pose(0, 6, 0.3).map(p => ({ ...p, y: p.y + 0.12 })) });
+  }
+  return out;
+}
 function blank(frames, cond) { return frames.map(f => cond(f) ? { t: f.t, lm: null } : f); }
 function hideLower(frames, cond) {
   return frames.map(f => cond(f) ? { t: f.t, lm: f.lm.map((p, i) => [23, 24, 25, 26].includes(i) ? { ...p, visibility: 0.05 } : p) } : f);

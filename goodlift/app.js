@@ -334,7 +334,7 @@ function showResult(result, frames, url, blob) {
   const name = LIFTS[result.lift].name;
   if (result.reps) {
     const bad = result.reps.find(r => r.verdict === 'norep');
-    $('vsub').textContent = `${result.reps.length} ripetizioni: ${result.summary}.` + (bad ? ` Rip. ${bad.n}: ${bad.reason}` : '');
+    $('vsub').textContent = `${result.reps.length} ripetizioni: ${result.summary}.` + (bad ? ` ${bad.n}ª: ${bad.reason}` : '');
   } else {
     $('vsub').textContent = result.verdict === 'good' ? (result.borderline ? `${name} valido, ma al limite.` : `${name} valido.`) : result.verdict === 'norep' ? firstFail.detail : result.warnings[0];
   }
@@ -348,7 +348,7 @@ function showResult(result, frames, url, blob) {
   reps.hidden = !result.reps;
   if (result.reps) {
     reps.innerHTML = `<p class="sum">${result.reps.length} ripetizioni · ${result.summary}</p>` + result.reps.map(r =>
-      `<button class="rep ${r.verdict}" data-n="${r.n}">${r.n} ${r.verdict === 'good' ? '✓' : r.verdict === 'norep' ? '✕' : '?'}</button>`).join('');
+      `<button class="rep ${r.verdict}" data-n="${r.n}" aria-label="${r.n}ª ripetizione">${r.n}<sup>a</sup><span class="ri">${r.verdict === 'good' ? '✓' : r.verdict === 'norep' ? '✕' : '?'}</span></button>`).join('');
     reps.querySelectorAll('.rep').forEach(btn => btn.addEventListener('click', () => selectRep(+btn.dataset.n, true)));
   }
   const warns = result.verdict === 'unclear' ? result.warnings.slice(1) : result.warnings;

@@ -233,7 +233,9 @@ export function pickPerson(frames, lift, width = 1, height = 1) {
 
 // Trova tutte le ripetizioni: discesa (downAt) → punto più profondo → ritorno in posizione (locked).
 // Valido per tutte le alzate: per trazioni e muscle up "giù" vuol dire "su" (lontano dalla partenza).
-export function findReps(n, downAt, locked, deeper) {
+// isReal(rep) scarta i falsi allarmi: per esempio la persona che esce dall'inquadratura
+// dopo l'ultima ripetizione, o il video che continua senza nessuno.
+export function findReps(n, downAt, locked, deeper, isReal = () => true) {
   const reps = [];
   let from = 0, prevUp = -1;
   while (from < n) {
@@ -253,7 +255,7 @@ export function findReps(n, downAt, locked, deeper) {
   }
   // il video parte nel punto più profondo di una ripetizione già in corso: quel pezzo non si giudica
   if (reps.length > 1 && reps[0].desc < 0 && reps[0].bottom - reps[0].fd <= 2) reps.shift();
-  return reps;
+  return reps.filter(isReal);
 }
 
 // Mette insieme il verdetto. Una ripetizione: come in gara. Più ripetizioni: ognuna ha il suo

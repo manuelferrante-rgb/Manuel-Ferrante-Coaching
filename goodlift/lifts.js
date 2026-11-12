@@ -131,6 +131,12 @@ function peakRate(t, a, from, to) {
   return { peak, at };
 }
 
+// Ripetizione vera: la persona c'è per buona parte del tempo e le braccia si piegano davvero.
+const bentArms = (b, hasData) => ({ fd, end }) => {
+  let seen = 0, bent = false;
+  for (let i = fd; i <= end; i++) { if (hasData[i]) seen++; if (b.elbow[i] < 125) bent = true; }
+  return seen >= Math.max(3, 0.5 * (end - fd + 1)) && bent;
+};
 const firstFrom = (arr, from, cond) => { for (let i = Math.max(0, from); i < arr.length; i++) if (cond(i)) return i; return -1; };
 const lastBefore = (from, cond) => { for (let i = from; i >= 0; i--) if (cond(i)) return i; return -1; };
 
@@ -147,7 +153,7 @@ export function analyzeBench(frames, width, height, cfg = BENCH) {
   const top = pct(bar, 0.08);
   const lockElb = Math.min(cfg.lockElbowDeg, pct(elbow, 0.9) - cfg.lockRelDeg);
   const locked = t.map((_, i) => elbow[i] >= lockElb && bar[i] <= top + cfg.topRatio * arm);
-  const reps = findReps(t.length, i => bar[i] > top + cfg.downRatio * arm, locked, (i, j) => bar[i] > (bar[j] ?? -Infinity));
+  const reps = findReps(t.length, i => bar[i] > top + cfg.downRatio * arm, locked, (i, j) => bar[i] > (bar[j] ?? -Infinity), bentArms(b, hasData));
   if (!reps.length) return unclear('Non ho visto una panca: il bilanciere non scende abbastanza. Riprendi di lato, all\'altezza della panca.', 'panca');
   const hum = t.map((_, i) => S[i] && E[i] ? deg(Math.atan2(E[i].y - S[i].y, Math.abs(E[i].x - S[i].x))) : NaN);
   const hy = b.y(H);
@@ -247,6 +253,10 @@ export function analyzeDeadlift(frames, width, height, cfg = DEADLIFT) {
     const ls = firstFrom(bar, from, i => bar[i] < floor - cfg.liftRatio * body);
     if (ls < 0) break;
     const lk = firstFrom(locked, ls, i => locked[i]);
+    let seen = 0; const stopAt = lk >= 0 ? lk : t.length - 1;
+    for (let i = ls; i <= stopAt; i++) if (hasData[i]) seen++;
+    // falso allarme (persona che esce dall'inquadratura, video senza nessuno): si ignora
+    if (seen < Math.max(3, 0.5 * (stopAt - ls + 1))) { if (lk < 0) break; from = lk + 1; continue; }
     reps.push({ ls, lk, seen: ls > from + 1 || (from > firstData) });
     if (lk < 0) break;
     const back = firstFrom(onFloor, lk, i => onFloor[i]);
@@ -312,7 +322,8 @@ function hangPhases(b, cfg) {
   const hangS = pct(sy, 0.92);
   const hangElb = Math.min(cfg.hangElbowDeg, pct(elbow, 0.9) - cfg.hangRelDeg);
   const hang = t.map((_, i) => elbow[i] >= hangElb && sy[i] >= hangS - 0.12 * arm);
-  const reps = findReps(t.length, i => sy[i] < hangS - cfg.pullRatio * arm, hang, (i, j) => sy[i] < (sy[j] ?? Infinity));
+  const hasData = t.map((_, i) => !!(b.series.S[i] && b.series.E[i] && b.series.W[i]));
+  const reps = findReps(t.length, i => sy[i] < hangS - cfg.pullRatio * arm, hang, (i, j) => sy[i] < (sy[j] ?? Infinity), bentArms(b, hasData));
   return { sy, hang, reps };
 }
 
@@ -406,7 +417,7 @@ export function analyzeDip(frames, width, height, cfg = DIP) {
   const top = pct(sy, 0.08);
   const lockElb = Math.min(cfg.lockElbowDeg, pct(elbow, 0.9) - cfg.lockRelDeg);
   const locked = t.map((_, i) => elbow[i] >= lockElb && sy[i] <= top + cfg.topRatio * arm);
-  const reps = findReps(t.length, i => sy[i] > top + cfg.downRatio * arm, locked, (i, j) => sy[i] > (sy[j] ?? -Infinity));
+  const reps = findReps(t.length, i => sy[i] > top + cfg.downRatio * arm, locked, (i, j) => sy[i] > (sy[j] ?? -Infinity), bentArms(b, hasData));
   if (!reps.length) return unclear('Non ho visto un dip: le spalle non scendono abbastanza. Riprendi di lato, con le parallele nell\'inquadratura.', 'dip');
   const ang = t.map((_, i) => S[i] && E[i] ? deg(Math.atan2(S[i].y - E[i].y, Math.abs(S[i].x - E[i].x))) : NaN);
   const thr = cfg.stillRatio * arm;
