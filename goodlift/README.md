@@ -27,14 +27,14 @@ Ideato da **[Manuel Ferrante Coaching](https://www.manuelferrante.it)** · Insta
 
 ## Regole di giudizio
 
-In gara il giudice dà i comandi (start, rack, down…). Nel video nessuno li sente, quindi GoodLift controlla
+In gara il giudice dà i comandi (start, press, rack, down…). Nel video nessuno li sente, quindi GoodLift controlla
 il **fermo di 1 secondo** che li precede: prima il fermo, poi il comando, come in gara.
 Se un dettaglio non si vede nel video (es. il video inizia a discesa già iniziata) il verdetto resta GOOD LIFT,
 ma l'analisi dice cosa non si è potuto controllare.
 
 **Squat** — fermo di 1 s a gambe tese · la parte alta dell'anca scende sotto la parte alta del ginocchio (femore sotto il parallelo) · salita senza movimenti verso il basso del bilanciere · fermo di 1 s a gambe tese (= "rack").
 
-**Panca** — fermo di 1 s a braccia tese · al petto il gomito almeno all'altezza della testa dell'omero (omero parallelo al terreno) · fermo di 1 s al petto · spinta senza movimenti verso il basso · fermo di 1 s a braccia tese (= "rack") · il sedere resta sempre a contatto con la panca.
+**Panca** — fermo di 1 s a braccia tese · al petto il gomito almeno all'altezza della testa dell'omero (omero parallelo al terreno) · fermo di 1 s al petto (= "press") · spinta senza movimenti verso il basso · fermo di 1 s a braccia tese (= "rack") · il sedere resta sempre a contatto con la panca.
 
 **Stacco** — partenza libera · nessun movimento verso il basso del bilanciere · chiusura a gambe tese con la spalla dietro il bilanciere · fermo di 1 s (= "down").
 
