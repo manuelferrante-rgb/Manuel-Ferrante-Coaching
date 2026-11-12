@@ -48,8 +48,9 @@ const up = { dur: 1.4, s0: 1, s1: 0 };
 
 const cases = [
   ['valido con fermi', clip([hold(1.4), down, up, hold(1.4)], 6), r => r.verdict === 'good' && r.checks.every(c => c.status === 'pass')],
-  ['squat alto', clip([hold(1.4), down, up, hold(1.4)], SQUAT.depthMinDeg - 8), r => r.verdict === 'norep' && st(r, 'depth') === 'fail'],
-  ['al limite', clip([hold(1.4), down, up, hold(1.4)], SQUAT.depthMinDeg + 1.5), r => r.verdict === 'good' && r.warnings.some(w => w.includes('limite'))],
+  ['squat alto', clip([hold(1.4), down, up, hold(1.4)], SQUAT.depthMinDeg - 8), r => r.verdict === 'norep' && st(r, 'depth') === 'fail' && !r.close],
+  ['no rep per poco', clip([hold(1.4), down, up, hold(1.4)], SQUAT.depthMinDeg - 1.5), r => r.verdict === 'norep' && r.close === true && !r.borderline],
+  ['al limite', clip([hold(1.4), down, up, hold(1.4)], SQUAT.depthMinDeg + 1.5), r => r.verdict === 'good' && r.borderline && !r.close && r.warnings.some(w => w.includes('limite'))],
   ['cedimento in salita', clip([hold(1.4), down, { dur: 0.6, s0: 1, s1: 0.55 }, { dur: 0.35, s0: 0.55, s1: 0.75 }, { dur: 0.8, s0: 0.75, s1: 0 }, hold(1.4)], 6), r => r.verdict === 'norep' && st(r, 'noDrop') === 'fail'],
   ['fermo iniziale troppo corto', clip([{ dur: 0.7, s0: 0, s1: 0.2 }, { dur: 0.5, s0: 0.2, s1: 0 }, hold(0.35), down, up, hold(1.4)], 6), r => r.verdict === 'norep' && st(r, 'startHold') === 'fail'],
   ['video senza fermi (tagliato)', clip([{ dur: 0.15, s0: 0, s1: 0 }, down, up, { dur: 0.1, s0: 0, s1: 0 }], 6), r => r.verdict === 'good' && r.missing > 0],

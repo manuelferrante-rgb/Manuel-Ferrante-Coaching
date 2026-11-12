@@ -72,6 +72,7 @@
   .big-btn .ic svg{width:24px;height:24px}
   .big-btn b{display:block;font-size:19px;font-weight:600}
   .big-btn span{display:block;font-size:13.5px;opacity:.75;margin-top:2px}
+  .badge.close{color:var(--red);border-color:rgba(var(--red-rgb),.55);background:rgba(var(--red-rgb),.1);font-size:12px;font-weight:600}
   .tips{margin-top:22px;border:1px solid var(--border);border-radius:16px;padding:16px 16px 14px;background:var(--bg2)}
   .tips ol{list-style:none;display:grid;gap:10px;margin-top:4px}
   .tips li{display:flex;gap:12px;align-items:flex-start;font-size:14.5px;line-height:1.4}
@@ -159,6 +160,7 @@
   .pill.toggle::before{content:'';width:9px;height:9px;border-radius:50%;border:1.5px solid currentColor;flex:none}
   .pill.toggle.on::before{background:var(--accent);border-color:var(--accent);box-shadow:0 0 8px rgba(var(--accent-rgb),.7)}
   .badge.limit{color:#f0b429;border-color:rgba(240,180,41,.55);background:rgba(240,180,41,.1);font-size:12px;font-weight:600}
+  .badge.close{color:var(--red);border-color:rgba(var(--red-rgb),.55);background:rgba(var(--red-rgb),.1);font-size:12px;font-weight:600}
   .tips{margin:12px 0 4px;padding:14px 16px;border-radius:14px;background:rgba(240,180,41,.08);border:1px solid rgba(240,180,41,.4)}
   .tips.fix{background:rgba(var(--red-rgb),.08);border-color:rgba(var(--red-rgb),.4)}
   .tips b{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#f0b429;margin-bottom:6px}
@@ -271,7 +273,7 @@
         <svg class="q" viewBox="18 6 68 95"><use href="#mark"/></svg>
         <svg viewBox="0 0 100 100"><path class="ok" d="M22 53 L42 72 L80 30"/><path class="ko" d="M28 28 L72 72 M72 28 L28 72"/></svg>
       </div>
-      <div><p class="vtext" id="vtext"></p><p class="vsub" id="vsub"></p><p class="badge limit" id="vlimit" hidden>Valida ma al limite</p><p class="badge" id="vbadge" hidden>Alcuni dettagli non visibili</p></div>
+      <div><p class="vtext" id="vtext"></p><p class="vsub" id="vsub"></p><p class="badge limit" id="vlimit" hidden>Valida ma al limite</p><p class="badge close" id="vclose" hidden>No rep per poco</p><p class="badge" id="vbadge" hidden>Alcuni dettagli non visibili</p></div>
     </div>
     <div class="reps" id="reps" hidden></div>
     <div class="tips" id="tips" hidden><b id="tips-title">Da migliorare</b><ul id="tips-list"></ul></div>

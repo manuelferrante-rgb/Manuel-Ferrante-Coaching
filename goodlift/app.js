@@ -338,7 +338,8 @@ function showResult(result, frames, url, blob) {
   } else {
     $('vsub').textContent = result.verdict === 'good' ? (result.borderline ? `${name} valido, ma al limite.` : `${name} valido.`) : result.verdict === 'norep' ? firstFail.detail : result.warnings[0];
   }
-  $('vlimit').hidden = !result.borderline;
+  $('vlimit').hidden = !(result.verdict === 'good' && result.borderline);
+  $('vclose').hidden = !(result.verdict === 'norep' && result.close);
   $('vbadge').hidden = !(result.verdict === 'good' && result.missing);
   requestAnimationFrame(() => requestAnimationFrame(() => v.classList.add('show')));
 

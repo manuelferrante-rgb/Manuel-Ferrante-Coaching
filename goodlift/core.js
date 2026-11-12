@@ -308,6 +308,8 @@ export function assemble(lift, b, reps, globalWarnings, overlay) {
   return {
     lift, verdict, missing, checks: main.checks, warnings, side: b.side, key: main.key,
     borderline: verdict === 'good' && main.checks.some(c => c.borderline), tips,
+    // no rep per poco: tutto quello che è sbagliato lo è di pochissimo
+    close: verdict === 'norep' && main.checks.filter(c => c.status === 'fail').every(c => c.close),
     reps: reps.length > 1 ? reps : null, mainRep: main.n,
     summary: reps.length > 1 ? `${valid} ${valid === 1 ? 'valida' : 'valide'} su ${reps.length}` : null,
     replay: { t: b.t, series: b.series, ...overlay, focusTs: reps.map(r => r.key.focus) },

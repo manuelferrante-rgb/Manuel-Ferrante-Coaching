@@ -102,7 +102,7 @@ function holdCheck({ id, label, b, anchor, dir, locked, tracks, thr, need, cfg, 
   const room = dir < 0 ? t[anchor] - t[firstData] : t[lastData] - t[anchor];
   if (h.found && h.dur >= min) return { id, label, status: 'pass', detail: okText(h.dur), t: [h.start, h.end] };
   if (!h.found || (dir < 0 ? h.touchesStart : h.touchesEnd) || room < min) return { id, label, status: 'unknown', detail: edgeText };
-  return { id, label, status: 'fail', detail: failText(h.dur), t: [h.start, h.end] };
+  return { id, label, status: 'fail', close: h.dur >= min - 0.25, detail: failText(h.dur), t: [h.start, h.end] };
 }
 
 // Il punto `y` dovrebbe solo salire (y che cala, in pixel) tra from e to: trova una discesa
@@ -170,7 +170,7 @@ export function analyzeBench(frames, width, height, cfg = BENCH) {
     const pause = t[pb] - t[pa] + dt;
     checks.push(pause >= cfg.holdSec - cfg.holdToleranceSec
       ? { id: 'chestHold', label: 'Fermo al petto (1 s)', status: 'pass', detail: `Fermo di ${fmt(pause)} s al petto prima della spinta.`, t: [t[pa], t[pb] + dt] }
-      : { id: 'chestHold', label: 'Fermo al petto (1 s)', status: 'fail', detail: pause < 0.25 ? 'Nessun fermo al petto: il bilanciere rimbalza.' : `Fermo al petto di solo ${fmt(pause)} s: serve 1 secondo prima del press.`, t: [t[pa], t[pb] + dt] });
+      : { id: 'chestHold', label: 'Fermo al petto (1 s)', status: 'fail', close: pause >= cfg.holdSec - cfg.holdToleranceSec - 0.25, detail: pause < 0.25 ? 'Nessun fermo al petto: il bilanciere rimbalza.' : `Fermo al petto di solo ${fmt(pause)} s: serve 1 secondo prima del press.`, t: [t[pa], t[pb] + dt] });
 
     // gomito almeno all'altezza della spalla
     let depth = -Infinity, depthIdx = bottom;
@@ -181,7 +181,7 @@ export function analyzeBench(frames, width, height, cfg = BENCH) {
     if (over >= 0) {
       checks.push({ id: 'depth', label: 'Gomito all\'altezza della spalla', status: 'pass', detail: over < cfg.elbowBorderlineDeg ? 'Al limite: il gomito arriva appena all\'altezza della spalla.' : 'Il gomito scende all\'altezza della spalla.', t: [t[depthIdx], t[depthIdx]], value: depth });
       if (over < cfg.elbowBorderlineDeg) warnings.push('Discesa al limite: un giudice severo potrebbe darla no rep.');
-    } else checks.push({ id: 'depth', label: 'Gomito all\'altezza della spalla', status: 'fail', detail: 'Discesa corta: il gomito resta sopra la spalla.', t: [t[depthIdx], t[depthIdx]], value: depth });
+    } else checks.push({ id: 'depth', label: 'Gomito all\'altezza della spalla', status: 'fail', close: -over < cfg.elbowBorderlineDeg, detail: 'Discesa corta: il gomito resta sopra la spalla.', t: [t[depthIdx], t[depthIdx]], value: depth });
 
     const drop = reversal(t, bar, pb, repEnd, cfg.dropRatio * arm, cfg.dropMinSec);
     checks.push(drop >= 0
@@ -373,7 +373,7 @@ export function analyzePullup(frames, width, height, cfg = PULLUP) {
     margins.push(margin);
     checks.push(margin >= cfg.chinMarginRatio * arm
       ? { id: 'chin', label: 'Mento sopra la sbarra', status: 'pass', detail: margin < 0.04 * arm ? 'Al limite: il mento arriva appena sopra la sbarra.' : 'Il mento supera la sbarra.', t: [t[chinIdx], t[chinIdx]], value: margin / arm }
-      : { id: 'chin', label: 'Mento sopra la sbarra', status: 'fail', detail: 'Il mento non supera la sbarra.', t: [t[chinIdx], t[chinIdx]], value: margin / arm });
+      : { id: 'chin', label: 'Mento sopra la sbarra', status: 'fail', close: margin > -0.04 * arm, detail: 'Il mento non supera la sbarra.', t: [t[chinIdx], t[chinIdx]], value: margin / arm });
     if (margin >= 0 && margin < 0.04 * arm) warnings.push('Mento al limite: un giudice severo potrebbe darla no rep.');
 
     if (downIdx < 0) {
@@ -427,7 +427,7 @@ export function analyzeDip(frames, width, height, cfg = DIP) {
     if (over >= 0) {
       checks.push({ id: 'depth', label: 'Spalla sotto il gomito', status: 'pass', detail: over < cfg.depthBorderlineDeg ? 'Al limite: la spalla arriva appena all\'altezza del gomito.' : 'La spalla scende sotto il gomito.', t: [t[depthIdx], t[depthIdx]], value: depth });
       if (over < cfg.depthBorderlineDeg) warnings.push('Profondità al limite: un giudice severo potrebbe darla no rep.');
-    } else checks.push({ id: 'depth', label: 'Spalla sotto il gomito', status: 'fail', detail: 'Dip alto: la spalla resta sopra il gomito.', t: [t[depthIdx], t[depthIdx]], value: depth });
+    } else checks.push({ id: 'depth', label: 'Spalla sotto il gomito', status: 'fail', close: -over < cfg.depthBorderlineDeg, detail: 'Dip alto: la spalla resta sopra il gomito.', t: [t[depthIdx], t[depthIdx]], value: depth });
 
     const drop = reversal(t, sy, bottom, repEnd, cfg.dropRatio * arm, cfg.dropMinSec);
     checks.push(drop >= 0

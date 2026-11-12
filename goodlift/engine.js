@@ -99,7 +99,7 @@ export function analyzeSquat(frames, width, height, cfg = SQUAT) {
         const h = hold(descStart, -1);
         if (h.found && h.dur >= need) checks.push({ id: 'startHold', label: 'Fermo iniziale a gambe tese (1 s)', status: 'pass', detail: `Fermo di ${fmt(h.dur)} s prima di scendere.`, t: [h.start, h.end] });
         else if (!h.found || h.touchesStart || t[descStart] - t[firstData] < need) checks.push({ id: 'startHold', label: 'Fermo iniziale a gambe tese (1 s)', status: 'unknown', detail: 'Il video inizia troppo tardi per vedere il secondo di fermo.' });
-        else checks.push({ id: 'startHold', label: 'Fermo iniziale a gambe tese (1 s)', status: 'fail', detail: `Fermo di solo ${fmt(h.dur)} s: serve 1 secondo prima di scendere.`, t: [h.start, h.end] });
+        else checks.push({ id: 'startHold', label: 'Fermo iniziale a gambe tese (1 s)', status: 'fail', close: h.dur >= need - 0.25, detail: `Fermo di solo ${fmt(h.dur)} s: serve 1 secondo prima di scendere.`, t: [h.start, h.end] });
       }
     }
 
@@ -140,7 +140,7 @@ export function analyzeSquat(frames, width, height, cfg = SQUAT) {
       });
       if (over < cfg.depthBorderlineDeg) warnings.push('Profondità al limite: un giudice severo potrebbe darla no rep.');
     } else {
-      checks.push({ id: 'depth', label: 'Profondità: anca sotto il ginocchio', status: 'fail', detail: 'Squat alto: il femore non rompe il parallelo, l\'anca non scende sotto il ginocchio.', t: [t[depthIdx], t[depthIdx]], value: depth });
+      checks.push({ id: 'depth', label: 'Profondità: anca sotto il ginocchio', status: 'fail', close: -over < cfg.depthBorderlineDeg, detail: 'Squat alto: il femore non rompe il parallelo, l\'anca non scende sotto il ginocchio.', t: [t[depthIdx], t[depthIdx]], value: depth });
     }
 
     // 3) Nessuna discesa del bilanciere durante la salita (deve durare almeno barDropMinSec).
@@ -166,7 +166,7 @@ export function analyzeSquat(frames, width, height, cfg = SQUAT) {
       const h = hold(upIdx, +1);
       if (h.found && h.dur >= need) checks.push({ id: 'endHold', label: 'Chiusura a gambe tese e fermo (1 s)', status: 'pass', detail: `Fermo di ${fmt(h.dur)} s in chiusura.`, t: [h.start, h.end] });
       else if (!h.found || h.touchesEnd || t[lastData] - t[upIdx] < need) checks.push({ id: 'endHold', label: 'Chiusura a gambe tese e fermo (1 s)', status: 'unknown', detail: 'Il video finisce prima del secondo di fermo.' });
-      else checks.push({ id: 'endHold', label: 'Chiusura a gambe tese e fermo (1 s)', status: 'fail', detail: `Fermo di solo ${fmt(h.dur)} s: serve 1 secondo prima del rack.`, t: [h.start, h.end] });
+      else checks.push({ id: 'endHold', label: 'Chiusura a gambe tese e fermo (1 s)', status: 'fail', close: h.dur >= need - 0.25, detail: `Fermo di solo ${fmt(h.dur)} s: serve 1 secondo prima del rack.`, t: [h.start, h.end] });
     } else {
       checks.push({ id: 'lockout', label: 'Chiusura a gambe tese', status: 'pass', detail: 'Ginocchia distese prima della ripetizione successiva.', t: [t[upIdx], t[upIdx]] });
     }
