@@ -97,6 +97,9 @@
 
   /* ── live ────────────────────────────────── */
   .live-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .live-cmd{position:absolute;left:0;right:0;top:38%;text-align:center;font-family:var(--display);font-size:clamp(64px,22vw,120px);letter-spacing:.04em;color:var(--accent);text-shadow:0 0 30px rgba(var(--accent-rgb),.8),0 2px 10px rgba(0,0,0,.6);opacity:0;pointer-events:none;transform:scale(.9)}
+  .live-cmd.show{animation:cmd 1s ease-out}
+  @keyframes cmd{0%{opacity:0;transform:scale(.8)}12%{opacity:1;transform:scale(1.05)}70%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1)}}
   .flip{justify-self:end;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:0;color:var(--grey);font:500 11px/1 var(--mono, monospace);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;padding:6px}
   .flip svg{width:28px;height:28px;color:var(--white)}
   #live-stage.mirror video,#live-stage.mirror canvas{transform:scaleX(-1)}
@@ -136,6 +139,7 @@
   .verdict.show .vtext{opacity:1;transform:none}
   .verdict.good .vtext{color:var(--accent)}.verdict.norep .vtext{color:var(--red)}.verdict.unclear .vtext{font-size:40px;color:var(--white)}
   .vsub{font-size:14px;color:var(--grey);margin-top:6px;font-family:var(--body);line-height:1.4}
+  [hidden]{display:none!important}
   .badge{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);border:1px solid rgba(var(--accent-rgb),.35);border-radius:100px;padding:5px 10px}
   .checks{list-style:none;display:grid;gap:8px;margin:16px 0 4px}
   .check{display:flex;gap:12px;align-items:flex-start;padding:13px 14px;border-radius:14px;background:var(--bg2);border:1px solid var(--border);cursor:pointer;text-align:left;width:100%}
@@ -152,6 +156,20 @@
   .replay-ctrls{display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap}
   .pill{padding:11px 16px;border-radius:100px;border:1px solid var(--border);background:var(--bg2);font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px}
   .pill.on{border-color:var(--accent);color:var(--accent)}
+  .pill.toggle::before{content:'';width:9px;height:9px;border-radius:50%;border:1.5px solid currentColor;flex:none}
+  .pill.toggle.on::before{background:var(--accent);border-color:var(--accent);box-shadow:0 0 8px rgba(var(--accent-rgb),.7)}
+  .badge.limit{color:#f0b429;border-color:rgba(240,180,41,.55);background:rgba(240,180,41,.1);font-size:12px;font-weight:600}
+  .tips{margin:12px 0 4px;padding:14px 16px;border-radius:14px;background:rgba(240,180,41,.08);border:1px solid rgba(240,180,41,.4)}
+  .tips.fix{background:rgba(var(--red-rgb),.08);border-color:rgba(var(--red-rgb),.4)}
+  .tips b{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#f0b429;margin-bottom:6px}
+  .tips.fix b{color:var(--red)}
+  .tips ul{list-style:none;display:grid;gap:6px}
+  .tips li{font-size:14px;line-height:1.45;color:var(--white)}
+  .reps{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 4px;align-items:center}
+  .reps .sum{width:100%;font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--grey)}
+  .rep{display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:100px;border:1px solid var(--border);background:var(--bg2);font-weight:600;font-size:14px}
+  .rep.good{color:var(--accent)}.rep.norep{color:var(--red)}.rep.unclear{color:var(--grey)}
+  .rep.sel{border-color:currentColor;box-shadow:0 0 0 1px currentColor inset}
   .result-actions{display:grid;gap:10px;margin-top:22px}
   .btn{display:block;text-align:center;padding:16px;border-radius:14px;font-weight:600;font-size:16px;text-decoration:none;border:1px solid var(--border);background:var(--bg2)}
   .btn.primary{background:var(--accent);border-color:var(--accent);color:#141008}
@@ -226,7 +244,7 @@
       <button class="back" data-home><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M15 18l-6-6 6-6"/></svg>Indietro</button>
       <label class="switch">Comandi vocali <input type="checkbox" id="voice"></label>
     </div>
-    <div class="stage" id="live-stage"><video id="live-video" playsinline muted autoplay></video><canvas id="live-canvas"></canvas><p class="stage-msg" id="live-msg"></p></div>
+    <div class="stage" id="live-stage"><video id="live-video" playsinline muted autoplay></video><canvas id="live-canvas"></canvas><p class="stage-msg" id="live-msg"></p><p class="live-cmd" id="live-cmd" aria-live="assertive"></p></div>
     <div class="rec-bar">
       <span class="rec-time" id="rec-time">0:00</span>
       <button class="rec" id="rec" aria-label="Registra"></button>
@@ -253,12 +271,15 @@
         <svg class="q" viewBox="18 6 68 95"><use href="#mark"/></svg>
         <svg viewBox="0 0 100 100"><path class="ok" d="M22 53 L42 72 L80 30"/><path class="ko" d="M28 28 L72 72 M72 28 L28 72"/></svg>
       </div>
-      <div><p class="vtext" id="vtext"></p><p class="vsub" id="vsub"></p><p class="badge" id="vbadge" hidden>Alcuni dettagli non visibili</p></div>
+      <div><p class="vtext" id="vtext"></p><p class="vsub" id="vsub"></p><p class="badge limit" id="vlimit" hidden>Valida ma al limite</p><p class="badge" id="vbadge" hidden>Alcuni dettagli non visibili</p></div>
     </div>
+    <div class="reps" id="reps" hidden></div>
+    <div class="tips" id="tips" hidden><b id="tips-title">Da migliorare</b><ul id="tips-list"></ul></div>
     <div class="stage" id="replay-stage"><video id="replay-video" playsinline muted></video><canvas id="replay-canvas"></canvas><p class="stage-msg" id="replay-msg"></p></div>
     <div class="replay-ctrls">
       <button class="pill" id="rp-play">▶ Replay</button>
-      <button class="pill" id="rp-slow">Rallenty</button>
+      <button class="pill toggle" id="rp-slow" aria-pressed="false">Rallenty</button>
+      <button class="pill toggle" id="rp-path" aria-pressed="false">Traiettoria</button>
       <button class="pill" id="rp-key">Punto chiave</button>
     </div>
     <ul class="checks" id="checks"></ul>

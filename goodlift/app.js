@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Manuel Ferrante Coaching — AGPL-3.0-or-later (vedi LICENSE).
 import { FilesetResolver, PoseLandmarker } from './vendor/mediapipe/vision_bundle.js';
 import { LIFTS, LM, SQUAT } from './engine.js';
+import { pickPerson } from './core.js';
 
 const $ = id => document.getElementById(id);
 const GOLD = '#c9a35a', RED = '#e5484d', WHITE = '#f5f5f0';
@@ -74,14 +75,15 @@ async function createModel(kind) {
     minPoseDetectionConfidence: 0.3, minPosePresenceConfidence: 0.3, minTrackingConfidence: 0.3,
   });
   let model;
-  if (DELEGATE_OVERRIDE) return (state.models[kind] = await PoseLandmarker.createFromOptions(state.vision, opts(DELEGATE_OVERRIDE)));
-  try { model = await PoseLandmarker.createFromOptions(state.vision, opts('GPU')); }
+  if (DELEGATE_OVERRIDE) model = await PoseLandmarker.createFromOptions(state.vision, opts(DELEGATE_OVERRIDE));
+  else try { model = await PoseLandmarker.createFromOptions(state.vision, opts('GPU')); }
   catch { model = await PoseLandmarker.createFromOptions(state.vision, opts('CPU')); }
+  model.__numPoses = 1;
   return (state.models[kind] = model);
 }
 let lastTs = 0;
 const nextTs = () => (lastTs = Math.max(lastTs + 1, Math.round(performance.now())));
-const toLm = res => res?.landmarks?.[0]?.map(p => ({ x: p.x, y: p.y, visibility: p.visibility ?? 1 })) ?? null;
+const toPoses = res => (res?.landmarks ?? []).map(lm => lm.map(p => ({ x: p.x, y: p.y, visibility: p.visibility ?? 1 })));
 
 // ── disegno ─────────────────────────────────────
 function fitCanvas(canvas) {
@@ -164,54 +166,101 @@ function drawScan(canvas, lm) {
 }
 
 // ── analisi di un video (caricato o registrato) ──
-async function analyzeVideo(url, { recordedSec = null, blob = null } = {}) {
+// Dove si muove l'atleta: il punto che fa l'alzata (anca nello squat, bilanciere in panca e stacco,
+// spalle a corpo libero). Serve a saltare i tempi morti prima e dopo.
+const MOVER = { squat: [23, 24], panca: [15, 16], stacco: [15, 16], trazioni: [11, 12], dip: [11, 12], muscleup: [11, 12] };
+function activeWindow(track, lift, total) {
+  const ids = MOVER[lift] || [23, 24];
+  const pts = track.filter(f => f.lm).map(f => ({ t: f.t, y: (f.lm[ids[0]].y + f.lm[ids[1]].y) / 2 }));
+  if (pts.length < 6) return [0, total];
+  const ys = pts.map(p => p.y).sort((a, b) => a - b);
+  const rest = ys[ys.length >> 1];
+  const amp = Math.max(...pts.map(p => Math.abs(p.y - rest)));
+  if (amp < 0.05) return [0, total]; // nessun movimento chiaro: si analizza tutto
+  const act = pts.filter(p => Math.abs(p.y - rest) > 0.35 * amp);
+  // margine: 2 s prima e dopo, per vedere i fermi (1 s) con un po' di respiro
+  return [Math.max(0, act[0].t - 2.2), Math.min(total, act[act.length - 1].t + 2.2)];
+}
+
+async function analyzeVideo(url, { recordedSec = null, blob = null, track = null } = {}) {
   show('scan');
   $('scan-error').textContent = '';
-  $('scan-bar').style.width = '0';
-  $('scan-pct').textContent = '';
-  $('scan-label').textContent = state.models.heavy ? 'Preparo il giudice…' : 'Preparo il giudice (la prima volta ci vuole qualche secondo)…';
+  const setPct = p => { $('scan-bar').style.width = p + '%'; $('scan-pct').textContent = Math.round(p) + '%'; };
+  setPct(0);
+  $('scan-label').textContent = 'Analisi in corso…';
   const video = $('scan-video'), canvas = $('scan-canvas');
-  let model;
-  // Per l'analisi si usa il modello più preciso: con dischi e rack che coprono le gambe
-  // è l'unico che mette anca e ginocchio al posto giusto.
-  try { model = await getModel('heavy'); }
-  catch (e) { console.error(e); $('scan-error').textContent = 'Non riesco a caricare il giudice. Controlla la connessione e riprova.'; return; }
-
-  try {
-    await loadVideo(video, url);
-  } catch (e) {
-    console.error(e);
-    $('scan-error').textContent = 'Questo video non si apre in questo browser. Prova con un video .mp4, oppure registrati direttamente dall\'app.';
-    return;
-  }
-  setAspect($('scan-stage'), video);
-  const vw = video.videoWidth, vh = video.videoHeight;
-  const total = Math.min(MAX_SECONDS, await videoDuration(video, recordedSec));
-  $('scan-label').textContent = 'Analisi del movimento';
-
-  // Campionamento a passo fisso: ci si ferma su ogni fotogramma e lo si analizza.
-  // Più lento della riproduzione "al volo", ma preciso anche su telefoni lenti
-  // e ripetibile (stesso video → stesso verdetto).
-  // 12 fotogrammi al secondo bastano per fermi e profondità e dimezzano quasi i tempi.
-  const fps = total > 15 ? 10 : 12;
-  const frames = [];
+  // l'effetto scansione parte subito, prima ancora che il video sia pronto
   let lastLm = null, raf = 0, alive = true;
   const anim = () => { if (!alive) return; drawScan(canvas, lastLm); raf = requestAnimationFrame(anim); };
   anim();
-  for (let t = 0; t <= total + 1e-6; t += 1 / fps) {
+  const stop = msg => { alive = false; cancelAnimationFrame(raf); $('scan-error').textContent = msg; };
+
+  // modello e video si preparano insieme
+  const modelP = getModel('heavy').then(async m => {
+    // In panca c'è quasi sempre uno spotter in piedi: si cercano più persone e si sceglie quella sdraiata.
+    // Nelle altre alzate una sola: il modello la segue meglio da un fotogramma all'altro.
+    const want = state.lift === 'panca' ? 3 : 1;
+    if (m.__numPoses !== want) { await m.setOptions({ numPoses: want }); m.__numPoses = want; }
+    return m;
+  });
+  modelP.catch(() => {});
+  try { await loadVideo(video, url); }
+  catch (e) { console.error(e); return stop('Questo video non si apre in questo browser. Prova con un video .mp4, oppure registrati direttamente dall\'app.'); }
+  setAspect($('scan-stage'), video);
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const total = Math.min(MAX_SECONDS, await videoDuration(video, recordedSec));
+
+  // 1) dove sta l'alzata? (registrazione: lo sappiamo già dalla diretta; galleria: passata veloce)
+  let win = [0, total], base = 0;
+  if (track?.length > 10) win = activeWindow(track, state.lift, total);
+  else if (total > 8) {
+    try {
+      const lite = await getModel('lite');
+      const quick = [];
+      for (let t = 0; t <= total; t += 0.25) {
+        if (document.body.dataset.screen !== 'scan') { alive = false; return; }
+        await seekTo(video, Math.min(t, Math.max(0, total - 0.02)));
+        let lm = null;
+        try { lm = pickPerson([{ t: 0, poses: toPoses(lite.detectForVideo(video, nextTs())) }], state.lift, vw, vh)[0].lm; } catch { /* fotogramma non pronto */ }
+        quick.push({ t: video.currentTime, lm });
+        if (lm) lastLm = lm;
+        setPct(t / total * 20);
+      }
+      win = activeWindow(quick, state.lift, total);
+    } catch (e) { console.warn(e); }
+    base = 20;
+  }
+
+  let model;
+  try { model = await modelP; }
+  catch (e) { console.error(e); return stop('Non riesco a caricare il giudice. Controlla la connessione e riprova.'); }
+
+  // 2) analisi precisa, a passo fisso, solo sul pezzo con l'alzata.
+  // Ci si ferma su ogni fotogramma: preciso anche su telefoni lenti e ripetibile (stesso video → stesso verdetto).
+  const span = win[1] - win[0];
+  const fps = span > 15 ? 10 : 12;
+  const frames = [];
+  for (let t = win[0]; t <= win[1] + 1e-6; t += 1 / fps) {
     if (document.body.dataset.screen !== 'scan') { alive = false; return; } // l'utente è tornato indietro
     await seekTo(video, Math.min(t, Math.max(0, total - 0.02)));
-    let lm = null;
-    try { lm = toLm(model.detectForVideo(video, nextTs())); } catch (e) { console.warn(e); }
-    frames.push({ t: video.currentTime, lm });
+    let poses = [];
+    try { poses = toPoses(model.detectForVideo(video, nextTs())); } catch (e) { console.warn(e); }
+    frames.push({ t: video.currentTime, poses });
+    const lm = pickPerson([{ t: 0, poses }], state.lift, vw, vh)[0].lm;
     if (lm) lastLm = lm;
-    const pct = Math.min(100, Math.round(t / total * 100));
-    $('scan-bar').style.width = pct + '%'; $('scan-pct').textContent = pct + '%';
+    setPct(base + (100 - base) * Math.min(1, (t - win[0]) / Math.max(0.01, span)));
   }
   alive = false; cancelAnimationFrame(raf);
-  const clean = frames.filter((f, i) => i === 0 || f.t > frames[i - 1].t + 1e-4);
+  const raw = frames.filter((f, i) => i === 0 || f.t > frames[i - 1].t + 1e-4);
+  const clean = pickPerson(raw, state.lift, vw, vh);
+  state.raw = raw; // per ?debug
   const result = LIFTS[state.lift].analyze(clean, vw, vh);
   if (total >= MAX_SECONDS) result.warnings.unshift(`Ho analizzato solo i primi ${MAX_SECONDS} secondi: per i prossimi video taglia il pezzo con l'alzata.`);
+  // replay: dall'inizio della prima ripetizione a poco dopo la fine dell'ultima
+  const keys = (result.reps || (result.key ? [{ key: result.key }] : [])).map(r => r.key);
+  result.trim = keys.length
+    ? [Math.max(0, Math.min(...keys.map(k => k.start)) - 0.5), Math.min(total, Math.max(...keys.map(k => k.end ?? k.focus)) + 1.6)]
+    : [win[0], win[1]];
   showResult(result, clean, url, blob);
 }
 
@@ -273,20 +322,34 @@ function seekTo(video, t) {
 }
 
 // ── risultato + replay ──────────────────────────
+const TEXT = { good: 'GOOD LIFT', norep: 'NO REP', unclear: 'NON RIESCO A GIUDICARE' };
+const ICON = { pass: '✓', fail: '✕', unknown: '–' };
 function showResult(result, frames, url, blob) {
   state.result = { result, frames };
   show('result');
   const v = $('verdict');
   v.className = 'verdict ' + result.verdict;
-  const text = { good: 'GOOD LIFT', norep: 'NO REP', unclear: 'NON RIESCO A GIUDICARE' }[result.verdict];
-  $('vtext').textContent = text;
+  $('vtext').textContent = TEXT[result.verdict];
   const firstFail = result.checks.find(c => c.status === 'fail');
-  $('vsub').textContent = result.verdict === 'good' ? `${LIFTS[result.lift].name} valido.` : result.verdict === 'norep' ? firstFail.detail : result.warnings[0];
+  const name = LIFTS[result.lift].name;
+  if (result.reps) {
+    const bad = result.reps.find(r => r.verdict === 'norep');
+    $('vsub').textContent = `${result.reps.length} ripetizioni: ${result.summary}.` + (bad ? ` Rip. ${bad.n}: ${bad.reason}` : '');
+  } else {
+    $('vsub').textContent = result.verdict === 'good' ? (result.borderline ? `${name} valido, ma al limite.` : `${name} valido.`) : result.verdict === 'norep' ? firstFail.detail : result.warnings[0];
+  }
+  $('vlimit').hidden = !result.borderline;
   $('vbadge').hidden = !(result.verdict === 'good' && result.missing);
   requestAnimationFrame(() => requestAnimationFrame(() => v.classList.add('show')));
 
-  const icon = { pass: '✓', fail: '✕', unknown: '–' };
-  $('checks').innerHTML = result.checks.map((c, i) => `<li><button class="check ${c.status}" data-i="${i}"><span class="ci">${icon[c.status]}</span><span><b>${c.label}</b><span>${c.status === 'unknown' ? 'Non visibile: ' + c.detail : c.detail}</span></span></button></li>`).join('');
+  // ripetizioni: un chip per ognuna, si tocca per vedere il dettaglio
+  const reps = $('reps');
+  reps.hidden = !result.reps;
+  if (result.reps) {
+    reps.innerHTML = `<p class="sum">${result.reps.length} ripetizioni · ${result.summary}</p>` + result.reps.map(r =>
+      `<button class="rep ${r.verdict}" data-n="${r.n}">${r.n} ${r.verdict === 'good' ? '✓' : r.verdict === 'norep' ? '✕' : '?'}</button>`).join('');
+    reps.querySelectorAll('.rep').forEach(btn => btn.addEventListener('click', () => selectRep(+btn.dataset.n, true)));
+  }
   const warns = result.verdict === 'unclear' ? result.warnings.slice(1) : result.warnings;
   $('warns').innerHTML = warns.map(w => `<li>${w}</li>`).join('');
 
@@ -294,32 +357,56 @@ function showResult(result, frames, url, blob) {
     const a = $('save-video'); a.hidden = false; a.href = url;
     a.download = `goodlift-${result.lift}-${new Date().toISOString().slice(0, 10)}.${blob.type.includes('mp4') ? 'mp4' : 'webm'}`;
   }
+  $('rp-path').textContent = result.replay?.path?.label || 'Traiettoria';
+  $('rp-path').hidden = !result.replay?.path;
   setupReplay(url, result, frames);
-  $('checks').querySelectorAll('.check').forEach(b => b.addEventListener('click', () => {
-    const c = result.checks[+b.dataset.i];
-    if (c.t) seekReplay(Math.max(0, c.t[0] - 0.3), true);
-  }));
+  selectRep(result.mainRep || 1, false);
 }
 
-const replay = { video: null, raf: 0, keyPaused: false, slow: true };
+function selectRep(n, seek) {
+  const result = state.result?.result; if (!result) return;
+  const rep = result.reps ? result.reps[n - 1] : null;
+  const checks = rep ? rep.checks : result.checks;
+  state.selRep = n;
+  $('reps').querySelectorAll('.rep').forEach(b => b.classList.toggle('sel', +b.dataset.n === n));
+  $('checks').innerHTML = checks.map((c, i) => `<li><button class="check ${c.status}${c.borderline ? ' limit' : ''}" data-i="${i}"><span class="ci">${ICON[c.status]}</span><span><b>${c.label}</b><span>${c.status === 'unknown' ? 'Non visibile: ' + c.detail : c.detail}</span></span></button></li>`).join('');
+  $('checks').querySelectorAll('.check').forEach(b => b.addEventListener('click', () => {
+    const c = checks[+b.dataset.i];
+    if (c.t) seekReplay(Math.max(0, c.t[0] - 0.3), true);
+  }));
+  // consigli: cosa sistemare (no rep) o cosa migliorare (valida ma al limite)
+  const verdict = rep ? rep.verdict : result.verdict;
+  const tips = (rep ? rep.tips : result.tips) || [];
+  $('tips').hidden = !tips.length || verdict === 'unclear';
+  $('tips').classList.toggle('fix', verdict === 'norep');
+  $('tips-title').textContent = verdict === 'norep' ? 'Come sistemarla' : 'Da migliorare';
+  $('tips-list').innerHTML = tips.map(t => `<li>${t}</li>`).join('');
+  if (seek && rep) seekReplay(Math.max(0, rep.key.start - 0.3), false);
+}
+const replay = { video: null, raf: 0, keyPaused: false, slow: false, path: false, range: [0, Infinity] };
 function setupReplay(url, result, frames) {
   const video = $('replay-video'), canvas = $('replay-canvas');
   replay.video = video; replay.keyPaused = false;
+  replay.range = result.trim || [0, Infinity];
   video.loop = false;
   loadVideo(video, url).then(() => {
     setAspect($('replay-stage'), video);
-    video.currentTime = 0;
+    video.currentTime = replay.range[0];
     video.playbackRate = replay.slow ? 0.5 : 1;
     video.play().catch(() => {});
   }).catch(e => console.error(e));
-  $('rp-slow').classList.toggle('on', replay.slow);
+  $('rp-slow').classList.toggle('on', replay.slow); $('rp-slow').setAttribute('aria-pressed', replay.slow);
+  $('rp-path').classList.toggle('on', replay.path); $('rp-path').setAttribute('aria-pressed', replay.path);
   cancelAnimationFrame(replay.raf);
   const draw = () => {
+    // si guarda solo l'alzata: niente tempi morti prima e dopo
+    if (!video.paused && video.currentTime >= replay.range[1]) video.pause();
     drawReplay(canvas, video, result, frames);
-    const k = result.key?.bottom;
-    if (k != null && !replay.keyPaused && !video.paused && video.currentTime >= k) {
-      replay.keyPaused = true; video.pause();
-      setTimeout(() => { if (document.body.dataset.screen === 'result') video.play().catch(() => {}); }, 1400);
+    const ft = result.replay?.focusTs || [];
+    const k = ft.find(f => f != null && video.currentTime >= f && video.currentTime - f < 0.2);
+    if (k != null && replay.keyPaused !== k && !video.paused) {
+      replay.keyPaused = k; video.pause();
+      setTimeout(() => { if (document.body.dataset.screen === 'result' && replay.keyPaused === k) video.play().catch(() => {}); }, 900);
     }
     replay.raf = requestAnimationFrame(draw);
   };
@@ -327,14 +414,23 @@ function setupReplay(url, result, frames) {
 }
 function seekReplay(t, pause) {
   const v = replay.video; if (!v) return;
-  replay.keyPaused = true;
+  replay.keyPaused = t;
   v.currentTime = t;
   if (pause) v.pause(); else v.play().catch(() => {});
   $('replay-stage').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
-$('rp-play').addEventListener('click', () => { const v = replay.video; if (!v) return; replay.keyPaused = false; v.currentTime = 0; v.playbackRate = replay.slow ? 0.5 : 1; v.play().catch(() => {}); });
-$('rp-slow').addEventListener('click', () => { replay.slow = !replay.slow; $('rp-slow').classList.toggle('on', replay.slow); if (replay.video) replay.video.playbackRate = replay.slow ? 0.5 : 1; });
-$('rp-key').addEventListener('click', () => { const k = state.result?.result.key?.bottom; if (k != null) seekReplay(k, true); });
+$('rp-play').addEventListener('click', () => { const v = replay.video; if (!v) return; replay.keyPaused = false; v.currentTime = replay.range[0]; v.playbackRate = replay.slow ? 0.5 : 1; v.play().catch(() => {}); });
+$('rp-slow').addEventListener('click', () => {
+  replay.slow = !replay.slow; $('rp-slow').classList.toggle('on', replay.slow); $('rp-slow').setAttribute('aria-pressed', replay.slow);
+  if (replay.video) replay.video.playbackRate = replay.slow ? 0.4 : 1;
+});
+$('rp-path').addEventListener('click', () => { replay.path = !replay.path; $('rp-path').classList.toggle('on', replay.path); $('rp-path').setAttribute('aria-pressed', replay.path); });
+$('rp-key').addEventListener('click', () => {
+  const r = state.result?.result; if (!r) return;
+  const rep = r.reps ? r.reps[(state.selRep || 1) - 1] : null;
+  const k = rep ? rep.key.focus : r.key?.focus;
+  if (k != null) seekReplay(k, true);
+});
 
 function nearest(ts, t) {
   let lo = 0, hi = ts.length - 1;
@@ -344,65 +440,75 @@ function nearest(ts, t) {
 function drawReplay(canvas, video, result, frames) {
   const { ctx, w, h, dpr } = fitCanvas(canvas);
   ctx.clearRect(0, 0, w, h);
-  if (!result.replay || !frames.length || !video.videoWidth) return;
-  const { t: ts, series, femur, bar, barSource } = result.replay;
+  const R = result.replay;
+  if (!R || !frames.length || !video.videoWidth) return;
+  const ts = R.t, series = R.series;
   const now = video.currentTime, i = nearest(ts, now);
   const sx = w / video.videoWidth, sy = h / video.videoHeight;
   const P = p => p && { x: p.x * sx, y: p.y * sy };
+  const line = (a, b, color, width, dash) => {
+    ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = width * dpr; ctx.lineCap = 'round';
+    if (dash) ctx.setLineDash([8 * dpr, 7 * dpr]);
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.restore();
+  };
 
   drawSkeleton(ctx, frames[i]?.lm, w, h, { color: WHITE, width: 1.6, alpha: .45, dpr });
 
-  // traiettoria del "bilanciere"
-  const t0 = result.key.descStart ?? ts[0];
-  const src = barSource === 'spalla' ? series.S : series.H;
-  const noDrop = result.checks.find(c => c.id === 'noDrop');
-  ctx.save(); ctx.strokeStyle = GOLD; ctx.lineWidth = 3 * dpr; ctx.globalAlpha = .85; ctx.lineJoin = 'round';
-  ctx.beginPath(); let started = false;
-  for (let k = 0; k <= i; k++) {
-    if (ts[k] < t0 || !src[k] || !Number.isFinite(bar[k])) continue;
-    const x = src[k].x * sx, y = bar[k] * sy;
-    started ? ctx.lineTo(x, y) : ctx.moveTo(x, y); started = true;
-  }
-  ctx.stroke(); ctx.restore();
-  if (noDrop?.status === 'fail' && now >= noDrop.t[0]) {
-    const k = nearest(ts, noDrop.t[0]);
-    if (src[k]) {
-      ctx.save(); ctx.strokeStyle = RED; ctx.lineWidth = 3 * dpr; ctx.beginPath(); ctx.arc(src[k].x * sx, bar[k] * sy, 16 * dpr, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
-      tag(ctx, 'IL BILANCIERE SCENDE', src[k].x * sx + 20 * dpr, bar[k] * sy, dpr, RED);
-    }
+  // traiettoria del bilanciere / dei dischi (pulsante)
+  if (replay.path && R.path) {
+    const pt = k => {
+      const a = series[R.path.a][k]; if (!a) return null;
+      const b = R.path.b ? series[R.path.b][k] : null;
+      const f = R.path.f || 0;
+      return P(b ? { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f } : a);
+    };
+    const [r0, r1] = result.trim || [ts[0], ts[ts.length - 1]];
+    const k0 = nearest(ts, r0), k1 = nearest(ts, r1);
+    const stroke = (from, to, alpha, width) => {
+      ctx.save(); ctx.strokeStyle = GOLD; ctx.globalAlpha = alpha; ctx.lineWidth = width * dpr; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.shadowColor = GOLD; ctx.shadowBlur = 8 * dpr;
+      ctx.beginPath(); let started = false;
+      for (let k = from; k <= to; k++) { const p = pt(k); if (!p) { started = false; continue; } started ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); started = true; }
+      ctx.stroke(); ctx.restore();
+    };
+    stroke(k0, k1, .3, 2.5);
+    stroke(k0, Math.min(i, k1), .95, 3.5);
+    const cur = pt(i);
+    if (cur) { ctx.save(); ctx.fillStyle = GOLD; ctx.shadowColor = GOLD; ctx.shadowBlur = 12 * dpr; ctx.beginPath(); ctx.arc(cur.x, cur.y, 6 * dpr, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+    if (R.path.bar) { const y = R.path.bar() * sy; line({ x: 0, y }, { x: w, y }, 'rgba(245,245,240,.6)', 1.5, true); }
   }
 
-  // femore + riferimento del parallelo
-  const H = P(series.H[i]), K = P(series.K[i]);
-  const depth = result.checks.find(c => c.id === 'depth');
-  if (H && K) {
-    const nearBottom = Math.abs(now - result.key.bottom) < 0.45;
-    const col = depth?.status === 'fail' && nearBottom ? RED : GOLD;
-    if (nearBottom) {
-      ctx.save(); ctx.setLineDash([8 * dpr, 7 * dpr]); ctx.strokeStyle = 'rgba(245,245,240,.75)'; ctx.lineWidth = 1.5 * dpr;
-      // linea di soglia: l'anca deve arrivare qui (già corretta per la posizione del punto "anca" del modello)
-      const yLine = K.y + Math.tan(SQUAT.depthMinDeg * Math.PI / 180) * Math.abs(H.x - K.x);
-      ctx.beginPath(); ctx.moveTo(0, yLine); ctx.lineTo(w, yLine); ctx.stroke(); ctx.restore();
-    }
+  // discesa del bilanciere (o del corpo) durante la salita
+  const rep = result.reps ? result.reps[(state.selRep || 1) - 1] : null;
+  const allChecks = result.reps ? result.reps.flatMap(r => r.checks) : result.checks;
+  for (const c of allChecks) {
+    if (c.id !== 'noDrop' || c.status !== 'fail' || now < c.t[0] || now > c.t[0] + 1.5) continue;
+    const p = P(series[R.trail || 'H'][nearest(ts, c.t[0])]);
+    if (!p) continue;
+    ctx.save(); ctx.strokeStyle = RED; ctx.lineWidth = 3 * dpr; ctx.beginPath(); ctx.arc(p.x, p.y, 16 * dpr, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    tag(ctx, R.dropText || 'SCENDE', p.x + 20 * dpr, p.y, dpr, RED);
+  }
+
+  // posizione chiave: segmento, linea di riferimento, etichetta
+  const F = R.focus; if (!F) return;
+  const near = (R.focusTs || []).some(f => f != null && Math.abs(now - f) < 0.45);
+  const A = P(series[F.a]?.[i]), B = P(series[F.b]?.[i]);
+  const lab = near && F.label ? F.label(i) : null;
+  const col = lab?.[1] ? RED : GOLD;
+  if (near) {
+    if (F.ref) { const y = F.ref(i); if (y != null) line({ x: 0, y: y * sy }, { x: w, y: y * sy }, 'rgba(245,245,240,.75)', 1.5, true); }
+    if (F.hline) { const y = F.hline() * sy; line({ x: 0, y }, { x: w, y }, 'rgba(245,245,240,.75)', 1.5, true); }
+    if (F.vline) { const x = F.vline(i); if (x != null) line({ x: x * sx, y: 0 }, { x: x * sx, y: h }, 'rgba(245,245,240,.75)', 1.5, true); }
+  }
+  if (A && B) {
     ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 5 * dpr; ctx.lineCap = 'round'; ctx.shadowColor = col; ctx.shadowBlur = 10 * dpr;
-    ctx.beginPath(); ctx.moveTo(H.x, H.y); ctx.lineTo(K.x, K.y); ctx.stroke(); ctx.restore();
-    if (nearBottom && Number.isFinite(femur[i])) {
-      const f = femur[i];
-      const over = f - SQUAT.depthMinDeg;
-      const label = over >= SQUAT.depthBorderlineDeg ? 'PROFONDITÀ OK' : over >= 0 ? 'PROFONDITÀ AL LIMITE' : `ALTO DI ${Math.max(1, Math.round(-over))}°`;
-      tag(ctx, label, Math.min(H.x, K.x), Math.max(H.y, K.y) + 26 * dpr, dpr, col);
-    }
+    ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke(); ctx.restore();
   }
-
-  // fermi: cronometro durante i secondi di fermo
-  for (const c of result.checks) {
-    if (!['startHold', 'endHold'].includes(c.id) || !c.t) continue;
-    if (now >= c.t[0] && now <= c.t[1] + 0.25) {
-      const sec = Math.min(now - c.t[0], c.t[1] - c.t[0]);
-      tag(ctx, `FERMO ${sec.toFixed(1).replace('.', ',')} s${now > c.t[1] ? (c.status === 'pass' ? ' ✓' : ' ✕') : ''}`, 14 * dpr, 24 * dpr, dpr, c.status === 'fail' ? RED : GOLD);
-    }
+  if (near && F.point) { const p = F.point(i); if (p) { ctx.save(); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(p.x * sx, p.y * sy, 6 * dpr, 0, Math.PI * 2); ctx.fill(); ctx.restore(); } }
+  if (lab && (A || B)) {
+    const ref = A && B ? { x: Math.min(A.x, B.x), y: Math.max(A.y, B.y) } : (A || B);
+    tag(ctx, lab[0], Math.max(8 * dpr, Math.min(ref.x, w - 200 * dpr)), Math.min(h - 20 * dpr, ref.y + 26 * dpr), dpr, col);
   }
-  corners(ctx, w, h, dpr);
 }
 
 // ── modalità live ───────────────────────────────
@@ -425,7 +531,7 @@ async function startLive() {
   await video.play().catch(() => {});
   await new Promise(r => video.videoWidth ? r() : (video.onloadedmetadata = r));
   setAspect($('live-stage'), video);
-  state.live = { stream, rec: null, chunks: [], startedAt: 0, timer: 0, phase: 'wait', hist: [], spoke: 0 };
+  state.live = { stream, rec: null, chunks: [], startedAt: 0, timer: 0, step: 0, track: [] };
   $('live-msg').textContent = 'Carico il giudice…';
   let model;
   try { model = await getModel('lite'); } catch (e) { console.error(e); }
@@ -438,13 +544,15 @@ async function startLive() {
     if (model && video.readyState >= 2 && now - lastRun > 60) {
       lastRun = now;
       let lm = null;
-      try { lm = toLm(model.detectForVideo(video, nextTs())); } catch { /* frame non pronto */ }
+      try { lm = pickPerson([{ t: 0, poses: toPoses(model.detectForVideo(video, nextTs())) }], state.lift, video.videoWidth, video.videoHeight)[0].lm; } catch { /* frame non pronto */ }
       const { ctx, w, h, dpr } = fitCanvas(canvas);
       ctx.clearRect(0, 0, w, h);
       corners(ctx, w, h, dpr);
       drawSkeleton(ctx, lm, w, h, { glow: 10, width: 2.4, dpr });
       $('live-msg').textContent = lm ? '' : 'Non ti vedo: mettiti di lato, con tutto il corpo nell\'inquadratura.';
       if (lm) voiceCoach(lm, video.videoWidth, video.videoHeight, now / 1000);
+      // traccia della diretta: serve dopo a saltare i tempi morti senza rianalizzare tutto
+      if (state.live.rec) state.live.track.push({ t: (now - state.live.startedAt) / 1000, lm });
     }
     requestAnimationFrame(loop);
   };
@@ -495,40 +603,80 @@ function say(word) {
 }
 // Il comando arriva quando sei a gambe tese e fermo da COMMAND_HOLD secondi (il giudizio poi
 // chiede 1 s di fermo prima della discesa: aspettando il comando ci si arriva sempre).
+// Il comando arriva quando sei in posizione e fermo da COMMAND_HOLD secondi (il giudizio poi
+// chiede 1 s di fermo: aspettando il comando ci si arriva sempre).
 const COMMAND_HOLD = 0.7;
+// Sequenza di ogni alzata: condizione da raggiungere, fermo richiesto, comando da dare.
+const SEQ = {
+  squat: [{ c: 'locked', hold: COMMAND_HOLD, say: 'Start' }, { c: 'down' }, { c: 'locked', hold: COMMAND_HOLD, say: 'Rack' }],
+  panca: [{ c: 'locked', hold: COMMAND_HOLD, say: 'Start' }, { c: 'down' }, { c: 'chest', hold: COMMAND_HOLD, say: 'Press' }, { c: 'locked', hold: COMMAND_HOLD, say: 'Rack' }],
+  stacco: [{ c: 'lifted' }, { c: 'locked', hold: COMMAND_HOLD, say: 'Down' }],
+  trazioni: [{ c: 'hang', hold: COMMAND_HOLD, say: 'Start' }, { c: 'pulled' }, { c: 'hang', hold: 0.4, say: 'Down' }],
+  dip: [{ c: 'locked', hold: COMMAND_HOLD, say: 'Start' }, { c: 'down' }, { c: 'locked', hold: COMMAND_HOLD, say: 'Down' }],
+  muscleup: [{ c: 'hang', hold: COMMAND_HOLD, say: 'Start' }, { c: 'top', hold: COMMAND_HOLD, say: 'Down' }],
+};
+function flashCommand(word) {
+  const el = $('live-cmd'); if (!el) return;
+  el.textContent = word.toUpperCase();
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+}
 function voiceCoach(lm, vw, vh, t) {
   const L = state.live;
-  if (!L?.rec || !$('voice').checked || state.lift !== 'squat') return;
-  const s = sideOf(lm);
-  if ((lm[s.H].visibility ?? 0) < 0.3 || (lm[s.K].visibility ?? 0) < 0.3 || (lm[s.A].visibility ?? 0) < 0.3) return;
-  const knee = angle(lm[s.H], lm[s.K], lm[s.A], vw, vh);
-  const hy = lm[s.H].y * vh, hx = lm[s.H].x * vw, ax = lm[s.A].x * vw, ay = lm[s.A].y * vh;
-  const body = Math.hypot(hx - ax, hy - ay) * 1.9 || vh * 0.7;
-  L.maxKnee = Math.max(L.maxKnee || 0, knee);
-  // "Gambe tese" relativo a come il modello vede te in piedi (il modello leggero sbaglia di qualche grado).
-  const lockedNow = knee >= Math.min(SQUAT.lockoutKneeDeg, L.maxKnee - 14);
-  L.hist.push({ t, knee, hx, hy, ax, locked: lockedNow });
-  // si tiene solo il tratto finale in cui sei rimasto a gambe tese
-  let i = L.hist.length - 1; while (i > 0 && L.hist[i - 1].locked && t - L.hist[i - 1].t <= 1.5) i--;
-  if (!lockedNow) { L.hist = [L.hist[L.hist.length - 1]]; i = 0; }
-  L.hist = L.hist.slice(i);
-  const tol = 0.03 * body;
-  // fermo: dall'ultimo istante in cui ti sei mosso troppo
-  let still = L.hist.length - 1;
-  const lo = { hx: hx, hy: hy, ax: ax }, hi = { ...lo };
-  while (still > 0) {
-    const p = L.hist[still - 1];
-    const nlo = { hx: Math.min(lo.hx, p.hx), hy: Math.min(lo.hy, p.hy), ax: Math.min(lo.ax, p.ax) };
-    const nhi = { hx: Math.max(hi.hx, p.hx), hy: Math.max(hi.hy, p.hy), ax: Math.max(hi.ax, p.ax) };
-    if (nhi.hx - nlo.hx > tol || nhi.hy - nlo.hy > tol || nhi.ax - nlo.ax > tol) break;
-    Object.assign(lo, nlo); Object.assign(hi, nhi); still--;
+  if (!L?.rec || !$('voice').checked) return;
+  const seq = SEQ[state.lift]; if (!seq) return;
+  const left = (lm[11].visibility ?? 0) + (lm[23].visibility ?? 0) >= (lm[12].visibility ?? 0) + (lm[24].visibility ?? 0);
+  const id = left ? { S: 11, E: 13, W: 15, H: 23, K: 25, A: 27 } : { S: 12, E: 14, W: 16, H: 24, K: 26, A: 28 };
+  const P = k => ({ x: lm[id[k]].x * vw, y: lm[id[k]].y * vh, v: lm[id[k]].visibility ?? 0 });
+  const S = P('S'), E = P('E'), W = P('W'), H = P('H'), K = P('K'), A = P('A');
+  const ang = (a, b, c) => angle({ x: a.x / vw, y: a.y / vh }, { x: b.x / vw, y: b.y / vh }, { x: c.x / vw, y: c.y / vh }, vw, vh);
+  const arm = Math.hypot(S.x - E.x, S.y - E.y) + Math.hypot(E.x - W.x, E.y - W.y) || vh * 0.3;
+  const body = Math.hypot(H.x - A.x, H.y - A.y) * 1.9 || vh * 0.7;
+  const elb = ang(S, E, W), knee = ang(H, K, A), hip = ang(S, H, K);
+  const R = L.ref ??= { elb: 0, knee: 0, hip: 0, topH: Infinity, topW: Infinity, topS: Infinity, hangS: -Infinity, floorW: -Infinity };
+  const legsSeen = K.v > 0.3 && A.v > 0.3;
+  if (Number.isFinite(elb)) R.elb = Math.max(R.elb, elb);
+  if (legsSeen && Number.isFinite(knee)) R.knee = Math.max(R.knee, knee);
+  if (Number.isFinite(hip)) R.hip = Math.max(R.hip, hip);
+  R.topH = Math.min(R.topH, H.y); R.topW = Math.min(R.topW, W.y); R.topS = Math.min(R.topS, S.y);
+  R.hangS = Math.max(R.hangS, S.y); R.floorW = Math.max(R.floorW, W.y);
+  const elbLocked = elb >= Math.min(155, R.elb - 14);
+  const hangLocked = elb >= Math.min(150, R.elb - 15) && S.y >= R.hangS - 0.12 * arm;
+  const cond = {
+    squat: {
+      // se le gambe sono coperte (rack, dischi) basta l'anca alla sua altezza "in piedi"
+      locked: () => (legsSeen ? knee >= Math.min(158, R.knee - 14) : true) && H.y <= R.topH + 0.05 * body,
+      down: () => H.y - R.topH > 0.12 * body || (legsSeen && knee < 125),
+    },
+    panca: {
+      locked: () => elbLocked && W.y <= R.topW + 0.12 * arm,
+      down: () => W.y > R.topW + 0.3 * arm,
+      chest: () => W.y > R.topW + 0.3 * arm,
+    },
+    stacco: {
+      lifted: () => W.y < R.floorW - 0.1 * body,
+      locked: () => W.y < R.floorW - 0.1 * body && knee >= Math.min(160, R.knee - 12) && hip >= Math.min(160, R.hip - 12),
+    },
+    trazioni: { hang: () => hangLocked, pulled: () => S.y < R.hangS - 0.15 * arm },
+    dip: { locked: () => elbLocked && S.y <= R.topS + 0.1 * arm, down: () => S.y > R.topS + 0.2 * arm },
+    muscleup: { hang: () => hangLocked, top: () => S.y < W.y - 0.1 * arm && elb >= Math.min(150, R.elb - 15) },
+  }[state.lift];
+  const pts = { squat: [H, A], panca: [W, S], stacco: [W, H], trazioni: [S, H], dip: [S, H], muscleup: [S, H] }[state.lift];
+  const tol = ['squat', 'stacco'].includes(state.lift) ? 0.03 * body : 0.045 * arm;
+
+  if (L.step >= seq.length) { if (t - L.doneAt > 4) { L.step = 0; L.since = null; } return; }
+  const st = seq[L.step];
+  if (!cond[st.c]()) { L.since = null; return; }
+  if (!st.hold) { L.step++; L.since = null; return; }
+  // fermo: il tempo riparte se uno dei punti si sposta più della tolleranza
+  if (!L.since || pts.some((p, k) => Math.abs(p.x - L.box[k].x) > tol || Math.abs(p.y - L.box[k].y) > tol)) {
+    L.since = t; L.box = pts.map(p => ({ x: p.x, y: p.y }));
+    return;
   }
-  const lockedStill = lockedNow && t - L.hist[still].t >= COMMAND_HOLD - 0.06;
-  const [startCmd, endCmd] = LIFTS[state.lift].commands;
-  if (L.phase === 'wait' && lockedStill) { say(startCmd); L.phase = 'started'; L.startY = hy; }
-  else if (L.phase === 'started' && (knee < SQUAT.squattingKneeDeg || hy - L.startY > SQUAT.squatDropRatio * body)) { L.phase = 'rep'; L.hist = []; }
-  else if (L.phase === 'rep' && lockedStill) { say(endCmd); L.phase = 'done'; L.doneAt = t; }
-  else if (L.phase === 'done' && t - L.doneAt > 4) { L.phase = 'wait'; L.hist = []; }
+  if (t - L.since >= st.hold - 0.03) {
+    say(st.say); flashCommand(st.say);
+    L.step++; L.since = null;
+    if (L.step >= seq.length) L.doneAt = t;
+  }
 }
 
 function pickMime() {
@@ -542,14 +690,14 @@ function toggleRec() {
     if ($('voice').checked) unlockVoice(); // sblocca l'audio su iPhone (serve un tocco dell'utente)
     const mimeType = pickMime();
     const rec = new MediaRecorder(L.stream, mimeType ? { mimeType } : undefined);
-    L.chunks = []; L.rec = rec; L.phase = 'wait'; L.hist = []; L.maxKnee = 0;
+    L.chunks = []; L.rec = rec; L.step = 0; L.since = null; L.ref = null; L.track = [];
     rec.ondataavailable = e => e.data.size && L.chunks.push(e.data);
     rec.onstop = () => {
       const blob = new Blob(L.chunks, { type: rec.mimeType || mimeType || 'video/webm' });
       const secs = (performance.now() - L.startedAt) / 1000;
       const url = URL.createObjectURL(blob); state.urls.push(url);
       stopLive();
-      analyzeVideo(url, { recordedSec: secs, blob });
+      analyzeVideo(url, { recordedSec: secs, blob, track: L.track });
     };
     rec.start(250);
     L.startedAt = performance.now();

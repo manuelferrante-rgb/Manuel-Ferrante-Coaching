@@ -35,7 +35,7 @@ function clip(segments, depthDeg, noise = 0.0015) {
       const f = ease(i / n);
       const s = seg.s0 + (seg.s1 - seg.s0) * f;
       const sx = (seg.x0 ?? 0) + ((seg.x1 ?? 0) - (seg.x0 ?? 0)) * f;
-      frames.push({ t: t0 + i / FPS, lm: pose(s, depthDeg, sx, noise) });
+      frames.push({ t: t0 + i / FPS, lm: pose(s, seg.d ?? depthDeg, sx, noise) });
     }
     t0 += n / FPS;
   }
@@ -57,6 +57,8 @@ const cases = [
   ['persona non vista a inizio/fine', blank(clip([hold(0.5), down, up, hold(0.4), hold(1)], 6), f => f.t < 0.3 || f.t > 3.4), r => r.verdict === 'good' && st(r, 'startHold') === 'unknown' && st(r, 'endHold') === 'unknown'],
   ['buca coperta', hideLower(clip([hold(1.4), down, up, hold(1.4)], 6), f => f.t > 2.4 && f.t < 2.85), r => r.verdict === 'good'],
   ['buca coperta, squat alto', hideLower(clip([hold(1.4), down, up, hold(1.4)], SQUAT.depthMinDeg - 12), f => f.t > 2.4 && f.t < 2.85), r => r.verdict === 'norep' && st(r, 'depth') === 'fail'],
+  ['3 ripetizioni, la seconda alta', clip([hold(1.4), down, up, hold(0.3), { ...down, d: SQUAT.depthMinDeg - 12 }, { ...up, d: SQUAT.depthMinDeg - 12 }, hold(0.3), down, up, hold(1.4)], 6),
+    r => r.verdict === 'norep' && r.reps?.length === 3 && r.reps.map(x => x.verdict).join() === 'good,norep,good' && r.summary === '2 valide su 3'],
   ['niente squat', clip([hold(3)], 6), r => r.verdict === 'unclear'],
 ];
 
