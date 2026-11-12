@@ -382,6 +382,8 @@
       <div class="hero-form-wrap">
         <div class="hero-form-card">
           <form id="coaching-form" action="https://formspree.io/f/xpqbjgqw" method="POST">
+            <input type="hidden" name="utm_source" id="utm_source_field" value="">
+            <input type="hidden" name="utm_medium" id="utm_medium_field" value="">
 
             <div id="form-fields">
               <div class="field" id="f-tipo_allenamento">
@@ -623,6 +625,21 @@
 
 <script>
 const hoverFine = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+// ── UTM TRACKING (sorgente candidatura) ───────
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const urlSource = params.get('utm_source');
+  const urlMedium = params.get('utm_medium');
+  if (urlSource) sessionStorage.setItem('utm_source', urlSource);
+  if (urlMedium) sessionStorage.setItem('utm_medium', urlMedium);
+  const source = sessionStorage.getItem('utm_source') || 'diretto';
+  const medium = sessionStorage.getItem('utm_medium') || 'diretto';
+  const sourceField = document.getElementById('utm_source_field');
+  const mediumField = document.getElementById('utm_medium_field');
+  if (sourceField) sourceField.value = source;
+  if (mediumField) mediumField.value = medium;
+})();
 
 // ── SCROLL PROGRESS ───────────────────────────
 const progressEl = document.getElementById('scroll-progress');
