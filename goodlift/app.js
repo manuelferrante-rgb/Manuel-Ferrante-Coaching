@@ -455,27 +455,38 @@ function drawReplay(canvas, video, result, frames) {
 
   drawSkeleton(ctx, frames[i]?.lm, w, h, { color: WHITE, width: 1.6, alpha: .45, dpr });
 
-  // traiettoria del bilanciere / dei dischi (pulsante)
+  // traiettoria del bilanciere / dei dischi (pulsante): una ripetizione alla volta, poi si azzera.
+  // Oro quando sale, bianco quando scende: si vedono bene fase eccentrica e concentrica.
   if (replay.path && R.path) {
     const pt = k => {
+      if (R.path.pts) return P(R.path.pts[k]);
       const a = series[R.path.a][k]; if (!a) return null;
       const b = R.path.b ? series[R.path.b][k] : null;
       const f = R.path.f || 0;
       return P(b ? { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f } : a);
     };
-    const [r0, r1] = result.trim || [ts[0], ts[ts.length - 1]];
-    const k0 = nearest(ts, r0), k1 = nearest(ts, r1);
-    const stroke = (from, to, alpha, width) => {
-      ctx.save(); ctx.strokeStyle = GOLD; ctx.globalAlpha = alpha; ctx.lineWidth = width * dpr; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-      ctx.shadowColor = GOLD; ctx.shadowBlur = 8 * dpr;
-      ctx.beginPath(); let started = false;
-      for (let k = from; k <= to; k++) { const p = pt(k); if (!p) { started = false; continue; } started ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); started = true; }
-      ctx.stroke(); ctx.restore();
-    };
-    stroke(k0, k1, .3, 2.5);
-    stroke(k0, Math.min(i, k1), .95, 3.5);
-    const cur = pt(i);
-    if (cur) { ctx.save(); ctx.fillStyle = GOLD; ctx.shadowColor = GOLD; ctx.shadowBlur = 12 * dpr; ctx.beginPath(); ctx.arc(cur.x, cur.y, 6 * dpr, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+    const keys = (result.reps || [{ key: result.key }]).map(r => r.key).filter(Boolean);
+    let cur = -1;
+    keys.forEach((k, n) => { if (now >= k.start - 0.3) cur = n; });
+    if (cur >= 0) {
+      const k = keys[cur];
+      const k0 = nearest(ts, k.start), kEnd = nearest(ts, (k.end ?? ts[ts.length - 1]) + 0.4);
+      const upto = Math.min(i, kEnd);
+      ctx.save(); ctx.lineWidth = 3.5 * dpr; ctx.lineCap = 'round'; ctx.shadowBlur = 8 * dpr;
+      let prev = null;
+      for (let q = k0; q <= upto; q++) {
+        const p = pt(q); if (!p) { prev = null; continue; }
+        if (prev) {
+          const up = p.y < prev.y;
+          ctx.strokeStyle = up ? GOLD : 'rgba(245,245,240,.9)'; ctx.shadowColor = ctx.strokeStyle;
+          ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+        }
+        prev = p;
+      }
+      ctx.restore();
+      const c = pt(upto);
+      if (c) { ctx.save(); ctx.fillStyle = GOLD; ctx.shadowColor = GOLD; ctx.shadowBlur = 12 * dpr; ctx.beginPath(); ctx.arc(c.x, c.y, 6 * dpr, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+    }
     if (R.path.bar) { const y = R.path.bar() * sy; line({ x: 0, y }, { x: w, y }, 'rgba(245,245,240,.6)', 1.5, true); }
   }
 
@@ -501,7 +512,7 @@ function drawReplay(canvas, video, result, frames) {
     if (F.hline) { const y = F.hline() * sy; line({ x: 0, y }, { x: w, y }, 'rgba(245,245,240,.75)', 1.5, true); }
     if (F.vline) { const x = F.vline(i); if (x != null) line({ x: x * sx, y: 0 }, { x: x * sx, y: h }, 'rgba(245,245,240,.75)', 1.5, true); }
   }
-  if (A && B) {
+  if (A && B && (near || result.lift === 'squat')) {
     ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 5 * dpr; ctx.lineCap = 'round'; ctx.shadowColor = col; ctx.shadowBlur = 10 * dpr;
     ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke(); ctx.restore();
   }

@@ -90,6 +90,7 @@ function prepare(frames, width, height, lift, need) {
   b.knee = t.map((_, i) => H[i] && K[i] && A[i] ? angleAt(H[i], K[i], A[i]) : NaN);
   b.hip = t.map((_, i) => S[i] && H[i] && K[i] ? angleAt(S[i], H[i], K[i]) : NaN);
   b.y = P => t.map((_, i) => P[i]?.y);
+  b.present = frames.map(f => !!f.lm); // persona presente nel fotogramma (anche se in parte coperta)
   return b;
 }
 
@@ -132,10 +133,12 @@ function peakRate(t, a, from, to) {
 }
 
 // Ripetizione vera: la persona c'è per buona parte del tempo e le braccia si piegano davvero.
-const bentArms = (b, hasData) => ({ fd, end }) => {
-  let seen = 0, bent = false;
-  for (let i = fd; i <= end; i++) { if (hasData[i]) seen++; if (b.elbow[i] < 125) bent = true; }
-  return seen >= Math.max(3, 0.5 * (end - fd + 1)) && bent;
+// Ripetizione vera = l'atleta la fa davvero: si vede per quasi tutto il movimento, le braccia
+// si piegano davvero e, se il video non finisce prima, torna indietro.
+const bentArms = (b, hasData, minElbow = 125) => ({ fd, bottom, up, end }) => {
+  let seen = 0, bent = false, after = 0;
+  for (let i = fd; i <= end; i++) { if (b.present[i]) { seen++; if (i > bottom) after++; } if (b.elbow[i] < minElbow) bent = true; }
+  return seen >= Math.max(3, 0.7 * (end - fd + 1)) && bent;
 };
 const firstFrom = (arr, from, cond) => { for (let i = Math.max(0, from); i < arr.length; i++) if (cond(i)) return i; return -1; };
 const lastBefore = (from, cond) => { for (let i = from; i >= 0; i--) if (cond(i)) return i; return -1; };
@@ -316,15 +319,25 @@ export function analyzeDeadlift(frames, width, height, cfg = DEADLIFT) {
 // ── TRAZIONI ───────────────────────────────────────────────────────────
 // Fermo di 1 s a braccia tese (start) · niente kip di spalla · gambe fluide, senza scatti ·
 // mento sopra la sbarra · ritorno a braccia tese con almeno 0,5 s di fermo (down).
-function hangPhases(b, cfg) {
+// Appeso o no si capisce dalla geometria del braccio, non dal resto del video: appeso a braccia
+// tese la spalla sta sotto la mano di circa un braccio. Così non disturbano i momenti in piedi
+// prima di saltare alla sbarra, o le ripetizioni in serie.
+function hangPhases(b, cfg, allowAbove = false) {
   const { t, arm, elbow } = b;
-  const sy = b.y(b.series.S);
-  const hangS = pct(sy, 0.92);
+  const sy = b.y(b.series.S), wy = b.y(b.series.W);
+  const rel = t.map((_, i) => sy[i] - wy[i]); // quanto la spalla è sotto la mano
   const hangElb = Math.min(cfg.hangElbowDeg, pct(elbow, 0.9) - cfg.hangRelDeg);
-  const hang = t.map((_, i) => elbow[i] >= hangElb && sy[i] >= hangS - 0.12 * arm);
+  const low = t.map((_, i) => rel[i] >= 0.72 * arm);                // tornato giù
+  const hang = t.map((_, i) => low[i] && elbow[i] >= hangElb);       // giù e a braccia tese
+  const pulled = i => rel[i] < 0.55 * arm && (allowAbove || rel[i] > -0.3 * arm);
   const hasData = t.map((_, i) => !!(b.series.S[i] && b.series.E[i] && b.series.W[i]));
-  const reps = findReps(t.length, i => sy[i] < hangS - cfg.pullRatio * arm, hang, (i, j) => sy[i] < (sy[j] ?? Infinity), bentArms(b, hasData));
-  return { sy, hang, reps };
+  // nel muscle up la transizione è velocissima e il gomito piegato si vede poco: basta che le spalle
+  // arrivino all'altezza delle mani
+  const real = allowAbove
+    ? ({ fd, end }) => { let seen = 0, high = false; for (let i = fd; i <= end; i++) { if (b.present[i]) seen++; if (rel[i] < 0.2 * arm) high = true; } return seen >= Math.max(3, 0.7 * (end - fd + 1)) && high; }
+    : bentArms(b, hasData);
+  const reps = findReps(t.length, pulled, low, (i, j) => rel[i] < (rel[j] ?? Infinity), real);
+  return { sy, hang, low, reps };
 }
 
 function kipCheck(b, cfg, hang, pullStart, sy) {
@@ -339,8 +352,20 @@ function kipCheck(b, cfg, hang, pullStart, sy) {
     : { id: 'kip', label: 'Niente kip di spalla', status: 'pass', detail: 'Partenza pulita, senza slancio.' };
 }
 
-// "Dischi": il peso appeso alla cintura sta tra anca e ginocchio.
-const DISCS = { a: 'H', b: 'K', f: 0.35, label: 'Traiettoria dischi' };
+// "Dischi": il disco appeso alla cintura pende tra le gambe, davanti alle cosce, più o meno
+// all'altezza delle ginocchia. Si stima dalla posizione di anca, ginocchio e piedi.
+function discs(b) {
+  const { t, series: { H, K, A, T, Hl } } = b;
+  const toes = median(t.map((_, i) => T[i] && Hl[i] ? T[i].x - Hl[i].x : NaN));
+  const knees = median(t.map((_, i) => H[i] && K[i] && A[i] ? K[i].x - (H[i].x + A[i].x) / 2 : NaN));
+  const facing = Number.isFinite(toes) && Math.abs(toes) > 2 ? Math.sign(toes) : Math.sign(knees) || 1;
+  const pts = t.map((_, i) => {
+    if (!H[i] || !K[i]) return null;
+    const thigh = Math.hypot(K[i].x - H[i].x, K[i].y - H[i].y);
+    return { x: H[i].x + 0.8 * (K[i].x - H[i].x) + facing * 0.35 * thigh, y: H[i].y + 0.8 * (K[i].y - H[i].y) };
+  });
+  return { pts, label: 'Traiettoria dischi' };
+}
 
 export function analyzePullup(frames, width, height, cfg = PULLUP) {
   const b = prepare(frames, width, height, 'trazioni', ['S', 'E', 'W']);
@@ -348,6 +373,7 @@ export function analyzePullup(frames, width, height, cfg = PULLUP) {
   const { t, series: { S, E, W, H, K, M, N }, arm } = b;
   const hasData = t.map((_, i) => !!(S[i] && E[i] && W[i]));
   const { sy, hang, reps } = hangPhases(b, cfg);
+  const nextPull = k => (k + 1 < reps.length ? reps[k + 1].fd : t.length);
   if (!reps.length) return unclear('Non ho visto una trazione: le spalle non salgono abbastanza. Riprendi di lato, con la sbarra nell\'inquadratura.', 'trazioni');
   const barY = median(b.y(W)) - cfg.barAboveWristRatio * arm;
   const chin = t.map((_, i) => M[i] && N[i] ? M[i].y + cfg.chinBelowMouth * Math.max(0, M[i].y - N[i].y) : N[i] ? N[i].y + 0.12 * arm : NaN);
@@ -387,16 +413,22 @@ export function analyzePullup(frames, width, height, cfg = PULLUP) {
       : { id: 'chin', label: 'Mento sopra la sbarra', status: 'fail', close: margin > -0.04 * arm, detail: 'Il mento non supera la sbarra.', t: [t[chinIdx], t[chinIdx]], value: margin / arm });
     if (margin >= 0 && margin < 0.04 * arm) warnings.push('Mento al limite: un giudice severo potrebbe darla no rep.');
 
-    if (downIdx < 0) {
+    // giù a braccia tese: tra il ritorno in basso e la tirata successiva
+    const ext = downIdx < 0 ? -1 : firstFrom(hang, downIdx, i => hang[i] && i < nextPull(k));
+    if (downIdx < 0 || (ext < 0 && !hasData.slice(downIdx, nextPull(k)).some(Boolean))) {
       const short = t[t.length - 1] - t[topIdx] < 1.5;
-      checks.push({ id: 'endHold', label: 'Ritorno a braccia tese e fermo (0,5 s)', status: short ? 'unknown' : 'fail', detail: short ? 'Il video finisce prima del ritorno a braccia tese.' : 'Non sei tornato giù a braccia tese.' });
-    } else checks.push(holdCheck({ id: 'endHold', label: 'Ritorno a braccia tese e fermo (0,5 s)', b, anchor: downIdx, dir: +1, locked: hang, tracks: [S, W], thr, need: isLast ? cfg.endHoldSec : 0.2, cfg, hasData,
+      checks.push({ id: 'endHold', label: isLast ? 'Ritorno a braccia tese e fermo (0,5 s)' : 'Ritorno a braccia tese', status: short ? 'unknown' : 'fail', detail: short ? 'Il video finisce prima del ritorno a braccia tese.' : 'Non sei tornato giù a braccia tese.' });
+    } else if (ext < 0) {
+      checks.push({ id: 'endHold', label: isLast ? 'Ritorno a braccia tese e fermo (0,5 s)' : 'Ritorno a braccia tese', status: 'fail', detail: 'Sei tornato giù ma senza distendere del tutto le braccia.', t: [t[downIdx], t[downIdx]] });
+    } else if (!isLast) {
+      checks.push({ id: 'endHold', label: 'Ritorno a braccia tese', status: 'pass', detail: 'Braccia tese prima della ripetizione successiva.', t: [t[ext], t[ext]] });
+    } else checks.push(holdCheck({ id: 'endHold', label: 'Ritorno a braccia tese e fermo (0,5 s)', b, anchor: ext, dir: +1, locked: hang, tracks: [S, W], thr, need: cfg.endHoldSec, cfg, hasData,
       okText: d => `Fermo di ${fmt(d)} s a braccia tese.`, failText: d => `Fermo di solo ${fmt(d)} s: serve almeno mezzo secondo prima del down.`, edgeText: 'Il video finisce prima del fermo a braccia tese.' }));
     return { checks, warnings, key };
   });
 
   return assemble('trazioni', b, judged, [], {
-    path: DISCS,
+    path: discs(b),
     trail: 'S',
     focus: {
       a: 'M', b: 'N', hline: () => barY, point: i => Number.isFinite(chin[i]) && M[i] ? { x: M[i].x, y: chin[i] } : null,
@@ -453,7 +485,7 @@ export function analyzeDip(frames, width, height, cfg = DIP) {
   });
 
   return assemble('dip', b, judged, [], {
-    path: DISCS,
+    path: discs(b),
     trail: 'S',
     focus: {
       a: 'S', b: 'E',
@@ -472,12 +504,13 @@ export function analyzeMuscleUp(frames, width, height, cfg = MUSCLEUP) {
   if (b.error) return b.error;
   const { t, series: { S, E, W }, arm, elbow, knee, hip } = b;
   const hasData = t.map((_, i) => !!(S[i] && E[i] && W[i]));
-  const { sy, hang, reps: pulls } = hangPhases(b, cfg);
+  const { sy, hang, reps: pulls } = hangPhases(b, cfg, true);
   if (!pulls.length) return unclear('Non ho visto un muscle up: le spalle non salgono abbastanza. Riprendi di lato, con la sbarra nell\'inquadratura.', 'muscleup');
   const wy = b.y(W);
-  const barY = median(wy.slice(0, pulls[0].fd + 1)) || median(wy);
+  const barY = median(wy.filter((_, i) => hang[i])) || median(wy); // la sbarra: dove stanno le mani da appeso
   const topElb = Math.min(cfg.topElbowDeg, pct(elbow, 0.9) - cfg.topRelDeg);
-  const above = t.map((_, i) => sy[i] < barY - cfg.aboveBarRatio * arm && elbow[i] >= topElb);
+  // sopra la sbarra = spalle sopra le mani (che sono sulla sbarra) e braccia tese
+  const above = t.map((_, i) => sy[i] < wy[i] - cfg.aboveBarRatio * arm && elbow[i] >= topElb);
   const thr = cfg.stillRatio * arm;
   // Durante la transizione le braccia possono distendersi un attimo: non è una nuova ripetizione.
   // Una tirata che non arriva sopra la sbarra si unisce a quella che segue subito dopo.
@@ -531,7 +564,7 @@ export function analyzeMuscleUp(frames, width, height, cfg = MUSCLEUP) {
   });
 
   return assemble('muscleup', b, judged, [], {
-    path: { ...DISCS, bar: () => barY },
+    path: { ...discs(b), bar: () => barY },
     trail: 'S',
     focus: {
       a: 'S', b: 'E', hline: () => barY,

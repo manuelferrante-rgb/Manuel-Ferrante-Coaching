@@ -80,14 +80,15 @@ export function analyzeSquat(frames, width, height, cfg = SQUAT) {
 
   const reps = findReps(t.length, i => bar[i] > standHipY + cfg.squatDropRatio * bodyLen, locked,
     (i, j) => H[i] && (!H[j] || H[i].y > H[j].y),
-    // una ripetizione vera: la persona c'è e si è davvero piegata (ginocchio chiuso o femore quasi orizzontale)
-    ({ fd, end }) => {
-      let seen = 0, bent = false;
+    // Ripetizione vera = l'atleta la fa davvero: si vede mentre scende, si piega davvero
+    // (ginocchio chiuso o femore quasi orizzontale) e, se il video non finisce prima, risale.
+    ({ fd, bottom, up, end }) => {
+      let seen = 0, bent = false, after = 0;
       for (let i = fd; i <= end; i++) {
-        if (H[i]) seen++;
+        if (frames[i].lm) { seen++; if (i > bottom) after++; } // persona presente (anche se in parte coperta)
         if (kneeAng[i] < 135 || femur[i] > -30) bent = true;
       }
-      return seen >= Math.max(3, 0.5 * (end - fd + 1)) && (bent || !!hiddenBottom({ t, femur, from: fd, to: end }));
+      return seen >= Math.max(3, 0.7 * (end - fd + 1)) && (bent || !!hiddenBottom({ t, femur, from: fd, to: end }));
     });
   if (!reps.length) {
     return unclear('Non ho visto uno squat: le ginocchia non si piegano abbastanza. Controlla di aver caricato il video giusto.');
