@@ -210,46 +210,26 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
   const vw = video.videoWidth, vh = video.videoHeight;
   const total = Math.min(MAX_SECONDS, await videoDuration(video, recordedSec));
 
-  // 1) dove sta l'alzata? (registrazione: lo sappiamo già dalla diretta; galleria: passata veloce)
-  let win = [0, total], base = 0;
-  if (track?.length > 10) win = activeWindow(track, state.lift, total);
-  else if (total > 8) {
-    try {
-      const lite = await getModel('lite');
-      const quick = [];
-      for (let t = 0; t <= total; t += 0.25) {
-        if (document.body.dataset.screen !== 'scan') { alive = false; return; }
-        await seekTo(video, Math.min(t, Math.max(0, total - 0.02)));
-        let lm = null;
-        try { lm = pickPerson([{ t: 0, poses: toPoses(lite.detectForVideo(video, nextTs())) }], state.lift, vw, vh)[0].lm; } catch { /* fotogramma non pronto */ }
-        quick.push({ t: video.currentTime, lm });
-        if (lm) lastLm = lm;
-        setPct(t / total * 20);
-      }
-      win = activeWindow(quick, state.lift, total);
-    } catch (e) { console.warn(e); }
-    base = 20;
-  }
+  // Dove sta l'alzata: se ti sei registrato dall'app lo sappiamo già dalla diretta.
+  const win = track?.length > 10 ? activeWindow(track, state.lift, total) : [0, total];
 
   let model;
   try { model = await modelP; }
   catch (e) { console.error(e); return stop('Non riesco a caricare il giudice. Controlla la connessione e riprova.'); }
 
-  // 2) analisi precisa, a passo fisso, solo sul pezzo con l'alzata.
-  // Ci si ferma su ogni fotogramma: preciso anche su telefoni lenti e ripetibile (stesso video → stesso verdetto).
-  const span = win[1] - win[0];
-  const fps = span > 15 ? 10 : 12;
-  const frames = [];
-  for (let t = win[0]; t <= win[1] + 1e-6; t += 1 / fps) {
-    if (document.body.dataset.screen !== 'scan') { alive = false; return; } // l'utente è tornato indietro
-    await seekTo(video, Math.min(t, Math.max(0, total - 0.02)));
-    let poses = [];
-    try { poses = toPoses(model.detectForVideo(video, nextTs())); } catch (e) { console.warn(e); }
-    frames.push({ t: video.currentTime, poses });
+  // Un solo giro sul video. Il video scorre (molto più veloce che saltare da un fotogramma
+  // all'altro, soprattutto su iPhone) e la velocità si adatta: veloce quando sei fermo o non
+  // c'è nessuno, più lento quando ti muovi, così l'alzata ha sempre ~12 fotogrammi al secondo.
+  const onPose = (t, poses) => {
     const lm = pickPerson([{ t: 0, poses }], state.lift, vw, vh)[0].lm;
     if (lm) lastLm = lm;
-    setPct(base + (100 - base) * Math.min(1, (t - win[0]) / Math.max(0.01, span)));
-  }
+    setPct(100 * Math.min(1, (t - win[0]) / Math.max(0.01, win[1] - win[0])));
+    return lm;
+  };
+  const gone = () => document.body.dataset.screen !== 'scan';
+  let frames = await samplePlaying(video, model, win[0], win[1], onPose, gone);
+  if (frames === null) frames = await sampleSeeking(video, model, win[0], win[1], total, onPose, gone); // senza riproduzione: a salti
+  if (!frames) { alive = false; return; } // l'utente è tornato indietro
   alive = false; cancelAnimationFrame(raf);
   const raw = frames.filter((f, i) => i === 0 || f.t > frames[i - 1].t + 1e-4);
   const clean = pickPerson(raw, state.lift, vw, vh);
@@ -262,6 +242,61 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
     ? [Math.max(0, Math.min(...keys.map(k => k.start)) - 0.5), Math.min(total, Math.max(...keys.map(k => k.end ?? k.focus)) + 1.6)]
     : [win[0], win[1]];
   showResult(result, clean, url, blob);
+}
+
+const STEP = 1 / 12; // un fotogramma analizzato ogni 1/12 di secondo di video
+
+// Analisi mentre il video scorre. Restituisce null se il browser non lo permette.
+async function samplePlaying(video, model, from, to, onPose, gone) {
+  if (!('requestVideoFrameCallback' in video)) return null;
+  await seekTo(video, from);
+  return new Promise(resolve => {
+    const frames = [];
+    let lastT = -1, cost = 0.06, stillFor = 0, prev = null, done = false, rate = 1;
+    const ids = MOVER[state.lift] || [23, 24];
+    const finish = ok => { if (done) return; done = true; video.pause(); video.playbackRate = 1; resolve(ok ? frames : null); };
+    const onFrame = (_, meta) => {
+      if (done) return;
+      if (gone()) { done = true; video.pause(); return resolve(false); }
+      const t = meta?.mediaTime ?? video.currentTime;
+      if (t >= to - 1e-3) return finish(true);
+      if (t - lastT >= STEP * 0.75) {
+        const c0 = performance.now();
+        let poses = [];
+        try { poses = toPoses(model.detectForVideo(video, nextTs())); } catch (e) { console.warn(e); }
+        cost = 0.7 * cost + 0.3 * (performance.now() - c0) / 1000;
+        frames.push({ t, poses });
+        const lm = onPose(t, poses);
+        // fermo o assente → si va più veloce; in movimento → ~12 fotogrammi al secondo
+        const y = lm ? (lm[ids[0]].y + lm[ids[1]].y) / 2 : null;
+        const moving = y != null && prev != null && Math.abs(y - prev) / Math.max(1e-3, t - lastT) > 0.05;
+        stillFor = moving ? 0 : stillFor + (t - lastT > 0 ? t - lastT : 0);
+        prev = y; lastT = t;
+        const base = Math.max(0.25, Math.min(2, 0.85 * STEP / cost));
+        const want = stillFor > 0.6 ? Math.min(2, base * 2.5) : base;
+        if (Math.abs(want - rate) / rate > 0.12) { rate = want; video.playbackRate = rate; }
+      }
+      video.requestVideoFrameCallback(onFrame);
+    };
+    video.onended = () => finish(true);
+    video.requestVideoFrameCallback(onFrame);
+    video.muted = true;
+    video.play().catch(() => finish(false));
+  });
+}
+
+// Analisi a salti (browser senza requestVideoFrameCallback): più lenta ma funziona ovunque.
+async function sampleSeeking(video, model, from, to, total, onPose, gone) {
+  const frames = [];
+  for (let t = from; t <= to + 1e-6; t += STEP) {
+    if (gone()) return false;
+    await seekTo(video, Math.min(t, Math.max(0, total - 0.02)));
+    let poses = [];
+    try { poses = toPoses(model.detectForVideo(video, nextTs())); } catch (e) { console.warn(e); }
+    frames.push({ t: video.currentTime, poses });
+    onPose(video.currentTime, poses);
+  }
+  return frames;
 }
 
 // Carica un video in modo che i fotogrammi siano leggibili. Su iPhone (Safari) il video non
@@ -360,6 +395,8 @@ function showResult(result, frames, url, blob) {
   }
   $('rp-path').textContent = result.replay?.path?.label || 'Traiettoria';
   $('rp-path').hidden = !result.replay?.path;
+  $('rp-path2').textContent = result.replay?.path2?.label || '';
+  $('rp-path2').hidden = !result.replay?.path2;
   setupReplay(url, result, frames);
   selectRep(result.mainRep || 1, false);
 }
@@ -384,7 +421,10 @@ function selectRep(n, seek) {
   $('tips-list').innerHTML = tips.map(t => `<li>${t}</li>`).join('');
   if (seek && rep) seekReplay(Math.max(0, rep.key.start - 0.3), false);
 }
-const replay = { video: null, raf: 0, keyPaused: false, slow: false, path: false, range: [0, Infinity] };
+const replay = { video: null, raf: 0, keyPaused: false, slow: false, path: null, range: [0, Infinity] };
+function setPathButtons() {
+  for (const [id, v] of [['rp-path', 'path'], ['rp-path2', 'path2']]) { $(id).classList.toggle('on', replay.path === v); $(id).setAttribute('aria-pressed', replay.path === v); }
+}
 function setupReplay(url, result, frames) {
   const video = $('replay-video'), canvas = $('replay-canvas');
   replay.video = video; replay.keyPaused = false;
@@ -397,7 +437,7 @@ function setupReplay(url, result, frames) {
     video.play().catch(() => {});
   }).catch(e => console.error(e));
   $('rp-slow').classList.toggle('on', replay.slow); $('rp-slow').setAttribute('aria-pressed', replay.slow);
-  $('rp-path').classList.toggle('on', replay.path); $('rp-path').setAttribute('aria-pressed', replay.path);
+  setPathButtons();
   cancelAnimationFrame(replay.raf);
   const draw = () => {
     // si guarda solo l'alzata: niente tempi morti prima e dopo
@@ -425,7 +465,9 @@ $('rp-slow').addEventListener('click', () => {
   replay.slow = !replay.slow; $('rp-slow').classList.toggle('on', replay.slow); $('rp-slow').setAttribute('aria-pressed', replay.slow);
   if (replay.video) replay.video.playbackRate = replay.slow ? 0.4 : 1;
 });
-$('rp-path').addEventListener('click', () => { replay.path = !replay.path; $('rp-path').classList.toggle('on', replay.path); $('rp-path').setAttribute('aria-pressed', replay.path); });
+// dischi o piedi (a corpo libero): uno solo alla volta
+$('rp-path').addEventListener('click', () => { replay.path = replay.path === 'path' ? null : 'path'; setPathButtons(); });
+$('rp-path2').addEventListener('click', () => { replay.path = replay.path === 'path2' ? null : 'path2'; setPathButtons(); });
 $('rp-key').addEventListener('click', () => {
   const r = state.result?.result; if (!r) return;
   const rep = r.reps ? r.reps[(state.selRep || 1) - 1] : null;
@@ -457,12 +499,13 @@ function drawReplay(canvas, video, result, frames) {
 
   // traiettoria del bilanciere / dei dischi (pulsante): una ripetizione alla volta, poi si azzera.
   // Oro quando sale, bianco quando scende: si vedono bene fase eccentrica e concentrica.
-  if (replay.path && R.path) {
+  const PATH = replay.path && R[replay.path];
+  if (PATH) {
     const pt = k => {
-      if (R.path.pts) return P(R.path.pts[k]);
-      const a = series[R.path.a][k]; if (!a) return null;
-      const b = R.path.b ? series[R.path.b][k] : null;
-      const f = R.path.f || 0;
+      if (PATH.pts) return P(PATH.pts[k]);
+      const a = series[PATH.a][k]; if (!a) return null;
+      const b = PATH.b ? series[PATH.b][k] : null;
+      const f = PATH.f || 0;
       return P(b ? { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f } : a);
     };
     const keys = (result.reps || [{ key: result.key }]).map(r => r.key).filter(Boolean);
@@ -487,7 +530,7 @@ function drawReplay(canvas, video, result, frames) {
       const c = pt(upto);
       if (c) { ctx.save(); ctx.fillStyle = GOLD; ctx.shadowColor = GOLD; ctx.shadowBlur = 12 * dpr; ctx.beginPath(); ctx.arc(c.x, c.y, 6 * dpr, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
     }
-    if (R.path.bar) { const y = R.path.bar() * sy; line({ x: 0, y }, { x: w, y }, 'rgba(245,245,240,.6)', 1.5, true); }
+    if (PATH.bar) { const y = PATH.bar() * sy; line({ x: 0, y }, { x: w, y }, 'rgba(245,245,240,.6)', 1.5, true); }
   }
 
   // discesa del bilanciere (o del corpo) durante la salita
@@ -744,6 +787,8 @@ $('btn-live').addEventListener('click', () => {
 });
 $('btn-upload').addEventListener('click', () => $('file').click());
 $('file').addEventListener('change', e => {
+  // L'input ha "multiple": su iPhone così la galleria seleziona il video con un tocco (spunta)
+  // invece di aprirne l'anteprima. Si analizza il primo video scelto.
   const f = e.target.files?.[0]; e.target.value = '';
   if (!f) return;
   const url = URL.createObjectURL(f); state.urls.push(url);

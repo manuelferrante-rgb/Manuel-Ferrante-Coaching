@@ -366,6 +366,11 @@ function discs(b) {
   });
   return { pts, label: 'Traiettoria dischi' };
 }
+// A corpo libero (senza dischi) si segue il movimento dei piedi.
+function feet(b) {
+  const { t, series: { A, T } } = b;
+  return { pts: t.map((_, i) => T[i] && A[i] ? { x: (T[i].x + A[i].x) / 2, y: (T[i].y + A[i].y) / 2 } : A[i] || T[i] || null), label: 'Traiettoria piedi' };
+}
 
 export function analyzePullup(frames, width, height, cfg = PULLUP) {
   const b = prepare(frames, width, height, 'trazioni', ['S', 'E', 'W']);
@@ -428,7 +433,7 @@ export function analyzePullup(frames, width, height, cfg = PULLUP) {
   });
 
   return assemble('trazioni', b, judged, [], {
-    path: discs(b),
+    path: discs(b), path2: feet(b),
     trail: 'S',
     focus: {
       a: 'M', b: 'N', hline: () => barY, point: i => Number.isFinite(chin[i]) && M[i] ? { x: M[i].x, y: chin[i] } : null,
@@ -485,7 +490,7 @@ export function analyzeDip(frames, width, height, cfg = DIP) {
   });
 
   return assemble('dip', b, judged, [], {
-    path: discs(b),
+    path: discs(b), path2: feet(b),
     trail: 'S',
     focus: {
       a: 'S', b: 'E',
@@ -520,7 +525,7 @@ export function analyzeMuscleUp(frames, width, height, cfg = MUSCLEUP) {
     if (!reached && t[q.fd] - t[p.end] < 1.0) { pulls.splice(k, 2, { ...p, end: q.end, up: q.up }); } else k++;
   }
 
-  const judged = pulls.map(({ desc: hangStart, fd: pullStart, end }, k) => {
+  const judged = pulls.map(({ desc: hangStart, fd: pullStart, up, end }, k) => {
     const isFirst = k === 0, isLast = k === pulls.length - 1;
     const checks = [], warnings = [];
     const topIdx = firstFrom(above, pullStart, i => above[i] && i <= end);
@@ -560,11 +565,13 @@ export function analyzeMuscleUp(frames, width, height, cfg = MUSCLEUP) {
       if (isLast) checks.push(holdCheck({ id: 'endHold', label: 'Fermo sopra la sbarra (1 s)', b, anchor: topIdx, dir: +1, locked: above, tracks: [S, W], thr, need: cfg.holdSec, cfg, hasData,
         okText: d => `Fermo di ${fmt(d)} s sopra la sbarra.`, failText: d => `Fermo di solo ${fmt(d)} s: serve 1 secondo prima del down.`, edgeText: 'Il video finisce prima del secondo di fermo.' }));
     }
-    return { checks, warnings, key: { start: hangStart >= 0 ? t[hangStart] : t[pullStart], focus: topIdx >= 0 ? t[topIdx] : t[pullStart], end: topIdx >= 0 ? t[topIdx] : null } };
+    // fine della ripetizione: quando torna giù dalla sbarra, o l'ultimo fotogramma in cui si vede
+    let last = end; while (last > pullStart && !b.present[last]) last--;
+    return { checks, warnings, key: { start: hangStart >= 0 ? t[hangStart] : t[pullStart], focus: topIdx >= 0 ? t[topIdx] : t[pullStart], end: up >= 0 ? t[up] : t[last] } };
   });
 
   return assemble('muscleup', b, judged, [], {
-    path: { ...discs(b), bar: () => barY },
+    path: { ...discs(b), bar: () => barY }, path2: { ...feet(b), bar: () => barY },
     trail: 'S',
     focus: {
       a: 'S', b: 'E', hline: () => barY,
