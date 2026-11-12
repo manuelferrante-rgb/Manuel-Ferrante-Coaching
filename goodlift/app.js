@@ -454,7 +454,7 @@ async function startLive() {
 // Comandi vocali (opzionali): come in gara, prima il fermo, poi il comando.
 // Se in audio/ ci sono le registrazioni dei comandi (start.mp3, rack.mp3, …) si usano quelle:
 // partono all'istante. Altrimenti si usa la voce sintetica del telefono.
-const VOICE_FILES = []; // es. ['start', 'rack', 'press', 'down'] quando ci sono i file in audio/
+const VOICE_FILES = ['start', 'rack', 'press', 'down']; // registrazioni in audio/ (voce di Manuel)
 const voice = { ctx: null, buffers: {}, synth: null };
 function pickSynthVoice() {
   const vs = window.speechSynthesis?.getVoices?.() || [];
@@ -596,7 +596,15 @@ $('flip').addEventListener('click', () => {
   state.facing = state.facing === 'user' ? 'environment' : 'user';
   stopLive(); startLive();
 });
-// Precarica il giudice in background (non con "risparmio dati" attivo), così l'analisi parte subito.
-// Il modello di analisi (~30 MB) si scarica appena l'utente sceglie cosa fare, non alla sola visita.
-const preloadJudge = () => { if (!navigator.connection?.saveData) getModel('heavy').catch(() => {}); };
-document.querySelectorAll('[data-preload]').forEach(el => el.addEventListener('pointerdown', preloadJudge, { once: true }));
+// Il giudice si prepara appena si apre la pagina, in background: mentre scegli l'alzata,
+// ti registri o cerchi il video in galleria, lui si scarica e si avvia. Così anche la prima
+// analisi parte subito. La volta dopo è già salvato nel telefono.
+// (Con "risparmio dati" attivo si aspetta che l'utente scelga cosa fare.)
+const preloadJudge = () => {
+  modelBuffer('lite').catch(() => {});      // solo download: serve per la diretta
+  getModel('heavy').catch(() => {});         // download + avvio: serve per l'analisi
+};
+if (navigator.connection?.saveData) {
+  document.querySelectorAll('[data-preload]').forEach(el => el.addEventListener('pointerdown', preloadJudge, { once: true }));
+} else if (document.readyState === 'complete') setTimeout(preloadJudge, 300);
+else window.addEventListener('load', () => setTimeout(preloadJudge, 300), { once: true });

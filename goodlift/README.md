@@ -56,3 +56,4 @@ ma l'analisi dice cosa non si è potuto controllare.
 
 Librerie incluse: MediaPipe Tasks Vision (Apache-2.0, `vendor/mediapipe`), modelli Pose Landmarker (Apache-2.0, `models/`),
 font Bebas Neue, DM Sans, DM Mono (SIL Open Font License, `fonts/`).
+Comandi vocali in `audio/`: voce di Manuel Ferrante, inclusi nel progetto con la stessa licenza.
