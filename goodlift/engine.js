@@ -259,6 +259,15 @@ export function analyzeSquat(frames, width, height, cfg = SQUAT) {
     return unclear('Nel punto più basso anca e ginocchio sono coperti (dischi, rack o altre persone). Riprendi esattamente di lato, con il telefono all\'altezza dell\'anca.');
   }
   const over = depth - cfg.depthMinDeg; // gradi oltre la soglia (positivo = abbastanza profondo)
+  // Se in buca manca un pezzo lungo che non si è potuto ricostruire, una profondità "insufficiente"
+  // misurata più in alto non vuol dire niente: il punto più basso non l'abbiamo visto.
+  if (over < 0 && !estimated) {
+    let run = 0;
+    for (let i = firstDown; i <= repEnd; i++) {
+      run = Number.isFinite(femur[i]) ? 0 : run + 1;
+      if (run * dt > 0.3) return unclear('Nel punto più basso anca e ginocchio sono coperti (dischi, rack o altre persone). Riprendi esattamente di lato, con il telefono all\'altezza dell\'anca.');
+    }
+  }
   if (over >= 0) {
     checks.push({
       id: 'depth', label: 'Profondità: anca sotto il ginocchio', status: 'pass',

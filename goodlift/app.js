@@ -11,7 +11,7 @@ const BONES = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 
 // Safari < 16 non ha roundRect: ripiego su un rettangolo semplice.
 if (!CanvasRenderingContext2D.prototype.roundRect) CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h) { this.rect(x, y, w, h); };
 
-const state = { lift: 'squat', vision: null, models: {}, live: null, result: null, urls: [] };
+const state = { lift: 'squat', vision: null, models: {}, live: null, result: null, urls: [], facing: 'environment' };
 // Con ?debug nell'indirizzo i dati dell'analisi restano accessibili dalla console (utile per chi contribuisce).
 if (new URLSearchParams(location.search).has('debug')) window.__goodlift = state;
 
@@ -45,12 +45,31 @@ renderLifts();
 const QS = new URLSearchParams(location.search);
 const MODEL_OVERRIDE = QS.get('model');        // es. ?model=lite per i test
 const DELEGATE_OVERRIDE = QS.get('delegate');  // es. ?delegate=CPU
+// Il modello si salva nel telefono la prima volta: dalle volte dopo parte subito, anche offline.
+const modelUrl = kind => new URL(`models/pose_landmarker_${kind}.task`, import.meta.url).href;
+async function modelBuffer(kind) {
+  try {
+    const cache = await caches.open('goodlift-models-v1');
+    let res = await cache.match(modelUrl(kind));
+    if (!res) {
+      res = await fetch(modelUrl(kind));
+      if (!res.ok) return null;
+      await cache.put(modelUrl(kind), res.clone());
+    }
+    return new Uint8Array(await res.arrayBuffer());
+  } catch { return null; } // niente Cache API (es. navigazione privata): si scarica normalmente
+}
+const loading = {};
 async function getModel(kind) {
   if (kind === 'heavy' && MODEL_OVERRIDE) kind = MODEL_OVERRIDE;
   if (state.models[kind]) return state.models[kind];
+  return (loading[kind] ??= createModel(kind).finally(() => { delete loading[kind]; }));
+}
+async function createModel(kind) {
   state.vision ??= await FilesetResolver.forVisionTasks(new URL('vendor/mediapipe/wasm', import.meta.url).href.replace(/\/$/, ''));
+  const buf = await modelBuffer(kind);
   const opts = delegate => ({
-    baseOptions: { modelAssetPath: new URL(`models/pose_landmarker_${kind}.task`, import.meta.url).href, delegate },
+    baseOptions: buf ? { modelAssetBuffer: buf, delegate } : { modelAssetPath: modelUrl(kind), delegate },
     runningMode: 'VIDEO', numPoses: 1,
     minPoseDetectionConfidence: 0.3, minPosePresenceConfidence: 0.3, minTrackingConfidence: 0.3,
   });
@@ -158,14 +177,10 @@ async function analyzeVideo(url, { recordedSec = null, blob = null } = {}) {
   try { model = await getModel('heavy'); }
   catch (e) { console.error(e); $('scan-error').textContent = 'Non riesco a caricare il giudice. Controlla la connessione e riprova.'; return; }
 
-  video.src = url; video.muted = true; video.playsInline = true;
   try {
-    await new Promise((res, rej) => {
-      video.onloadeddata = res;
-      video.onerror = () => rej(new Error('decode'));
-      setTimeout(() => rej(new Error('timeout')), 15000);
-    });
-  } catch {
+    await loadVideo(video, url);
+  } catch (e) {
+    console.error(e);
     $('scan-error').textContent = 'Questo video non si apre in questo browser. Prova con un video .mp4, oppure registrati direttamente dall\'app.';
     return;
   }
@@ -177,7 +192,8 @@ async function analyzeVideo(url, { recordedSec = null, blob = null } = {}) {
   // Campionamento a passo fisso: ci si ferma su ogni fotogramma e lo si analizza.
   // Più lento della riproduzione "al volo", ma preciso anche su telefoni lenti
   // e ripetibile (stesso video → stesso verdetto).
-  const fps = total > 20 ? 15 : 20;
+  // 12 fotogrammi al secondo bastano per fermi e profondità e dimezzano quasi i tempi.
+  const fps = total > 15 ? 10 : 12;
   const frames = [];
   let lastLm = null, raf = 0, alive = true;
   const anim = () => { if (!alive) return; drawScan(canvas, lastLm); raf = requestAnimationFrame(anim); };
@@ -199,6 +215,34 @@ async function analyzeVideo(url, { recordedSec = null, blob = null } = {}) {
   showResult(result, clean, url, blob);
 }
 
+// Carica un video in modo che i fotogrammi siano leggibili. Su iPhone (Safari) il video non
+// decodifica niente finché non parte la riproduzione: lo si avvia muto per un attimo e lo si ferma.
+function waitFor(video, events, ms) {
+  return new Promise((res, rej) => {
+    const ok = () => { clean(); res(); };
+    const ko = () => { clean(); rej(new Error('decode')); };
+    const to = setTimeout(() => { clean(); rej(new Error('timeout')); }, ms);
+    const clean = () => { clearTimeout(to); events.forEach(e => video.removeEventListener(e, ok)); video.removeEventListener('error', ko); };
+    events.forEach(e => video.addEventListener(e, ok));
+    video.addEventListener('error', ko);
+  });
+}
+async function loadVideo(video, url) {
+  video.muted = true; video.defaultMuted = true; video.playsInline = true;
+  video.setAttribute('muted', ''); video.setAttribute('playsinline', '');
+  video.preload = 'auto';
+  video.src = url;
+  video.load();
+  if (video.readyState < 1) await waitFor(video, ['loadedmetadata'], 20000);
+  if (video.readyState < 2) {
+    const ready = waitFor(video, ['loadeddata', 'canplay', 'playing'], 15000);
+    try { await video.play(); } catch { /* può fallire senza tocco: ci pensa il seek */ }
+    if (video.readyState < 2) { video.currentTime = 0.001; }
+    await ready.catch(() => { if (video.readyState < 2) throw new Error('nodata'); });
+  }
+  video.pause();
+}
+
 // I video registrati dal browser (webm) spesso non dichiarano la durata: la si ricava così.
 async function videoDuration(video, fallback) {
   if (Number.isFinite(video.duration) && video.duration > 0) return video.duration;
@@ -218,7 +262,7 @@ function seekTo(video, t) {
     const finish = () => { if (done) return; done = true; video.removeEventListener('seeked', onSeeked); res(); };
     const onSeeked = () => {
       // aspetta che il fotogramma sia davvero pronto da leggere
-      if ('requestVideoFrameCallback' in video) { video.requestVideoFrameCallback(() => finish()); setTimeout(finish, 120); }
+      if ('requestVideoFrameCallback' in video) { video.requestVideoFrameCallback(() => finish()); setTimeout(finish, 40); }
       else finish();
     };
     video.addEventListener('seeked', onSeeked);
@@ -261,12 +305,13 @@ const replay = { video: null, raf: 0, keyPaused: false, slow: true };
 function setupReplay(url, result, frames) {
   const video = $('replay-video'), canvas = $('replay-canvas');
   replay.video = video; replay.keyPaused = false;
-  video.src = url; video.muted = true; video.playsInline = true; video.loop = false;
-  video.onloadeddata = () => {
+  video.loop = false;
+  loadVideo(video, url).then(() => {
     setAspect($('replay-stage'), video);
+    video.currentTime = 0;
     video.playbackRate = replay.slow ? 0.5 : 1;
     video.play().catch(() => {});
-  };
+  }).catch(e => console.error(e));
   $('rp-slow').classList.toggle('on', replay.slow);
   cancelAnimationFrame(replay.raf);
   const draw = () => {
@@ -362,13 +407,14 @@ function drawReplay(canvas, video, result, frames) {
 
 // ── modalità live ───────────────────────────────
 async function startLive() {
-  show('live');
+  if (document.body.dataset.screen !== 'live') show('live');
+  $('live-stage').classList.toggle('mirror', state.facing === 'user');
+  $('flip-label').textContent = state.facing === 'user' ? 'Posteriore' : 'Frontale';
   $('live-error').textContent = ''; $('live-msg').textContent = 'Accendo la fotocamera…';
-  $('rec-lift').textContent = LIFTS[state.lift].name.toUpperCase();
   const video = $('live-video');
   let stream;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: state.facing, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
   } catch (e) {
     console.error(e);
     $('live-msg').textContent = '';
@@ -405,29 +451,82 @@ async function startLive() {
   loop();
 }
 
-// Comandi vocali (opzionali): come in gara, prima il fermo di 1 s, poi il comando.
-function say(word) {
+// Comandi vocali (opzionali): come in gara, prima il fermo, poi il comando.
+// Se in audio/ ci sono le registrazioni dei comandi (start.mp3, rack.mp3, …) si usano quelle:
+// partono all'istante. Altrimenti si usa la voce sintetica del telefono.
+const VOICE_FILES = []; // es. ['start', 'rack', 'press', 'down'] quando ci sono i file in audio/
+const voice = { ctx: null, buffers: {}, synth: null };
+function pickSynthVoice() {
+  const vs = window.speechSynthesis?.getVoices?.() || [];
+  const pref = ['Daniel', 'Arthur', 'Aaron', 'Alex', 'Google UK English Male', 'Google US English'];
+  return pref.map(n => vs.find(v => v.name.startsWith(n) && /^en/i.test(v.lang))).find(Boolean)
+    || vs.find(v => /^en-(GB|US)/i.test(v.lang)) || null;
+}
+window.speechSynthesis?.addEventListener?.('voiceschanged', () => { voice.synth = pickSynthVoice(); });
+// Da chiamare durante un tocco dell'utente: su iPhone l'audio si sblocca solo così.
+function unlockVoice() {
   try {
-    const u = new SpeechSynthesisUtterance(word);
-    u.lang = 'en-US'; u.rate = 1; u.volume = 1;
-    speechSynthesis.cancel(); speechSynthesis.speak(u);
+    voice.ctx ??= new (window.AudioContext || window.webkitAudioContext)();
+    voice.ctx.resume?.();
+    const src = voice.ctx.createBufferSource(); src.buffer = voice.ctx.createBuffer(1, 1, 22050); src.connect(voice.ctx.destination); src.start(0);
+  } catch { /* niente Web Audio */ }
+  try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch { /* niente sintesi */ }
+  voice.synth ??= pickSynthVoice();
+  for (const k of VOICE_FILES) {
+    if (voice.buffers[k] !== undefined || !voice.ctx) continue;
+    voice.buffers[k] = null;
+    fetch(new URL(`audio/${k}.mp3`, import.meta.url)).then(r => r.ok ? r.arrayBuffer() : Promise.reject())
+      .then(b => new Promise((res, rej) => voice.ctx.decodeAudioData(b, res, rej))).then(buf => { voice.buffers[k] = buf; })
+      .catch(() => { /* nessuna registrazione: voce sintetica */ });
+  }
+}
+function say(word) {
+  const buf = voice.buffers[word.toLowerCase()];
+  if (buf && voice.ctx) {
+    try { const src = voice.ctx.createBufferSource(); src.buffer = buf; src.connect(voice.ctx.destination); src.start(0); return; } catch { /* sotto: sintesi */ }
+  }
+  try {
+    const u = new SpeechSynthesisUtterance(word + '!');
+    if (voice.synth) u.voice = voice.synth;
+    u.lang = voice.synth?.lang || 'en-GB'; u.rate = 1.25; u.pitch = 0.9; u.volume = 1;
+    if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
+    speechSynthesis.speak(u);
   } catch { /* sintesi vocale non disponibile */ }
 }
+// Il comando arriva quando sei a gambe tese e fermo da COMMAND_HOLD secondi (il giudizio poi
+// chiede 1 s di fermo prima della discesa: aspettando il comando ci si arriva sempre).
+const COMMAND_HOLD = 0.7;
 function voiceCoach(lm, vw, vh, t) {
   const L = state.live;
   if (!L?.rec || !$('voice').checked || state.lift !== 'squat') return;
   const s = sideOf(lm);
-  if ((lm[s.K].visibility ?? 0) < 0.5 || (lm[s.A].visibility ?? 0) < 0.5) return;
+  if ((lm[s.H].visibility ?? 0) < 0.3 || (lm[s.K].visibility ?? 0) < 0.3 || (lm[s.A].visibility ?? 0) < 0.3) return;
   const knee = angle(lm[s.H], lm[s.K], lm[s.A], vw, vh);
-  const body = Math.hypot((lm[s.S].x - lm[s.A].x) * vw, (lm[s.S].y - lm[s.A].y) * vh) || vh * 0.7;
-  L.hist.push({ t, knee, hx: lm[s.H].x * vw, hy: lm[s.H].y * vh, ax: lm[s.A].x * vw });
-  L.hist = L.hist.filter(p => t - p.t <= 1.1);
-  const span = L.hist.length ? t - L.hist[0].t : 0;
-  const rng = k => Math.max(...L.hist.map(p => p[k])) - Math.min(...L.hist.map(p => p[k]));
-  const lockedStill = span >= 0.95 && L.hist.every(p => p.knee >= SQUAT.lockoutKneeDeg) && rng('hy') < SQUAT.stillRatio * body && rng('hx') < SQUAT.stillRatio * body && rng('ax') < SQUAT.stillRatio * body;
+  const hy = lm[s.H].y * vh, hx = lm[s.H].x * vw, ax = lm[s.A].x * vw, ay = lm[s.A].y * vh;
+  const body = Math.hypot(hx - ax, hy - ay) * 1.9 || vh * 0.7;
+  L.maxKnee = Math.max(L.maxKnee || 0, knee);
+  // "Gambe tese" relativo a come il modello vede te in piedi (il modello leggero sbaglia di qualche grado).
+  const lockedNow = knee >= Math.min(SQUAT.lockoutKneeDeg, L.maxKnee - 14);
+  L.hist.push({ t, knee, hx, hy, ax, locked: lockedNow });
+  // si tiene solo il tratto finale in cui sei rimasto a gambe tese
+  let i = L.hist.length - 1; while (i > 0 && L.hist[i - 1].locked && t - L.hist[i - 1].t <= 1.5) i--;
+  if (!lockedNow) { L.hist = [L.hist[L.hist.length - 1]]; i = 0; }
+  L.hist = L.hist.slice(i);
+  const tol = 0.03 * body;
+  // fermo: dall'ultimo istante in cui ti sei mosso troppo
+  let still = L.hist.length - 1;
+  const lo = { hx: hx, hy: hy, ax: ax }, hi = { ...lo };
+  while (still > 0) {
+    const p = L.hist[still - 1];
+    const nlo = { hx: Math.min(lo.hx, p.hx), hy: Math.min(lo.hy, p.hy), ax: Math.min(lo.ax, p.ax) };
+    const nhi = { hx: Math.max(hi.hx, p.hx), hy: Math.max(hi.hy, p.hy), ax: Math.max(hi.ax, p.ax) };
+    if (nhi.hx - nlo.hx > tol || nhi.hy - nlo.hy > tol || nhi.ax - nlo.ax > tol) break;
+    Object.assign(lo, nlo); Object.assign(hi, nhi); still--;
+  }
+  const lockedStill = lockedNow && t - L.hist[still].t >= COMMAND_HOLD - 0.06;
   const [startCmd, endCmd] = LIFTS[state.lift].commands;
-  if (L.phase === 'wait' && lockedStill) { say(startCmd); L.phase = 'started'; }
-  else if (L.phase === 'started' && knee < SQUAT.squattingKneeDeg) { L.phase = 'rep'; }
+  if (L.phase === 'wait' && lockedStill) { say(startCmd); L.phase = 'started'; L.startY = hy; }
+  else if (L.phase === 'started' && (knee < SQUAT.squattingKneeDeg || hy - L.startY > SQUAT.squatDropRatio * body)) { L.phase = 'rep'; L.hist = []; }
   else if (L.phase === 'rep' && lockedStill) { say(endCmd); L.phase = 'done'; L.doneAt = t; }
   else if (L.phase === 'done' && t - L.doneAt > 4) { L.phase = 'wait'; L.hist = []; }
 }
@@ -440,10 +539,10 @@ function toggleRec() {
   const L = state.live; if (!L) return;
   if (!L.rec) {
     if (!window.MediaRecorder) { $('live-error').textContent = 'Questo browser non può registrare video. Usa "Carica un video".'; return; }
-    if ($('voice').checked) say(' '); // sblocca l'audio su iPhone (serve un tocco dell'utente)
+    if ($('voice').checked) unlockVoice(); // sblocca l'audio su iPhone (serve un tocco dell'utente)
     const mimeType = pickMime();
     const rec = new MediaRecorder(L.stream, mimeType ? { mimeType } : undefined);
-    L.chunks = []; L.rec = rec; L.phase = 'wait'; L.hist = [];
+    L.chunks = []; L.rec = rec; L.phase = 'wait'; L.hist = []; L.maxKnee = 0;
     rec.ondataavailable = e => e.data.size && L.chunks.push(e.data);
     rec.onstop = () => {
       const blob = new Blob(L.chunks, { type: rec.mimeType || mimeType || 'video/webm' });
@@ -491,7 +590,12 @@ $('file').addEventListener('change', e => {
   analyzeVideo(url);
 });
 $('rec').addEventListener('click', toggleRec);
-$('voice').addEventListener('change', e => { if (e.target.checked) say(' '); });
+$('voice').addEventListener('change', e => { if (e.target.checked) unlockVoice(); });
+$('flip').addEventListener('click', () => {
+  if (state.live?.rec) return; // non durante la registrazione
+  state.facing = state.facing === 'user' ? 'environment' : 'user';
+  stopLive(); startLive();
+});
 // Precarica il giudice in background (non con "risparmio dati" attivo), così l'analisi parte subito.
 // Il modello di analisi (~30 MB) si scarica appena l'utente sceglie cosa fare, non alla sola visita.
 const preloadJudge = () => { if (!navigator.connection?.saveData) getModel('heavy').catch(() => {}); };
