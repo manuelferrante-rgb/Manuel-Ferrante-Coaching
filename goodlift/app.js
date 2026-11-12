@@ -475,7 +475,7 @@ function unlockVoice() {
   for (const k of VOICE_FILES) {
     if (voice.buffers[k] !== undefined || !voice.ctx) continue;
     voice.buffers[k] = null;
-    fetch(new URL(`audio/${k}.mp3`, import.meta.url)).then(r => r.ok ? r.arrayBuffer() : Promise.reject())
+    fetch(new URL(`audio/${k}.wav`, import.meta.url)).then(r => r.ok ? r.arrayBuffer() : Promise.reject())
       .then(b => new Promise((res, rej) => voice.ctx.decodeAudioData(b, res, rej))).then(buf => { voice.buffers[k] = buf; })
       .catch(() => { /* nessuna registrazione: voce sintetica */ });
   }
