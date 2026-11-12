@@ -161,12 +161,12 @@
   .pill.toggle.on::before{background:var(--accent);border-color:var(--accent);box-shadow:0 0 8px rgba(var(--accent-rgb),.7)}
   .badge.limit{color:#f0b429;border-color:rgba(240,180,41,.55);background:rgba(240,180,41,.1);font-size:12px;font-weight:600}
   .badge.close{color:var(--red);border-color:rgba(var(--red-rgb),.55);background:rgba(var(--red-rgb),.1);font-size:12px;font-weight:600}
-  .tips{margin:12px 0 4px;padding:14px 16px;border-radius:14px;background:rgba(240,180,41,.08);border:1px solid rgba(240,180,41,.4)}
-  .tips.fix{background:rgba(var(--red-rgb),.08);border-color:rgba(var(--red-rgb),.4)}
-  .tips b{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#f0b429;margin-bottom:6px}
-  .tips.fix b{color:var(--red)}
-  .tips ul{list-style:none;display:grid;gap:6px}
-  .tips li{font-size:14px;line-height:1.45;color:var(--white)}
+  .advice{margin:12px 0 4px;padding:14px 16px;border-radius:14px;background:rgba(240,180,41,.08);border:1px solid rgba(240,180,41,.4)}
+  .advice.fix{background:rgba(var(--red-rgb),.08);border-color:rgba(var(--red-rgb),.4)}
+  .advice b{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#f0b429;margin-bottom:6px}
+  .advice.fix b{color:var(--red)}
+  .advice ul{list-style:none;display:grid;gap:6px}
+  .advice li{font-size:14px;line-height:1.45;color:var(--white)}
   .reps{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 4px;align-items:center}
   .reps .sum{width:100%;font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--grey)}
   .rep{display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:100px;border:1px solid var(--border);background:var(--bg2);font-weight:600;font-size:14px}
@@ -276,7 +276,7 @@
       <div><p class="vtext" id="vtext"></p><p class="vsub" id="vsub"></p><p class="badge limit" id="vlimit" hidden>Valida ma al limite</p><p class="badge close" id="vclose" hidden>No rep per poco</p><p class="badge" id="vbadge" hidden>Alcuni dettagli non visibili</p></div>
     </div>
     <div class="reps" id="reps" hidden></div>
-    <div class="tips" id="tips" hidden><b id="tips-title">Da migliorare</b><ul id="tips-list"></ul></div>
+    <div class="advice" id="tips" hidden><b id="tips-title">Da migliorare</b><ul id="tips-list"></ul></div>
     <div class="stage" id="replay-stage"><video id="replay-video" playsinline muted></video><canvas id="replay-canvas"></canvas><p class="stage-msg" id="replay-msg"></p></div>
     <div class="replay-ctrls">
       <button class="pill" id="rp-play">▶ Replay</button>
