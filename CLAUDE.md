@@ -99,3 +99,20 @@ coperti dai dischi, femore ben visibile, chiaramente sotto il parallelo) siano g
   download.openmmlab.com e huggingface.co aperti). La sessione vecchia non poteva spostarsi lì.
 - Niente servizi online a pagamento (decisione di Manuel): tutto deve girare nel telefono.
 
+### Risultato delle prove (13 novembre 2026)
+- Provati in Python (onnxruntime) RTMO-s (40 MB, un solo modello) e RTMPose t/s/m (13/22/54 MB) +
+  detector YOLOX nano/tiny, anche la versione con i piedi (Halpe26). Tutti d'accordo e sicuri
+  (fiducia 0.9+), stabili da un fotogramma all'altro: su Jasmin anca e ginocchio sono **giusti**
+  (Jasmin guarda a sinistra: ginocchio = ginocchiera nera a sinistra, anca nel gluteo a destra).
+  Attenzione: a prima vista sembra il contrario, ma punta delle scarpe e ginocchiera lo confermano.
+- Però in buca (~2.0 s) il femore *in foto* è circa **18° sopra il parallelo** (anca ~30 px più
+  alta del ginocchio). Ripresa di tre quarti dall'alto: il ginocchio è più vicino alla camera e
+  sembra più basso; la correzione di prospettiva non è affidabile. Quindi il nuovo modello, così
+  com'è, darebbe NO REP a Jasmin: **non integrato**, in attesa della decisione di Manuel.
+- Velocità (CPU desktop, 1 thread): RTMPose-s 10 ms + YOLOX-nano 12 ms; RTMO-s 160 ms (troppo lento).
+  Se si integra: RTMPose-s + YOLOX-nano (~26 MB) con onnxruntime-web.
+- Trazioni di Elisabetta e muscle up frontale di Lorenzo: scheletro buono, non peggio di MediaPipe.
+- Modelli: download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/ (zip con end2end.onnx;
+  ingresso 256x192, normalizzazione mean 123.675/116.28/103.53, std 58.395/57.12/57.375, RGB, box
+  allargato 1.25; uscite simcc_x/simcc_y, argmax/2). YOLOX: 416x416, pad 114, BGR senza normalizzare.
+
