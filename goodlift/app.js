@@ -237,6 +237,7 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
     return m;
   });
   modelP.catch(() => {});
+  const T0 = performance.now(); state.timing = {}; // tempi (per ?debug)
   try { await loadVideo(video, url); }
   catch (e) { console.error(e); return stop('Questo video non si apre in questo browser. Prova con un video .mp4, oppure registrati direttamente dall\'app.'); }
   setAspect($('scan-stage'), video);
@@ -276,6 +277,7 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
     return lm;
   };
   const gone = () => document.body.dataset.screen !== 'scan';
+  state.timing.ready = performance.now() - T0;
   let frames = await samplePlaying(video, model, win[0], win[1], onPose, gone);
   if (frames === null) frames = await sampleSeeking(video, model, win[0], win[1], total, onPose, gone); // senza riproduzione: a salti
   if (!frames) { alive = false; return; } // l'utente è tornato indietro
@@ -283,8 +285,11 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
   const raw = frames.filter((f, i) => i === 0 || f.t > frames[i - 1].t + 1e-4);
   const clean = pickPerson(raw, state.lift, vw, vh);
   state.raw = raw; // per ?debug
+  state.timing.sampled = performance.now() - T0;
   const result = LIFTS[state.lift].analyze(clean, vw, vh);
+  state.timing.judged = performance.now() - T0;
   try { attachPlate(result, raw, vw, vh); } catch (e) { console.warn(e); }
+  state.timing.plate = performance.now() - T0;
   for (const f of raw) delete f.gray; // memoria: le immagini non servono più
   if (total >= MAX_SECONDS) result.warnings.unshift(`Ho analizzato solo i primi ${MAX_SECONDS} secondi: per i prossimi video taglia il pezzo con l'alzata.`);
   // replay: dall'inizio della prima ripetizione a poco dopo la fine dell'ultima
@@ -364,20 +369,25 @@ async function samplePlaying(video, model, from, to, onPose, gone) {
         let poses = [];
         try { poses = toPoses(detect(model, video)); } catch (e) { console.warn(e); }
         cost = 0.7 * cost + 0.3 * (performance.now() - c0) / 1000;
+        const c1 = performance.now();
         frames.push({ t, poses, gray: grabGray(video) });
+        const c2 = performance.now();
         if (probe.left > 0 && model.__mode === 'IMAGE') {
           const n = countPeople(poses, video.videoWidth, video.videoHeight);
           if (n > 1) probe.many = true; else if (n === 1) probe.one++;
           if (--probe.left === 0 && !probe.many && probe.one >= 4) probe.switching = true;
         }
         const lm = onPose(t, poses, frames);
+        const tm = state.timing; tm.detect = (tm.detect || 0) + (c1 - c0); tm.gray = (tm.gray || 0) + (c2 - c1); tm.onPose = (tm.onPose || 0) + (performance.now() - c2); tm.n = (tm.n || 0) + 1;
         // fermo o assente → si va più veloce; in movimento → ~12 fotogrammi al secondo
         const y = lm ? (lm[ids[0]].y + lm[ids[1]].y) / 2 : null;
         const moving = y != null && prev != null && Math.abs(y - prev) / Math.max(1e-3, t - lastT) > 0.05;
         stillFor = moving ? 0 : stillFor + (t - lastT > 0 ? t - lastT : 0);
         prev = y; lastT = t;
         const base = Math.max(0.25, Math.min(2, 0.85 * STEP / cost));
-        const want = stillFor > 0.6 ? Math.min(2, base * 2.5) : base;
+        // da fermo si corre (fino a 4×): niente da giudicare. In panca no: il fermo al petto va misurato bene.
+        const cap = state.lift === 'panca' ? 2 : 4;
+        const want = stillFor > 0.6 ? Math.min(cap, base * 4) : base;
         if (Math.abs(want - rate) / rate > 0.12) { rate = want; video.playbackRate = rate; }
       }
       if (probe.switching) {

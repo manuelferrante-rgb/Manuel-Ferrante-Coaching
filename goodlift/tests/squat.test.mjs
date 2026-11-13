@@ -91,6 +91,9 @@ const cases = [
   ['da davanti, squat alto', frontClip(SQUAT.depthMinDeg - 12), r => r.verdict === 'norep' && st(r, 'depth') === 'fail'],
   // un giudice fermo, più grande e più vicino al telefono, che a metà passa davanti: si segue l'atleta
   ['giudice in primo piano', withJudge(clip([hold(1.4), down, up, hold(0.3), down, up, hold(1.4)], 6)), r => r.reps?.length === 2 && r.verdict === 'good'],
+  // la caviglia non conta per la profondità: se è sempre nascosta si giudica lo stesso
+  ['caviglie nascoste', clip([hold(1.4), down, up, hold(1.4)], 6).map(f => ({ t: f.t, lm: f.lm.map((p, i) => [27, 28].includes(i) ? { ...p, visibility: 0.05 } : p) })), r => r.verdict === 'good'],
+  ['caviglie nascoste, squat alto', clip([hold(1.4), down, up, hold(1.4)], SQUAT.depthMinDeg - 10).map(f => ({ t: f.t, lm: f.lm.map((p, i) => [27, 28].includes(i) ? { ...p, visibility: 0.05 } : p) })), r => r.verdict === 'norep' && st(r, 'depth') === 'fail'],
   ['niente squat', clip([hold(3)], 6), r => r.verdict === 'unclear'],
 ];
 

@@ -39,7 +39,7 @@ export function analyzeSquat(frames, width, height, cfg = SQUAT) {
   const lenRef = (P, Q) => { const v = t.map((_, i) => P[i] && Q[i] ? dist(P[i], Q[i]) : NaN).filter(Number.isFinite).sort((x, y) => x - y); return v.length ? v[Math.floor(v.length * 0.75)] : NaN; };
   const shinRef = lenRef(K, A), thighRef = lenRef(H, K);
   // Ripresa da davanti o da dietro: le due anche sono ben separate. Si giudica lo stesso.
-  const bodyLen0 = median(t.map((_, i) => H[i] && A[i] ? dist(H[i], A[i]) * 1.9 : NaN));
+  const bodyLen0 = median(t.map((_, i) => H[i] && A[i] ? dist(H[i], A[i]) * 1.9 : NaN)) || thighRef * 3.8;
   const frontal = hipSpread > 0.15 * bodyLen0;
   // da davanti il femore in buca punta verso il telefono e sembra corto: è normale, non un errore
   for (let i = 0; i < t.length && !frontal; i++) {
@@ -49,14 +49,15 @@ export function analyzeSquat(frames, width, height, cfg = SQUAT) {
     if (badShin || badThigh) { K[i] = null; if (badThigh) H[i] = null; }
   }
 
-  const lowerBodyVis = Math.min(visibility.H, visibility.K, visibility.A);
+  // per la profondità servono anca e ginocchio; la caviglia no (se manca, si fa senza)
+  const lowerBodyVis = Math.min(visibility.H, visibility.K);
   if (!(lowerBodyVis >= cfg.minVisibility * 0.7)) {
     return unclear('Non vedo bene anca, ginocchio e caviglia. Riprendi di lato, con tutto il corpo nell\'inquadratura.');
   }
 
   // Lunghezza del corpo (riferimento per tutte le distanze): anca-caviglia è la misura più stabile,
   // perché nello squat busto e spalle sono spesso coperti dai dischi.
-  const bodyLen = median(t.map((_, i) => H[i] && A[i] ? dist(H[i], A[i]) * 1.9 : NaN));
+  const bodyLen = median(t.map((_, i) => H[i] && A[i] ? dist(H[i], A[i]) * 1.9 : NaN)) || thighRef * 3.8;
   const kneeAng = t.map((_, i) => H[i] && K[i] && A[i] ? angleAt(H[i], K[i], A[i]) : NaN);
   // Femore rispetto all'orizzontale: positivo = anca sotto il ginocchio.
   // Di lato si misura l'angolo direttamente. Da davanti il femore in buca punta verso il telefono:
@@ -75,7 +76,8 @@ export function analyzeSquat(frames, width, height, cfg = SQUAT) {
   const standKnee = pct(kneeAng, 0.9);
   const standHipY = pct(bar, 0.08);
   const kneeLock = Math.min(cfg.lockoutKneeDeg, standKnee - cfg.lockoutRelDeg);
-  const locked = t.map((_, i) => kneeAng[i] >= kneeLock && bar[i] <= standHipY + cfg.lockoutHipDropRatio * bodyLen);
+  // caviglia non vista: in piedi = anca tornata alla sua altezza più alta
+  const locked = t.map((_, i) => (Number.isFinite(kneeAng[i]) ? kneeAng[i] >= kneeLock : Number.isFinite(standKnee) ? false : true) && bar[i] <= standHipY + cfg.lockoutHipDropRatio * bodyLen);
   const hasData = kneeAng.map(Number.isFinite);
 
   const reps = findReps(t.length, i => bar[i] > standHipY + cfg.squatDropRatio * bodyLen, locked,
