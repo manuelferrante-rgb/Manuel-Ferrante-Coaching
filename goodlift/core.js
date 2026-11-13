@@ -104,40 +104,6 @@ export function buildSeries(frames, width, height, minVis) {
   return { t, dt, side, series, visibility, hipSpread };
 }
 
-// Misura il fermo più lungo vicino ad `anchor`.
-// dir = -1: fermo che finisce poco prima di `anchor` (partenza, prima della discesa).
-// dir = +1: fermo che inizia poco dopo `anchor` (chiusura, dopo l'estensione).
-// Un fermo è valido solo se per tutta la sua durata il corpo resta bloccato e immobile
-// (anca, caviglia e "bilanciere" non si spostano più di `thr`, né in verticale né in orizzontale).
-export function measureHold({ t, dt, anchor, dir, locked, tracks, thr, slackSec, hasData }) {
-  const n = t.length;
-  // Il fermo "tocca il bordo" se oltre di lui il video finisce o la persona non si vede più:
-  // in quel caso non sappiamo quanto sarebbe durato.
-  const edge = i => i < 0 || i >= n || !hasData[i];
-  let best = { found: false, dur: 0 };
-  for (let e = anchor; e >= 0 && e < n && Math.abs(t[e] - t[anchor]) <= slackSec; e += dir) {
-    if (!locked[e]) continue;
-    const lo = tracks.map(() => ({ x: Infinity, y: Infinity })), hi = tracks.map(() => ({ x: -Infinity, y: -Infinity }));
-    let k = e, last = e;
-    while (k >= 0 && k < n && locked[k]) {
-      let ok = true;
-      tracks.forEach((tr, j) => {
-        const p = tr[k];
-        if (!p) return;
-        lo[j].x = Math.min(lo[j].x, p.x); lo[j].y = Math.min(lo[j].y, p.y);
-        hi[j].x = Math.max(hi[j].x, p.x); hi[j].y = Math.max(hi[j].y, p.y);
-        if (hi[j].x - lo[j].x > thr || hi[j].y - lo[j].y > thr) ok = false;
-      });
-      if (!ok) break;
-      last = k; k += dir;
-    }
-    const a = Math.min(e, last), b = Math.max(e, last);
-    const dur = t[b] - t[a] + dt;
-    if (dur > best.dur) best = { found: true, a, b, start: t[a], end: t[b] + dt, dur, touchesStart: edge(a - 1), touchesEnd: edge(b + 1) };
-  }
-  return best;
-}
-
 export const fmt = (n, d = 1) => n.toFixed(d).replace('.', ',');
 
 // Cerca un buco nei dati di anca/ginocchio tra discesa e salita e stima l'angolo del femore
@@ -259,22 +225,25 @@ export function findReps(n, downAt, locked, deeper, isReal = () => true) {
 }
 
 // Mette insieme il verdetto. Una ripetizione: come in gara. Più ripetizioni: ognuna ha il suo
-// verdetto e il riepilogo dice quali sono valide; il fermo iniziale conta solo per la prima
-// e quello finale solo per l'ultima.
+// verdetto e il riepilogo dice quali sono valide.
 // Consigli: cosa sistemare (no rep) o cosa migliorare (valida ma al limite).
 const TIPS = {
-  startHold: 'Prima di partire resta fermo in posizione e aspetta lo start: circa 1 secondo.',
-  endHold: 'Alla fine resta fermo 1 secondo, finché non arriva il comando.',
   noDrop: 'Spingi in modo continuo: se rallenti va bene, ma non tornare mai indietro.',
   depth: {
     squat: 'Scendi di più: il femore deve rompere il parallelo, con l\'anca chiaramente sotto il ginocchio.',
     panca: 'Porta il bilanciere fino al petto, con il gomito almeno all\'altezza della spalla.',
     dip: 'Scendi di più: la spalla deve andare chiaramente sotto il gomito.',
   },
-  chestHold: 'Al petto fermati un secondo, senza rimbalzare, e aspetta il press.',
+  chestHold: 'Al petto fermati un secondo, senza rimbalzare, poi spingi.',
   butt: 'Tieni il sedere incollato alla panca: spingi con le gambe senza alzare il bacino.',
   feet: 'Tieni i piedi piantati a terra per tutta l\'alzata.',
-  lockout: 'Chiudi completamente: ginocchia e anche distese.',
+  lockout: {
+    squat: 'Chiudi completamente: ginocchia distese in alto.',
+    stacco: 'Chiudi completamente: ginocchia e anche distese.',
+    panca: 'Chiudi completamente: braccia tese in alto.',
+    dip: 'Chiudi completamente: braccia tese in alto.',
+    trazioni: 'Torna giù fino a braccia completamente tese.',
+  },
   shoulder: 'In chiusura porta le spalle indietro, dietro il bilanciere.',
   kip: 'Parti da fermo: niente movimento delle spalle per prendere slancio.',
   legs: 'Tieni le gambe ferme o muovile piano, senza calci.',

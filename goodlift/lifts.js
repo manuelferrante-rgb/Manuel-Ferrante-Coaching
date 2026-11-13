@@ -6,7 +6,7 @@
 // un controllo sbagliato = NO REP; un dettaglio non visibile = GOOD LIFT con nota.
 // Le soglie segnate "provvisoria" vanno tarate su video reali di alzate valide e no rep.
 
-import { deg, angleAt, dist, median, buildSeries, measureHold, fmt, unclear, findReps, assemble } from './core.js';
+import { deg, angleAt, dist, median, buildSeries, fmt, unclear, findReps, assemble } from './core.js';
 
 // ── soglie ─────────────────────────────────────────────────────────────
 // Le distanze sono in frazioni di un segmento del corpo (braccio = spalla-gomito-polso,
@@ -40,7 +40,7 @@ export const DEADLIFT = {
 };
 
 export const PULLUP = {
-  ...HOLD, endHoldSec: 0.5,            // in basso dopo la ripetizione: almeno mezzo secondo
+  ...HOLD,
   hangElbowDeg: 150, hangRelDeg: 15,
   pullRatio: 0.15,                     // ha iniziato a tirare: spalle salite del 15% del braccio
   stillRatio: 0.045,
@@ -96,18 +96,6 @@ function prepare(frames, width, height, lift, need) {
   return b;
 }
 
-// Fermo valido, assente o non visibile (video che inizia/finisce troppo presto).
-function holdCheck({ id, label, b, anchor, dir, locked, tracks, thr, need, cfg, hasData, okText, failText, edgeText }) {
-  const { t, dt } = b;
-  const firstData = hasData.indexOf(true), lastData = hasData.lastIndexOf(true);
-  const h = measureHold({ t, dt, anchor, dir, locked, tracks, thr, slackSec: cfg.holdSlackSec, hasData });
-  const min = need - cfg.holdToleranceSec;
-  const room = dir < 0 ? t[anchor] - t[firstData] : t[lastData] - t[anchor];
-  if (h.found && h.dur >= min) return { id, label, status: 'pass', detail: okText(h.dur), t: [h.start, h.end] };
-  if (!h.found || (dir < 0 ? h.touchesStart : h.touchesEnd) || room < min) return { id, label, status: 'unknown', detail: edgeText };
-  return { id, label, status: 'fail', close: h.dur >= min - 0.25, detail: failText(h.dur), t: [h.start, h.end] };
-}
-
 // Il punto `y` dovrebbe solo salire (y che cala, in pixel) tra from e to: trova una discesa
 // di almeno thr che dura almeno minSec. Restituisce l'indice di inizio o -1.
 function reversal(t, y, from, to, thr, minSec) {
@@ -142,13 +130,26 @@ const bentArms = (b, hasData, minElbow = 125) => ({ fd, bottom, up, end }) => {
   for (let i = fd; i <= end; i++) { if (b.present[i]) { seen++; if (i > bottom) after++; } if (b.elbow[i] < minElbow) bent = true; }
   return seen >= Math.max(3, 0.7 * (end - fd + 1)) && bent;
 };
+// Fine serie: quando scendi dalla sbarra o dalle parallele, o lasci il bilanciere, e ti riposi
+// mentre il video continua, il corpo si abbassa e le braccia si piegano come in una ripetizione.
+// Ma le mani non sono più al loro posto: una ripetizione vera ha le mani in presa nel punto chiave.
+// ok(i) → true/false, o null se in quel fotogramma non si vede.
+const handsOn = (t, ok, at) => {
+  let good = 0, seen = 0;
+  for (let i = 0; i < t.length; i++) {
+    if (Math.abs(t[i] - t[at]) > 0.15) continue;
+    const v = ok(i); if (v == null) continue;
+    seen++; if (v) good++;
+  }
+  return !seen || 2 * good >= seen;
+};
+const both = (f, g) => r => f(r) && g(r);
 const firstFrom = (arr, from, cond) => { for (let i = Math.max(0, from); i < arr.length; i++) if (cond(i)) return i; return -1; };
 const lastBefore = (from, cond) => { for (let i = from; i >= 0; i--) if (cond(i)) return i; return -1; };
 
 // ── PANCA ──────────────────────────────────────────────────────────────
-// Fermo a braccia tese (start) · discesa · fermo di 1 s al petto (press) · gomito almeno
-// all'altezza della spalla · spinta senza discese · braccia tese e fermo di 1 s (rack) ·
-// sedere e piedi sempre giù.
+// Discesa · fermo di 1 s al petto · gomito almeno all'altezza della spalla · spinta senza
+// discese · chiusura a braccia tese · sedere e piedi sempre giù. (Start e rack non si giudicano.)
 export function analyzeBench(frames, width, height, cfg = BENCH) {
   const b = prepare(frames, width, height, 'panca', ['S', 'E', 'W']);
   if (b.error) return b.error;
@@ -158,7 +159,9 @@ export function analyzeBench(frames, width, height, cfg = BENCH) {
   const top = pct(bar, 0.08);
   const lockElb = Math.min(cfg.lockElbowDeg, pct(elbow, 0.9) - cfg.lockRelDeg);
   const locked = t.map((_, i) => elbow[i] >= lockElb && bar[i] <= top + cfg.topRatio * arm);
-  const reps = findReps(t.length, i => bar[i] > top + cfg.downRatio * arm, locked, (i, j) => bar[i] > (bar[j] ?? -Infinity), bentArms(b, hasData));
+  const reps = findReps(t.length, i => bar[i] > top + cfg.downRatio * arm, locked, (i, j) => bar[i] > (bar[j] ?? -Infinity),
+    // al petto il bilanciere è sopra la spalla; a braccia lungo i fianchi (riposo) no
+    both(bentArms(b, hasData), ({ bottom }) => handsOn(t, i => W[i] && S[i] ? W[i].y <= S[i].y + 0.15 * arm : null, bottom)));
   if (!reps.length) return unclear('Non ho visto una panca: il bilanciere non scende abbastanza. Riprendi di lato, all\'altezza della panca.', 'panca');
   const hum = t.map((_, i) => S[i] && E[i] ? deg(Math.atan2(E[i].y - S[i].y, Math.abs(E[i].x - S[i].x))) : NaN);
   const hy = b.y(H);
@@ -167,13 +170,7 @@ export function analyzeBench(frames, width, height, cfg = BENCH) {
   const pauses = [];
 
   const judged = reps.map(({ desc: descStart, fd: firstDown, bottom, up: upIdx, end: repEnd }, k) => {
-    const isFirst = k === 0, isLast = k === reps.length - 1;
     const checks = [], warnings = [];
-    if (isFirst) checks.push(descStart < 0
-      ? { id: 'startHold', label: 'Fermo iniziale a braccia tese (1 s)', status: 'unknown', detail: 'Il video inizia già durante la discesa.' }
-      : holdCheck({ id: 'startHold', label: 'Fermo iniziale a braccia tese (1 s)', b, anchor: descStart, dir: -1, locked, tracks: [W, S], thr, need: cfg.holdSec, cfg, hasData,
-        okText: d => `Fermo di ${fmt(d)} s prima di scendere.`, failText: d => `Fermo di solo ${fmt(d)} s: serve 1 secondo prima dello start.`, edgeText: 'Il video inizia troppo tardi per vedere il secondo di fermo.' }));
-
     // fermo al petto: tratto più lungo vicino al punto più basso in cui il bilanciere è fermo
     const near = i => Number.isFinite(bar[i]) && bar[i] >= bar[bottom] - cfg.chestNearRatio * arm;
     let pa = bottom, pb = bottom, lo = bar[bottom], hi = bar[bottom];
@@ -182,7 +179,7 @@ export function analyzeBench(frames, width, height, cfg = BENCH) {
     const pause = t[pb] - t[pa] + dt;
     checks.push(pause >= cfg.holdSec - cfg.holdToleranceSec
       ? { id: 'chestHold', label: 'Fermo al petto (1 s)', status: 'pass', detail: `Fermo di ${fmt(pause)} s al petto prima della spinta.`, t: [t[pa], t[pb] + dt] }
-      : { id: 'chestHold', label: 'Fermo al petto (1 s)', status: 'fail', close: pause >= cfg.holdSec - cfg.holdToleranceSec - 0.25, detail: pause < 0.25 ? 'Nessun fermo al petto: il bilanciere rimbalza.' : `Fermo al petto di solo ${fmt(pause)} s: serve 1 secondo prima del press.`, t: [t[pa], t[pb] + dt] });
+      : { id: 'chestHold', label: 'Fermo al petto (1 s)', status: 'fail', close: pause >= cfg.holdSec - cfg.holdToleranceSec - 0.25, detail: pause < 0.25 ? 'Nessun fermo al petto: il bilanciere rimbalza.' : `Fermo al petto di solo ${fmt(pause)} s: serve 1 secondo prima della spinta.`, t: [t[pa], t[pb] + dt] });
 
     pauses.push({ a: t[pa], b: t[pb] + dt, dur: pause });
     const key = { start: descStart >= 0 ? t[descStart] : t[firstDown], focus: (t[pa] + t[pb]) / 2, end: upIdx >= 0 ? t[upIdx] : null };
@@ -203,10 +200,8 @@ export function analyzeBench(frames, width, height, cfg = BENCH) {
       ? { id: 'noDrop', label: 'Spinta senza discese del bilanciere', status: 'fail', detail: 'Il bilanciere è sceso durante la spinta.', t: [t[drop], t[drop]] }
       : { id: 'noDrop', label: 'Spinta senza discese del bilanciere', status: 'pass', detail: 'Spinta continua.' });
 
-    if (upIdx < 0) checks.push({ id: 'endHold', label: 'Braccia tese e fermo (1 s)', status: t[t.length - 1] - t[bottom] < 1.5 ? 'unknown' : 'fail', detail: t[t.length - 1] - t[bottom] < 1.5 ? 'Il video finisce prima della chiusura.' : 'Non hai chiuso l\'alzata a braccia tese.' });
-    else if (isLast) checks.push(holdCheck({ id: 'endHold', label: 'Braccia tese e fermo (1 s)', b, anchor: upIdx, dir: +1, locked, tracks: [W, S], thr, need: cfg.holdSec, cfg, hasData,
-      okText: d => `Fermo di ${fmt(d)} s in chiusura.`, failText: d => `Fermo di solo ${fmt(d)} s: serve 1 secondo prima del rack.`, edgeText: 'Il video finisce prima del secondo di fermo.' }));
-    else checks.push({ id: 'lockout', label: 'Braccia tese', status: 'pass', detail: 'Braccia tese prima della ripetizione successiva.', t: [t[upIdx], t[upIdx]] });
+    checks.push(upIdx >= 0 ? { id: 'lockout', label: 'Chiusura a braccia tese', status: 'pass', detail: 'Braccia tese in chiusura.', t: [t[upIdx], t[upIdx]] }
+      : { id: 'lockout', label: 'Chiusura a braccia tese', status: t[t.length - 1] - t[bottom] < 1.5 ? 'unknown' : 'fail', detail: t[t.length - 1] - t[bottom] < 1.5 ? 'Il video finisce prima della chiusura.' : 'Non hai chiuso l\'alzata a braccia tese.' });
 
     // Sedere e piedi: dal secondo di fermo a braccia tese (con l'arco già impostato) fino alla
     // chiusura devono restare giù. Il riferimento è la posizione durante quel fermo, quindi l'arco
@@ -253,7 +248,7 @@ export function analyzeBench(frames, width, height, cfg = BENCH) {
 
 // ── STACCO ─────────────────────────────────────────────────────────────
 // Partenza libera · nessuna discesa del bilanciere · chiusura a gambe tese con la spalla
-// dietro il bilanciere · fermo di 1 s (= "down").
+// dietro il bilanciere. (Il "giù" non si giudica.)
 export function analyzeDeadlift(frames, width, height, cfg = DEADLIFT) {
   const b = prepare(frames, width, height, 'stacco', ['S', 'W', 'H', 'K', 'A']);
   if (b.error) return b.error;
@@ -289,11 +284,9 @@ export function analyzeDeadlift(frames, width, height, cfg = DEADLIFT) {
   }
   if (!reps.length) return unclear('Non ho visto uno stacco: il bilanciere non si stacca da terra.', 'stacco');
   const toes = median(t.map((_, i) => T[i] && Hl[i] ? T[i].x - Hl[i].x : NaN));
-  const thr = cfg.stillRatio * body;
 
   const aheads = [];
   const judged = reps.map(({ ls: liftStart, lk: lockIdx, seen: startSeen }, k) => {
-    const isLast = k === reps.length - 1;
     const checks = [], warnings = [];
     const drop = reversal(t, bar, liftStart, lockIdx >= 0 ? lockIdx : t.length - 1, cfg.dropRatio * body, cfg.dropMinSec);
     checks.push(drop >= 0
@@ -320,8 +313,6 @@ export function analyzeDeadlift(frames, width, height, cfg = DEADLIFT) {
       ? { id: 'shoulder', label: 'Spalla dietro il bilanciere', status: 'fail', detail: 'In chiusura la spalla resta davanti al bilanciere.', t: [t[lockIdx], t[lockIdx]] }
       : { id: 'shoulder', label: 'Spalla dietro il bilanciere', status: 'pass', detail: 'In chiusura la spalla è dietro il bilanciere.', t: [t[lockIdx], t[lockIdx]] });
 
-    if (lockIdx >= 0 && isLast) checks.push(holdCheck({ id: 'endHold', label: 'Fermo in chiusura (1 s)', b, anchor: lockIdx, dir: +1, locked, tracks: [W, H], thr, need: cfg.holdSec, cfg, hasData,
-      okText: d => `Fermo di ${fmt(d)} s in chiusura.`, failText: d => `Fermo di solo ${fmt(d)} s: serve 1 secondo prima del down.`, edgeText: 'Il video finisce prima del secondo di fermo.' }));
     return { checks, warnings, key: { start: t[liftStart], focus: lockIdx >= 0 ? t[lockIdx] : t[liftStart], end: lockIdx >= 0 ? t[lockIdx] : null } };
   });
 
@@ -338,8 +329,8 @@ export function analyzeDeadlift(frames, width, height, cfg = DEADLIFT) {
 }
 
 // ── TRAZIONI ───────────────────────────────────────────────────────────
-// Fermo di 1 s a braccia tese (start) · niente kip di spalla · gambe fluide, senza scatti ·
-// mento sopra la sbarra · ritorno a braccia tese con almeno 0,5 s di fermo (down).
+// Niente kip di spalla · gambe fluide, senza scatti · mento sopra la sbarra · ritorno a braccia
+// tese. (Start e giù non si giudicano.)
 // Appeso o no si capisce dalla geometria del braccio, non dal resto del video: appeso a braccia
 // tese la spalla sta sotto la mano di circa un braccio. Così non disturbano i momenti in piedi
 // prima di saltare alla sbarra, o le ripetizioni in serie.
@@ -357,7 +348,9 @@ function hangPhases(b, cfg, allowAbove = false) {
   const real = allowAbove
     ? ({ fd, end }) => { let seen = 0, high = false; for (let i = fd; i <= end; i++) { if (b.present[i]) seen++; if (rel[i] < 0.2 * arm) high = true; } return seen >= Math.max(3, 0.7 * (end - fd + 1)) && high; }
     : bentArms(b, hasData);
-  const reps = findReps(t.length, pulled, low, (i, j) => rel[i] < (rel[j] ?? Infinity), real);
+  const grip = median(wy.filter((_, i) => hang[i])); // le mani sulla sbarra
+  const onBar = ({ bottom }) => !Number.isFinite(grip) || handsOn(t, i => Number.isFinite(wy[i]) ? Math.abs(wy[i] - grip) <= 0.3 * arm : null, bottom);
+  const reps = findReps(t.length, pulled, low, (i, j) => rel[i] < (rel[j] ?? Infinity), both(real, onBar));
   return { sy, hang, low, reps };
 }
 
@@ -373,24 +366,11 @@ function kipCheck(b, cfg, hang, pullStart, sy) {
     : { id: 'kip', label: 'Niente kip di spalla', status: 'pass', detail: 'Partenza pulita, senza slancio.' };
 }
 
-// "Dischi": il disco appeso alla cintura pende tra le gambe, davanti alle cosce, più o meno
-// all'altezza delle ginocchia. Si stima dalla posizione di anca, ginocchio e piedi.
-function discs(b) {
-  const { t, series: { H, K, A, T, Hl } } = b;
-  const toes = median(t.map((_, i) => T[i] && Hl[i] ? T[i].x - Hl[i].x : NaN));
-  const knees = median(t.map((_, i) => H[i] && K[i] && A[i] ? K[i].x - (H[i].x + A[i].x) / 2 : NaN));
-  const facing = Number.isFinite(toes) && Math.abs(toes) > 2 ? Math.sign(toes) : Math.sign(knees) || 1;
-  const pts = t.map((_, i) => {
-    if (!H[i] || !K[i]) return null;
-    const thigh = Math.hypot(K[i].x - H[i].x, K[i].y - H[i].y);
-    return { x: H[i].x + 0.8 * (K[i].x - H[i].x) + facing * 0.35 * thigh, y: H[i].y + 0.8 * (K[i].y - H[i].y) };
-  });
-  return { pts, label: 'Traiettoria dischi' };
-}
-// A corpo libero (senza dischi) si segue il movimento dei piedi.
+// Traiettoria a corpo libero o zavorrato: un solo pulsante, "Traiettoria dischi". Si parte dai
+// piedi; se nell'immagine si trova il disco appeso alla cintura (app.js, plates.js) si segue lui.
 function feet(b) {
   const { t, series: { A, T } } = b;
-  return { pts: t.map((_, i) => T[i] && A[i] ? { x: (T[i].x + A[i].x) / 2, y: (T[i].y + A[i].y) / 2 } : A[i] || T[i] || null), label: 'Traiettoria piedi' };
+  return { pts: t.map((_, i) => T[i] && A[i] ? { x: (T[i].x + A[i].x) / 2, y: (T[i].y + A[i].y) / 2 } : A[i] || T[i] || null), label: 'Traiettoria dischi' };
 }
 
 export function analyzePullup(frames, width, height, cfg = PULLUP) {
@@ -404,18 +384,10 @@ export function analyzePullup(frames, width, height, cfg = PULLUP) {
   const barY = median(b.y(W)) - cfg.barAboveWristRatio * arm;
   const chin = t.map((_, i) => M[i] && N[i] ? M[i].y + cfg.chinBelowMouth * Math.max(0, M[i].y - N[i].y) : N[i] ? N[i].y + 0.12 * arm : NaN);
   const thigh = t.map((_, i) => H[i] && K[i] ? deg(Math.atan2(K[i].x - H[i].x, K[i].y - H[i].y)) : NaN);
-  const thr = cfg.stillRatio * arm;
   const margins = [];
 
   const judged = reps.map(({ desc: hangStart, fd: pullStart, bottom: topIdx, up: downIdx }, k) => {
-    const isFirst = k === 0, isLast = k === reps.length - 1;
     const checks = [], warnings = [];
-    if (isFirst) {
-      checks.push(hangStart < 0
-        ? { id: 'startHold', label: 'Fermo iniziale a braccia tese (1 s)', status: 'unknown', detail: 'Il video inizia già durante la tirata.' }
-        : holdCheck({ id: 'startHold', label: 'Fermo iniziale a braccia tese (1 s)', b, anchor: hangStart, dir: -1, locked: hang, tracks: [S, W], thr, need: cfg.holdSec, cfg, hasData,
-          okText: d => `Fermo di ${fmt(d)} s prima di tirare.`, failText: d => `Fermo di solo ${fmt(d)} s: serve 1 secondo prima dello start.`, edgeText: 'Il video inizia troppo tardi per vedere il secondo di fermo.' }));
-    }
     checks.push(kipCheck(b, cfg, hang, pullStart, sy));
 
     if (!(b.visibility.K >= 0.4)) checks.push({ id: 'legs', label: 'Gambe senza scatti', status: 'unknown', detail: 'Non vedo bene le gambe.' });
@@ -441,20 +413,18 @@ export function analyzePullup(frames, width, height, cfg = PULLUP) {
 
     // giù a braccia tese: tra il ritorno in basso e la tirata successiva
     const ext = downIdx < 0 ? -1 : firstFrom(hang, downIdx, i => hang[i] && i < nextPull(k));
+    const L = 'Ritorno a braccia tese';
     if (downIdx < 0 || (ext < 0 && !hasData.slice(downIdx, nextPull(k)).some(Boolean))) {
       const short = t[t.length - 1] - t[topIdx] < 1.5;
-      checks.push({ id: 'endHold', label: isLast ? 'Ritorno a braccia tese e fermo (0,5 s)' : 'Ritorno a braccia tese', status: short ? 'unknown' : 'fail', detail: short ? 'Il video finisce prima del ritorno a braccia tese.' : 'Non sei tornato giù a braccia tese.' });
+      checks.push({ id: 'lockout', label: L, status: short ? 'unknown' : 'fail', detail: short ? 'Il video finisce prima del ritorno a braccia tese.' : 'Non sei tornato giù a braccia tese.' });
     } else if (ext < 0) {
-      checks.push({ id: 'endHold', label: isLast ? 'Ritorno a braccia tese e fermo (0,5 s)' : 'Ritorno a braccia tese', status: 'fail', detail: 'Sei tornato giù ma senza distendere del tutto le braccia.', t: [t[downIdx], t[downIdx]] });
-    } else if (!isLast) {
-      checks.push({ id: 'endHold', label: 'Ritorno a braccia tese', status: 'pass', detail: 'Braccia tese prima della ripetizione successiva.', t: [t[ext], t[ext]] });
-    } else checks.push(holdCheck({ id: 'endHold', label: 'Ritorno a braccia tese e fermo (0,5 s)', b, anchor: ext, dir: +1, locked: hang, tracks: [S, W], thr, need: cfg.endHoldSec, cfg, hasData,
-      okText: d => `Fermo di ${fmt(d)} s a braccia tese.`, failText: d => `Fermo di solo ${fmt(d)} s: serve almeno mezzo secondo prima del down.`, edgeText: 'Il video finisce prima del fermo a braccia tese.' }));
+      checks.push({ id: 'lockout', label: L, status: 'fail', detail: 'Sei tornato giù ma senza distendere del tutto le braccia.', t: [t[downIdx], t[downIdx]] });
+    } else checks.push({ id: 'lockout', label: L, status: 'pass', detail: 'Ritorno giù a braccia tese.', t: [t[ext], t[ext]] });
     return { checks, warnings, key };
   });
 
   return assemble('trazioni', b, judged, [], {
-    path: discs(b), path2: feet(b),
+    path: feet(b),
     trail: 'S',
     focus: {
       a: 'M', b: 'N', hline: () => barY, point: i => Number.isFinite(chin[i]) && M[i] ? { x: M[i].x, y: chin[i] } : null,
@@ -464,8 +434,8 @@ export function analyzePullup(frames, width, height, cfg = PULLUP) {
 }
 
 // ── DIP ────────────────────────────────────────────────────────────────
-// Fermo di 1 s a braccia tese (start) · in basso la spalla scende sotto il gomito ·
-// salita senza discese · braccia tese e fermo di 1 s (down).
+// In basso la spalla scende sotto il gomito · salita senza discese · chiusura a braccia tese.
+// (Start e giù non si giudicano.)
 export function analyzeDip(frames, width, height, cfg = DIP) {
   const b = prepare(frames, width, height, 'dip', ['S', 'E', 'W']);
   if (b.error) return b.error;
@@ -475,19 +445,14 @@ export function analyzeDip(frames, width, height, cfg = DIP) {
   const top = pct(sy, 0.08);
   const lockElb = Math.min(cfg.lockElbowDeg, pct(elbow, 0.9) - cfg.lockRelDeg);
   const locked = t.map((_, i) => elbow[i] >= lockElb && sy[i] <= top + cfg.topRatio * arm);
-  const reps = findReps(t.length, i => sy[i] > top + cfg.downRatio * arm, locked, (i, j) => sy[i] > (sy[j] ?? -Infinity), bentArms(b, hasData));
+  const wy = b.y(W), grip = median(wy.filter((_, i) => locked[i])); // le mani sulle parallele
+  const onBars = ({ bottom }) => !Number.isFinite(grip) || handsOn(t, i => Number.isFinite(wy[i]) ? Math.abs(wy[i] - grip) <= 0.3 * arm : null, bottom);
+  const reps = findReps(t.length, i => sy[i] > top + cfg.downRatio * arm, locked, (i, j) => sy[i] > (sy[j] ?? -Infinity), both(bentArms(b, hasData), onBars));
   if (!reps.length) return unclear('Non ho visto un dip: le spalle non scendono abbastanza. Riprendi di lato, con le parallele nell\'inquadratura.', 'dip');
   const ang = t.map((_, i) => S[i] && E[i] ? deg(Math.atan2(S[i].y - E[i].y, Math.abs(S[i].x - E[i].x))) : NaN);
-  const thr = cfg.stillRatio * arm;
 
   const judged = reps.map(({ desc: descStart, fd: firstDown, bottom, up: upIdx, end: repEnd }, k) => {
-    const isFirst = k === 0, isLast = k === reps.length - 1;
     const checks = [], warnings = [];
-    if (isFirst) checks.push(descStart < 0
-      ? { id: 'startHold', label: 'Fermo iniziale a braccia tese (1 s)', status: 'unknown', detail: 'Il video inizia già durante la discesa.' }
-      : holdCheck({ id: 'startHold', label: 'Fermo iniziale a braccia tese (1 s)', b, anchor: descStart, dir: -1, locked, tracks: [S, W], thr, need: cfg.holdSec, cfg, hasData,
-        okText: d => `Fermo di ${fmt(d)} s prima di scendere.`, failText: d => `Fermo di solo ${fmt(d)} s: serve 1 secondo prima dello start.`, edgeText: 'Il video inizia troppo tardi per vedere il secondo di fermo.' }));
-
     let depth = -Infinity, depthIdx = bottom;
     for (let i = firstDown; i <= repEnd; i++) if (Math.abs(t[i] - t[bottom]) <= 0.3 && ang[i] > depth) { depth = ang[i]; depthIdx = i; }
     const key = { start: descStart >= 0 ? t[descStart] : t[firstDown], focus: t[depthIdx], end: upIdx >= 0 ? t[upIdx] : null };
@@ -503,15 +468,13 @@ export function analyzeDip(frames, width, height, cfg = DIP) {
       ? { id: 'noDrop', label: 'Salita senza discese', status: 'fail', detail: 'Durante la salita sei sceso di nuovo.', t: [t[drop], t[drop]] }
       : { id: 'noDrop', label: 'Salita senza discese', status: 'pass', detail: 'Salita continua.' });
 
-    if (upIdx < 0) checks.push({ id: 'endHold', label: 'Braccia tese e fermo (1 s)', status: t[t.length - 1] - t[bottom] < 1.2 ? 'unknown' : 'fail', detail: t[t.length - 1] - t[bottom] < 1.2 ? 'Il video finisce prima della chiusura.' : 'Non hai chiuso a braccia tese.' });
-    else if (isLast) checks.push(holdCheck({ id: 'endHold', label: 'Braccia tese e fermo (1 s)', b, anchor: upIdx, dir: +1, locked, tracks: [S, W], thr, need: cfg.holdSec, cfg, hasData,
-      okText: d => `Fermo di ${fmt(d)} s in chiusura.`, failText: d => `Fermo di solo ${fmt(d)} s: serve 1 secondo prima del down.`, edgeText: 'Il video finisce prima del secondo di fermo.' }));
-    else checks.push({ id: 'lockout', label: 'Braccia tese', status: 'pass', detail: 'Braccia tese prima della ripetizione successiva.', t: [t[upIdx], t[upIdx]] });
+    checks.push(upIdx >= 0 ? { id: 'lockout', label: 'Chiusura a braccia tese', status: 'pass', detail: 'Braccia tese in chiusura.', t: [t[upIdx], t[upIdx]] }
+      : { id: 'lockout', label: 'Chiusura a braccia tese', status: t[t.length - 1] - t[bottom] < 1.2 ? 'unknown' : 'fail', detail: t[t.length - 1] - t[bottom] < 1.2 ? 'Il video finisce prima della chiusura.' : 'Non hai chiuso a braccia tese.' });
     return { checks, warnings, key };
   });
 
   return assemble('dip', b, judged, [], {
-    path: discs(b), path2: feet(b),
+    path: feet(b),
     trail: 'S',
     focus: {
       a: 'S', b: 'E',
@@ -523,8 +486,8 @@ export function analyzeDip(frames, width, height, cfg = DIP) {
 }
 
 // ── MUSCLE UP ──────────────────────────────────────────────────────────
-// Fermo di 1 s a braccia tese (start) · niente kip di spalla · anca fluida, nessuno scatto ·
-// ginocchio sempre teso (5° di tolleranza) · sopra la sbarra a braccia tese e fermo di 1 s (down).
+// Niente kip di spalla · anca fluida, nessuno scatto · ginocchio sempre teso (5° di tolleranza) ·
+// sopra la sbarra a braccia tese. (Start e giù non si giudicano.)
 export function analyzeMuscleUp(frames, width, height, cfg = MUSCLEUP) {
   const b = prepare(frames, width, height, 'muscleup', ['S', 'E', 'W']);
   if (b.error) return b.error;
@@ -537,7 +500,6 @@ export function analyzeMuscleUp(frames, width, height, cfg = MUSCLEUP) {
   const topElb = Math.min(cfg.topElbowDeg, pct(elbow, 0.9) - cfg.topRelDeg);
   // sopra la sbarra = spalle sopra le mani (che sono sulla sbarra) e braccia tese
   const above = t.map((_, i) => sy[i] < wy[i] - cfg.aboveBarRatio * arm && elbow[i] >= topElb);
-  const thr = cfg.stillRatio * arm;
   // Durante la transizione le braccia possono distendersi un attimo: non è una nuova ripetizione.
   // Una tirata che non arriva sopra la sbarra si unisce a quella che segue subito dopo.
   for (let k = 0; k < pulls.length - 1;) {
@@ -547,13 +509,8 @@ export function analyzeMuscleUp(frames, width, height, cfg = MUSCLEUP) {
   }
 
   const judged = pulls.map(({ desc: hangStart, fd: pullStart, up, end }, k) => {
-    const isFirst = k === 0, isLast = k === pulls.length - 1;
     const checks = [], warnings = [];
     const topIdx = firstFrom(above, pullStart, i => above[i] && i <= end);
-    if (isFirst) checks.push(hangStart < 0
-      ? { id: 'startHold', label: 'Fermo iniziale a braccia tese (1 s)', status: 'unknown', detail: 'Il video inizia già durante la tirata.' }
-      : holdCheck({ id: 'startHold', label: 'Fermo iniziale a braccia tese (1 s)', b, anchor: hangStart, dir: -1, locked: hang, tracks: [S, W], thr, need: cfg.holdSec, cfg, hasData,
-        okText: d => `Fermo di ${fmt(d)} s prima di tirare.`, failText: d => `Fermo di solo ${fmt(d)} s: serve 1 secondo prima dello start.`, edgeText: 'Il video inizia troppo tardi per vedere il secondo di fermo.' }));
     checks.push(kipCheck(b, cfg, hang, pullStart, sy));
 
     const stop = topIdx >= 0 ? topIdx : end;
@@ -583,8 +540,6 @@ export function analyzeMuscleUp(frames, width, height, cfg = MUSCLEUP) {
       checks.push({ id: 'top', label: 'Sopra la sbarra a braccia tese', status: short ? 'unknown' : 'fail', detail: short ? 'Il video finisce prima della chiusura.' : 'Non sei arrivato sopra la sbarra a braccia tese.' });
     } else {
       checks.push({ id: 'top', label: 'Sopra la sbarra a braccia tese', status: 'pass', detail: 'Chiusura sopra la sbarra a braccia tese.', t: [t[topIdx], t[topIdx]] });
-      if (isLast) checks.push(holdCheck({ id: 'endHold', label: 'Fermo sopra la sbarra (1 s)', b, anchor: topIdx, dir: +1, locked: above, tracks: [S, W], thr, need: cfg.holdSec, cfg, hasData,
-        okText: d => `Fermo di ${fmt(d)} s sopra la sbarra.`, failText: d => `Fermo di solo ${fmt(d)} s: serve 1 secondo prima del down.`, edgeText: 'Il video finisce prima del secondo di fermo.' }));
     }
     // fine della ripetizione: quando torna giù dalla sbarra, o l'ultimo fotogramma in cui si vede
     let last = end; while (last > pullStart && !b.present[last]) last--;
@@ -592,7 +547,7 @@ export function analyzeMuscleUp(frames, width, height, cfg = MUSCLEUP) {
   });
 
   return assemble('muscleup', b, judged, [], {
-    path: { ...discs(b), bar: () => barY }, path2: { ...feet(b), bar: () => barY },
+    path: { ...feet(b), bar: () => barY },
     trail: 'S',
     focus: {
       a: 'S', b: 'E', hline: () => barY,

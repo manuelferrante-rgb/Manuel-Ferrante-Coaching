@@ -52,16 +52,19 @@ const cases = [
   ['no rep per poco', clip([hold(1.4), down, up, hold(1.4)], SQUAT.depthMinDeg - 1.5), r => r.verdict === 'norep' && r.close === true && !r.borderline],
   ['al limite', clip([hold(1.4), down, up, hold(1.4)], SQUAT.depthMinDeg + 1.5), r => r.verdict === 'good' && r.borderline && !r.close && r.warnings.some(w => w.includes('limite'))],
   ['cedimento in salita', clip([hold(1.4), down, { dur: 0.6, s0: 1, s1: 0.55 }, { dur: 0.35, s0: 0.55, s1: 0.75 }, { dur: 0.8, s0: 0.75, s1: 0 }, hold(1.4)], 6), r => r.verdict === 'norep' && st(r, 'noDrop') === 'fail'],
-  ['fermo iniziale troppo corto', clip([{ dur: 0.7, s0: 0, s1: 0.2 }, { dur: 0.5, s0: 0.2, s1: 0 }, hold(0.35), down, up, hold(1.4)], 6), r => r.verdict === 'norep' && st(r, 'startHold') === 'fail'],
-  ['video senza fermi (tagliato)', clip([{ dur: 0.15, s0: 0, s1: 0 }, down, up, { dur: 0.1, s0: 0, s1: 0 }], 6), r => r.verdict === 'good' && r.missing > 0],
-  ['se ne va dopo mezzo secondo', clip([hold(1.4), down, up, hold(0.35), { dur: 0.8, s0: 0, s1: 0, x0: 0, x1: 0.15 }], 6), r => r.verdict === 'norep' && st(r, 'endHold') === 'fail'],
-  ['persona non vista a inizio/fine', blank(clip([hold(0.5), down, up, hold(0.4), hold(1)], 6), f => f.t < 0.3 || f.t > 3.4), r => r.verdict === 'good' && st(r, 'startHold') === 'unknown' && st(r, 'endHold') === 'unknown'],
+  // start e rack non si giudicano più: niente fermi richiesti
+  ['senza fermo iniziale', clip([{ dur: 0.7, s0: 0, s1: 0.2 }, { dur: 0.5, s0: 0.2, s1: 0 }, hold(0.35), down, up, hold(1.4)], 6), r => r.verdict === 'good' && !r.checks.some(c => /Hold/.test(c.id))],
+  ['video senza fermi (tagliato)', clip([{ dur: 0.15, s0: 0, s1: 0 }, down, up, { dur: 0.1, s0: 0, s1: 0 }], 6), r => r.verdict === 'good' && st(r, 'lockout') === 'pass'],
+  ['se ne va dopo mezzo secondo', clip([hold(1.4), down, up, hold(0.35), { dur: 0.8, s0: 0, s1: 0, x0: 0, x1: 0.15 }], 6), r => r.verdict === 'good' && !r.reps],
+  ['persona non vista a inizio/fine', blank(clip([hold(0.5), down, up, hold(0.4), hold(1)], 6), f => f.t < 0.3 || f.t > 3.4), r => r.verdict === 'good' && st(r, 'lockout') === 'pass'],
   ['buca coperta', hideLower(clip([hold(1.4), down, up, hold(1.4)], 6), f => f.t > 2.4 && f.t < 2.85), r => r.verdict === 'good'],
   ['buca coperta, squat alto', hideLower(clip([hold(1.4), down, up, hold(1.4)], SQUAT.depthMinDeg - 12), f => f.t > 2.4 && f.t < 2.85), r => r.verdict === 'norep' && st(r, 'depth') === 'fail'],
   ['3 ripetizioni, la seconda alta', clip([hold(1.4), down, up, hold(0.3), { ...down, d: SQUAT.depthMinDeg - 12 }, { ...up, d: SQUAT.depthMinDeg - 12 }, hold(0.3), down, up, hold(1.4)], 6),
     r => r.verdict === 'norep' && r.reps?.length === 3 && r.reps.map(x => x.verdict).join() === 'good,norep,good' && r.summary === '2 valide su 3'],
   ['5 ripetizioni, poi esce dall\'inquadratura', ghostTail(clip([hold(1.4), down, up, hold(0.3), down, up, hold(0.3), down, up, hold(0.3), down, up, hold(0.3), down, up, hold(1.4)], 6)),
     r => r.reps?.length === 5 && r.verdict === 'good'],
+  // fine serie: rimette il bilanciere e si riposa piegato, mani sulle ginocchia → non è una ripetizione
+  ['2 ripetizioni, poi si riposa piegato', rest(clip([hold(1.4), down, up, hold(0.3), down, up, hold(1)], 6), 4.5), r => r.reps?.length === 2 && r.verdict === 'good'],
   ['niente squat', clip([hold(3)], 6), r => r.verdict === 'unclear'],
 ];
 
@@ -72,6 +75,18 @@ function ghostTail(frames) {
   for (let i = 1; i <= 40; i++) {
     const t = t0 + i / FPS;
     out.push(i < 10 ? { t, lm: null } : { t, lm: pose(0, 6, 0.3).map(p => ({ ...p, y: p.y + 0.12 })) });
+  }
+  return out;
+}
+// riposo: si piega come in uno squat ma senza bilanciere, con le mani giù sulle ginocchia
+function rest(frames, dur) {
+  const t0 = frames[frames.length - 1].t, out = frames.slice(), n = Math.round(dur * FPS);
+  for (let i = 1; i <= n; i++) {
+    const s = Math.sin(Math.PI * i / n) * 0.9;
+    const lm = pose(s, 6);
+    for (const id of [15, 16]) lm[id] = { ...lm[25], visibility: 0.95 };
+    for (const id of [13, 14]) lm[id] = { x: (lm[11].x + lm[25].x) / 2, y: (lm[11].y + lm[25].y) / 2, visibility: 0.95 };
+    out.push({ t: t0 + i / FPS, lm });
   }
   return out;
 }

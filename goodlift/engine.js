@@ -5,7 +5,7 @@
 // e restituisce il verdetto con i controlli effettuati. Non dipende dal DOM:
 // si può testare anche in Node.
 
-import { LM, deg, angleAt, dist, median, buildSeries, measureHold, fmt, hiddenBottom, unclear, findReps, assemble } from './core.js';
+import { LM, deg, angleAt, dist, median, buildSeries, hiddenBottom, unclear, findReps, assemble } from './core.js';
 import { analyzeBench, analyzeDeadlift, analyzePullup, analyzeDip, analyzeMuscleUp } from './lifts.js';
 export { LM };
 
@@ -17,10 +17,6 @@ export const SQUAT = {
   squattingKneeDeg: 125,   // sotto quest'angolo sei "in squat" (usato dai comandi vocali live)
   squatDropRatio: 0.12,    // sei "in squat" quando l'anca è scesa del 12% della lunghezza del corpo
   barDropMinSec: 0.08,     // la discesa in salita conta solo se dura almeno così (filtra il rumore)
-  holdSec: 1.0,            // fermo richiesto in partenza e in chiusura
-  holdToleranceSec: 0.12,  // margine per il campionamento dei fotogrammi
-  holdSlackSec: 0.45,      // tempo max tra fine del fermo e inizio del movimento (e viceversa)
-  stillRatio: 0.022,       // movimento max da fermo, in frazione della lunghezza del corpo
   // Profondità, misurata sulla linea anca–ginocchio di MediaPipe: giudizio severo, come in gara.
   depthMinDeg: 1,          // severo: il femore deve rompere il parallelo (anca sotto il ginocchio)
   depthBorderlineDeg: 4,   // nei primi 4° oltre la soglia è "al limite"
@@ -35,7 +31,7 @@ export function analyzeSquat(frames, width, height, cfg = SQUAT) {
   }
   const b = buildSeries(frames, width, height, cfg.minVisibility);
   const { t, dt, series, visibility, hipSpread } = b;
-  const { H, K, A } = series;
+  const { H, K, A, W } = series;
 
   // Punti impossibili: di profilo tibia e femore non si accorciano. Se il modello "schiaccia"
   // il ginocchio sulla caviglia o sull'anca (succede quando i dischi coprono le gambe),
@@ -72,11 +68,6 @@ export function analyzeSquat(frames, width, height, cfg = SQUAT) {
   const kneeLock = Math.min(cfg.lockoutKneeDeg, standKnee - cfg.lockoutRelDeg);
   const locked = t.map((_, i) => kneeAng[i] >= kneeLock && bar[i] <= standHipY + cfg.lockoutHipDropRatio * bodyLen);
   const hasData = kneeAng.map(Number.isFinite);
-  const firstData = hasData.indexOf(true), lastData = hasData.lastIndexOf(true);
-  const need = cfg.holdSec - cfg.holdToleranceSec;
-  const hold = (anchor, dir) => measureHold({
-    t, dt, anchor, dir, locked, tracks: [H, A], thr: cfg.stillRatio * bodyLen, slackSec: cfg.holdSlackSec, hasData,
-  });
 
   const reps = findReps(t.length, i => bar[i] > standHipY + cfg.squatDropRatio * bodyLen, locked,
     (i, j) => H[i] && (!H[j] || H[i].y > H[j].y),
@@ -88,32 +79,22 @@ export function analyzeSquat(frames, width, height, cfg = SQUAT) {
         if (frames[i].lm) { seen++; if (i > bottom) after++; } // persona presente (anche se in parte coperta)
         if (kneeAng[i] < 135 || femur[i] > -30) bent = true;
       }
-      return seen >= Math.max(3, 0.7 * (end - fd + 1)) && (bent || !!hiddenBottom({ t, femur, from: fd, to: end }));
+      if (!(seen >= Math.max(3, 0.7 * (end - fd + 1)) && (bent || !!hiddenBottom({ t, femur, from: fd, to: end })))) return false;
+      // fine serie: senza bilanciere sulla schiena le mani scendono sotto l'anca (riposo, piegato
+      // sulle ginocchia). In buca, con il bilanciere, le mani stanno sopra l'anca.
+      let hi = 0, lo = 0;
+      for (let i = 0; i < t.length; i++) if (Math.abs(t[i] - t[bottom]) <= 0.15 && W[i] && H[i]) { if (W[i].y < H[i].y) hi++; else lo++; }
+      return !(hi + lo) || hi >= lo;
     });
   if (!reps.length) {
     return unclear('Non ho visto uno squat: le ginocchia non si piegano abbastanza. Controlla di aver caricato il video giusto.');
   }
   const COVERED = 'Nel punto più basso anca e ginocchio sono coperti (dischi, rack o altre persone). Riprendi esattamente di lato, con il telefono all\'altezza dell\'anca.';
 
-  const judged = reps.map(({ desc: descStart, fd: firstDown, bottom, up: upIdx, end: repEnd }, k) => {
-    const isFirst = k === 0, isLast = k === reps.length - 1;
+  const judged = reps.map(({ desc: descStart, fd: firstDown, bottom, up: upIdx, end: repEnd }) => {
     const checks = [], warnings = [];
 
-    // 1) Fermo iniziale a gambe tese (solo prima ripetizione).
-    if (isFirst) {
-      if (descStart < 0) {
-        checks.push(t[firstDown] - t[Math.max(0, firstData)] < 0.6
-          ? { id: 'startHold', label: 'Fermo iniziale a gambe tese (1 s)', status: 'unknown', detail: 'Il video inizia già durante la discesa.' }
-          : { id: 'startHold', label: 'Fermo iniziale a gambe tese (1 s)', status: 'fail', detail: 'Non sei partito a gambe tese.' });
-      } else {
-        const h = hold(descStart, -1);
-        if (h.found && h.dur >= need) checks.push({ id: 'startHold', label: 'Fermo iniziale a gambe tese (1 s)', status: 'pass', detail: `Fermo di ${fmt(h.dur)} s prima di scendere.`, t: [h.start, h.end] });
-        else if (!h.found || h.touchesStart || t[descStart] - t[firstData] < need) checks.push({ id: 'startHold', label: 'Fermo iniziale a gambe tese (1 s)', status: 'unknown', detail: 'Il video inizia troppo tardi per vedere il secondo di fermo.' });
-        else checks.push({ id: 'startHold', label: 'Fermo iniziale a gambe tese (1 s)', status: 'fail', close: h.dur >= need - 0.25, detail: `Fermo di solo ${fmt(h.dur)} s: serve 1 secondo prima di scendere.`, t: [h.start, h.end] });
-      }
-    }
-
-    // 2) Profondità: anca sotto il ginocchio.
+    // 1) Profondità: anca sotto il ginocchio.
     let depth = -Infinity, depthIdx = bottom;
     for (const win of [0.25, 0.6]) {
       for (let i = Math.max(0, firstDown - 2); i <= Math.min(t.length - 1, repEnd + 2); i++) {
@@ -153,7 +134,7 @@ export function analyzeSquat(frames, width, height, cfg = SQUAT) {
       checks.push({ id: 'depth', label: 'Profondità: anca sotto il ginocchio', status: 'fail', close: -over < cfg.depthBorderlineDeg, detail: 'Squat alto: il femore non rompe il parallelo, l\'anca non scende sotto il ginocchio.', t: [t[depthIdx], t[depthIdx]], value: depth });
     }
 
-    // 3) Nessuna discesa del bilanciere durante la salita (deve durare almeno barDropMinSec).
+    // 2) Nessuna discesa del bilanciere durante la salita (deve durare almeno barDropMinSec).
     let runMin = Infinity, dropIdx = -1, runStart = -1;
     for (let i = bottom; i <= repEnd && dropIdx < 0; i++) {
       if (!Number.isFinite(bar[i])) continue;
@@ -167,18 +148,13 @@ export function analyzeSquat(frames, width, height, cfg = SQUAT) {
       ? { id: 'noDrop', label: 'Salita senza discese del bilanciere', status: 'fail', detail: 'Il bilanciere è sceso durante la salita.', t: [t[dropIdx], t[dropIdx]] }
       : { id: 'noDrop', label: 'Salita senza discese del bilanciere', status: 'pass', detail: 'Salita continua.' });
 
-    // 4) Chiusura a gambe tese (+ fermo di 1 s = "rack", solo ultima ripetizione).
+    // 3) Chiusura a gambe tese (il comando "rack" non si giudica: niente fermo richiesto).
     if (upIdx < 0) {
       checks.push(t[t.length - 1] - t[bottom] < 1.2 && H[t.length - 1] && H[t.length - 1].y < H[bottom].y
-        ? { id: 'endHold', label: 'Chiusura a gambe tese e fermo (1 s)', status: 'unknown', detail: 'Il video finisce prima della chiusura.' }
-        : { id: 'endHold', label: 'Chiusura a gambe tese e fermo (1 s)', status: 'fail', detail: 'Non hai chiuso l\'alzata: ginocchia non distese.' });
-    } else if (isLast) {
-      const h = hold(upIdx, +1);
-      if (h.found && h.dur >= need) checks.push({ id: 'endHold', label: 'Chiusura a gambe tese e fermo (1 s)', status: 'pass', detail: `Fermo di ${fmt(h.dur)} s in chiusura.`, t: [h.start, h.end] });
-      else if (!h.found || h.touchesEnd || t[lastData] - t[upIdx] < need) checks.push({ id: 'endHold', label: 'Chiusura a gambe tese e fermo (1 s)', status: 'unknown', detail: 'Il video finisce prima del secondo di fermo.' });
-      else checks.push({ id: 'endHold', label: 'Chiusura a gambe tese e fermo (1 s)', status: 'fail', close: h.dur >= need - 0.25, detail: `Fermo di solo ${fmt(h.dur)} s: serve 1 secondo prima del rack.`, t: [h.start, h.end] });
+        ? { id: 'lockout', label: 'Chiusura a gambe tese', status: 'unknown', detail: 'Il video finisce prima della chiusura.' }
+        : { id: 'lockout', label: 'Chiusura a gambe tese', status: 'fail', detail: 'Non hai chiuso l\'alzata: ginocchia non distese.' });
     } else {
-      checks.push({ id: 'lockout', label: 'Chiusura a gambe tese', status: 'pass', detail: 'Ginocchia distese prima della ripetizione successiva.', t: [t[upIdx], t[upIdx]] });
+      checks.push({ id: 'lockout', label: 'Chiusura a gambe tese', status: 'pass', detail: 'Ginocchia distese in chiusura.', t: [t[upIdx], t[upIdx]] });
     }
     return { checks, warnings, key };
   });
@@ -212,10 +188,10 @@ export function analyzeSquat(frames, width, height, cfg = SQUAT) {
 }
 
 export const LIFTS = {
-  squat: { name: 'Squat', analyze: analyzeSquat, ready: true, commands: ['Start', 'Rack'] },
-  panca: { name: 'Panca', analyze: analyzeBench, ready: true, commands: ['Start', 'Press', 'Rack'] },
-  stacco: { name: 'Stacco', analyze: analyzeDeadlift, ready: true, commands: ['Down'] },
-  trazioni: { name: 'Trazioni', analyze: analyzePullup, ready: true, commands: ['Start', 'Down'] },
-  dip: { name: 'Dip', analyze: analyzeDip, ready: true, commands: ['Start', 'Down'] },
-  muscleup: { name: 'Muscle up', analyze: analyzeMuscleUp, ready: true, commands: ['Start', 'Down'] },
+  squat: { name: 'Squat', analyze: analyzeSquat, ready: true },
+  panca: { name: 'Panca', analyze: analyzeBench, ready: true },
+  stacco: { name: 'Stacco', analyze: analyzeDeadlift, ready: true },
+  trazioni: { name: 'Trazioni', analyze: analyzePullup, ready: true },
+  dip: { name: 'Dip', analyze: analyzeDip, ready: true },
+  muscleup: { name: 'Muscle up', analyze: analyzeMuscleUp, ready: true },
 };

@@ -27,35 +27,36 @@ sito in base a un'analisi del suo profilo da coach (te lo dirà lui).
 ## GoodLift (`goodlift/`) — il giudice delle alzate
 
 App web open source (AGPL-3.0), logo "¿OODLIFT" (il ¿ fa da G). Si registra dall'app (fotocamera
-posteriore o frontale, comandi vocali opzionali) o si carica un video; analisi nel browser con
+posteriore o frontale) o si carica un video; analisi nel browser con
 MediaPipe Pose (modello `heavy` per l'analisi, `lite` per la diretta); verdetto GOOD LIFT / NO REP,
 spiegazione, replay con linee e traiettoria. Deve essere semplicissima ("anche mia nonna") e veloce.
 
 File: `index.html` (UI), `app.js` (fotocamera, analisi, replay, comandi), `core.js` (serie, fermi,
 ripetizioni, verdetto, consigli), `engine.js` (squat + elenco alzate), `lifts.js` (panca, stacco,
 trazioni, dip, muscle up), `plates.js` (trova e segue il disco nell'immagine, Hough),
-`audio/*.wav` (voce di Manuel: start, press, rack, down = "Giù"), `tests/squat.test.mjs`.
+`tests/squat.test.mjs`.
 
 Regole decise con Manuel (non cambiarle senza chiedere):
-- Comandi come in gara: prima il fermo, poi il comando. Squat Start→Rack; panca Start→Press→Rack;
-  stacco Giù; trazioni/dip/muscle up Start→Giù.
+- Niente comandi vocali (tolti a novembre 2026: troppo confusionari) e niente giudizio su start,
+  rack e giù: nessun fermo iniziale o finale richiesto. Restano tutti gli altri criteri.
 - Squat severo e oggettivo: il femore deve rompere il parallelo (anca sotto il ginocchio).
   Niente linea tratteggiata nel replay: linea del femore + angolo ("FEMORE 3° SOTTO IL PARALLELO").
-- Panca: conta soprattutto il fermo di 1 s al petto; il gomito all'altezza della spalla è regola
+- Panca: conta soprattutto il fermo di 1 s al petto (questo resta); il gomito all'altezza della spalla è regola
   accessoria (no rep solo se chiaramente sopra). Sedere e piedi giù dal fermo a braccia tese in poi
   (l'arco lombare non è "sedere che si alza").
 - Stacco: partenza libera, nessuna discesa del bilanciere, chiusura a gambe tese, spalla dietro il
-  bilanciere, fermo 1 s.
-- Trazioni: niente kip, gambe fluide senza scatti, mento sopra la sbarra, ritorno a braccia tese
-  (0,5 s di fermo sull'ultima). Muscle up: niente kip, anca fluida, ginocchio teso (5° di tolleranza).
+  bilanciere.
+- Trazioni: niente kip, gambe fluide senza scatti, mento sopra la sbarra, ritorno a braccia tese. Muscle up: niente kip, anca fluida, ginocchio teso (5° di tolleranza).
   Dip: spalla sotto il gomito.
 - Dettaglio non visibile → GOOD LIFT con nota. "Non riesco a giudicare" deve essere rarissimo.
 - Valida ma al limite → riquadro giallo "Da migliorare". No rep di poco → "No rep per poco" +
   "Come sistemarla". Mai i due insieme.
 - Più ripetizioni: si giudicano tutte (chip "1º 2º 3º", colore = verdetto). Conta solo una
-  ripetizione vera (persona presente e movimento completo).
-- Replay a velocità normale, pulsanti Rallenty e Traiettoria (bilanciere per squat/panca/stacco,
-  dischi o piedi per trazioni/dip/muscle up), una ripetizione alla volta, linea sottile da penna.
+  ripetizione vera (persona presente, movimento completo, mani in presa nel punto chiave: se scende
+  dalla sbarra/parallele o lascia il bilanciere e si riposa mentre il video continua, non conta).
+- Replay a velocità normale, pulsanti Rallenty e Traiettoria (bilanciere per squat/panca/stacco;
+  per trazioni/dip/muscle up un solo pulsante "Traiettoria dischi": segue il disco se lo trova
+  nell'immagine, altrimenti i piedi), una ripetizione alla volta, linea sottile da penna.
 - Etichette in analisi coerenti con l'alzata (KNEE/HIP, ELBOW, CHIN, SHOULDER), stesso formato.
 
 ## Prove

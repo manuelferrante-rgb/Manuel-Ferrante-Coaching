@@ -310,6 +310,13 @@ function attachPlate(result, raw, vw, vh) {
   const n = found.filter(Boolean).length;
   state.plate = { frames: raw.length, gray: frames.filter(f => f.gray).length, seeds: frames.filter(f => f.seed).length, body, found: n }; // per ?debug
   if (n < 0.4 * raw.length) return;
+  // a corpo libero/zavorrato il disco si muove con l'atleta: un cerchio fermo nello sfondo
+  // (un'altra macchina, un disco appoggiato) non è il suo, e allora restano i piedi
+  if (['trazioni', 'dip', 'muscleup'].includes(result.lift)) {
+    const span = arr => { const v = arr.filter(Number.isFinite).sort((a, b) => a - b); return v.length ? v[Math.floor(0.95 * (v.length - 1))] - v[Math.floor(0.05 * (v.length - 1))] : 0; };
+    const plateMove = span(found.map(c => c ? c.y / sc : NaN)), hipMove = span(R.series.H.map(p => p ? p.y : NaN));
+    if (!(plateMove > 0.4 * hipMove)) return;
+  }
   R.path = { ...R.path, a: null, pts: found.map(c => c && { x: c.x / sc, y: c.y / sc }) };
 }
 
@@ -462,8 +469,6 @@ function showResult(result, frames, url, blob) {
   }
   $('rp-path').textContent = result.replay?.path?.label || 'Traiettoria';
   $('rp-path').hidden = !result.replay?.path;
-  $('rp-path2').textContent = result.replay?.path2?.label || '';
-  $('rp-path2').hidden = !result.replay?.path2;
   setupReplay(url, result, frames);
   selectRep(result.mainRep || 1, false);
 }
@@ -490,7 +495,7 @@ function selectRep(n, seek) {
 }
 const replay = { video: null, raf: 0, keyPaused: false, slow: false, path: null, range: [0, Infinity] };
 function setPathButtons() {
-  for (const [id, v] of [['rp-path', 'path'], ['rp-path2', 'path2']]) { $(id).classList.toggle('on', replay.path === v); $(id).setAttribute('aria-pressed', replay.path === v); }
+  $('rp-path').classList.toggle('on', replay.path === 'path'); $('rp-path').setAttribute('aria-pressed', replay.path === 'path');
 }
 function setupReplay(url, result, frames) {
   const video = $('replay-video'), canvas = $('replay-canvas');
@@ -532,9 +537,7 @@ $('rp-slow').addEventListener('click', () => {
   replay.slow = !replay.slow; $('rp-slow').classList.toggle('on', replay.slow); $('rp-slow').setAttribute('aria-pressed', replay.slow);
   if (replay.video) replay.video.playbackRate = replay.slow ? 0.4 : 1;
 });
-// dischi o piedi (a corpo libero): uno solo alla volta
 $('rp-path').addEventListener('click', () => { replay.path = replay.path === 'path' ? null : 'path'; setPathButtons(); });
-$('rp-path2').addEventListener('click', () => { replay.path = replay.path === 'path2' ? null : 'path2'; setPathButtons(); });
 $('rp-key').addEventListener('click', () => {
   const r = state.result?.result; if (!r) return;
   const rep = r.reps ? r.reps[(state.selRep || 1) - 1] : null;
@@ -675,141 +678,12 @@ async function startLive() {
       corners(ctx, w, h, dpr);
       drawSkeleton(ctx, lm, w, h, { glow: 10, width: 2.4, dpr });
       $('live-msg').textContent = lm ? '' : 'Non ti vedo: mettiti di lato, con tutto il corpo nell\'inquadratura.';
-      if (lm) voiceCoach(lm, video.videoWidth, video.videoHeight, now / 1000);
       // traccia della diretta: serve dopo a saltare i tempi morti senza rianalizzare tutto
       if (state.live.rec) state.live.track.push({ t: (now - state.live.startedAt) / 1000, lm });
     }
     requestAnimationFrame(loop);
   };
   loop();
-}
-
-// Comandi vocali (opzionali): come in gara, prima il fermo, poi il comando.
-// Se in audio/ ci sono le registrazioni dei comandi (start.mp3, rack.mp3, …) si usano quelle:
-// partono all'istante. Altrimenti si usa la voce sintetica del telefono.
-const VOICE_FILES = ['start', 'rack', 'press', 'down']; // registrazioni in audio/ (voce di Manuel)
-// I file si suonano con <audio> e non con Web Audio: su iPhone Web Audio resta muto quando il
-// telefono è in silenzioso, mentre l'audio "da video" si sente sempre.
-const voice = { els: {}, synth: null };
-function pickSynthVoice() {
-  const vs = window.speechSynthesis?.getVoices?.() || [];
-  const pref = ['Daniel', 'Arthur', 'Aaron', 'Alex', 'Google UK English Male', 'Google US English'];
-  return pref.map(n => vs.find(v => v.name.startsWith(n) && /^en/i.test(v.lang))).find(Boolean)
-    || vs.find(v => /^en-(GB|US)/i.test(v.lang)) || null;
-}
-window.speechSynthesis?.addEventListener?.('voiceschanged', () => { voice.synth = pickSynthVoice(); });
-// Da chiamare durante un tocco dell'utente: su iPhone l'audio si sblocca solo così.
-function unlockVoice() {
-  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* Safari vecchio */ }
-  for (const k of VOICE_FILES) {
-    let el = voice.els[k];
-    if (!el) {
-      el = new Audio(new URL(`audio/${k}.wav`, import.meta.url).href);
-      el.preload = 'auto'; el.playsInline = true; el.setAttribute('playsinline', '');
-      voice.els[k] = el;
-    }
-    // sblocco: parte in muto e si ferma subito, dentro il tocco
-    el.muted = true;
-    const p = el.play();
-    if (p) p.then(() => { el.pause(); el.currentTime = 0; el.muted = false; }).catch(() => { el.muted = false; });
-  }
-  try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch { /* niente sintesi */ }
-  voice.synth ??= pickSynthVoice();
-}
-function speak(word) {
-  try {
-    const u = new SpeechSynthesisUtterance(word + '!');
-    if (voice.synth) u.voice = voice.synth;
-    u.lang = voice.synth?.lang || 'en-GB'; u.rate = 1.25; u.pitch = 0.9; u.volume = 1;
-    if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
-    speechSynthesis.speak(u);
-  } catch { /* sintesi vocale non disponibile */ }
-}
-function say(word) {
-  const el = voice.els[word.toLowerCase()];
-  if (!el) return speak(word);
-  try {
-    el.muted = false; el.volume = 1; el.currentTime = 0;
-    const p = el.play();
-    if (p) p.catch(() => speak(word));
-  } catch { speak(word); }
-}
-// Il comando arriva quando sei a gambe tese e fermo da COMMAND_HOLD secondi (il giudizio poi
-// chiede 1 s di fermo prima della discesa: aspettando il comando ci si arriva sempre).
-// Il comando arriva quando sei in posizione e fermo da COMMAND_HOLD secondi (il giudizio poi
-// chiede 1 s di fermo: aspettando il comando ci si arriva sempre).
-const COMMAND_HOLD = 0.7;
-// Sequenza di ogni alzata: condizione da raggiungere, fermo richiesto, comando da dare.
-const SEQ = {
-  squat: [{ c: 'locked', hold: COMMAND_HOLD, say: 'Start' }, { c: 'down' }, { c: 'locked', hold: COMMAND_HOLD, say: 'Rack' }],
-  panca: [{ c: 'locked', hold: COMMAND_HOLD, say: 'Start' }, { c: 'down' }, { c: 'chest', hold: COMMAND_HOLD, say: 'Press' }, { c: 'locked', hold: COMMAND_HOLD, say: 'Rack' }],
-  stacco: [{ c: 'lifted' }, { c: 'locked', hold: COMMAND_HOLD, say: 'Down' }],
-  trazioni: [{ c: 'hang', hold: COMMAND_HOLD, say: 'Start' }, { c: 'pulled' }, { c: 'hang', hold: 0.4, say: 'Down' }],
-  dip: [{ c: 'locked', hold: COMMAND_HOLD, say: 'Start' }, { c: 'down' }, { c: 'locked', hold: COMMAND_HOLD, say: 'Down' }],
-  muscleup: [{ c: 'hang', hold: COMMAND_HOLD, say: 'Start' }, { c: 'top', hold: COMMAND_HOLD, say: 'Down' }],
-};
-function flashCommand(word) {
-  const el = $('live-cmd'); if (!el) return;
-  el.textContent = word.toUpperCase();
-  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
-}
-function voiceCoach(lm, vw, vh, t) {
-  const L = state.live;
-  if (!L?.rec || !$('voice').checked) return;
-  const seq = SEQ[state.lift]; if (!seq) return;
-  const left = (lm[11].visibility ?? 0) + (lm[23].visibility ?? 0) >= (lm[12].visibility ?? 0) + (lm[24].visibility ?? 0);
-  const id = left ? { S: 11, E: 13, W: 15, H: 23, K: 25, A: 27 } : { S: 12, E: 14, W: 16, H: 24, K: 26, A: 28 };
-  const P = k => ({ x: lm[id[k]].x * vw, y: lm[id[k]].y * vh, v: lm[id[k]].visibility ?? 0 });
-  const S = P('S'), E = P('E'), W = P('W'), H = P('H'), K = P('K'), A = P('A');
-  const ang = (a, b, c) => angle({ x: a.x / vw, y: a.y / vh }, { x: b.x / vw, y: b.y / vh }, { x: c.x / vw, y: c.y / vh }, vw, vh);
-  const arm = Math.hypot(S.x - E.x, S.y - E.y) + Math.hypot(E.x - W.x, E.y - W.y) || vh * 0.3;
-  const body = Math.hypot(H.x - A.x, H.y - A.y) * 1.9 || vh * 0.7;
-  const elb = ang(S, E, W), knee = ang(H, K, A), hip = ang(S, H, K);
-  const R = L.ref ??= { elb: 0, knee: 0, hip: 0, topH: Infinity, topW: Infinity, topS: Infinity, hangS: -Infinity, floorW: -Infinity };
-  const legsSeen = K.v > 0.3 && A.v > 0.3;
-  if (Number.isFinite(elb)) R.elb = Math.max(R.elb, elb);
-  if (legsSeen && Number.isFinite(knee)) R.knee = Math.max(R.knee, knee);
-  if (Number.isFinite(hip)) R.hip = Math.max(R.hip, hip);
-  R.topH = Math.min(R.topH, H.y); R.topW = Math.min(R.topW, W.y); R.topS = Math.min(R.topS, S.y);
-  R.hangS = Math.max(R.hangS, S.y); R.floorW = Math.max(R.floorW, W.y);
-  const elbLocked = elb >= Math.min(155, R.elb - 14);
-  const hangLocked = elb >= Math.min(150, R.elb - 15) && S.y >= R.hangS - 0.12 * arm;
-  const cond = {
-    squat: {
-      // se le gambe sono coperte (rack, dischi) basta l'anca alla sua altezza "in piedi"
-      locked: () => (legsSeen ? knee >= Math.min(158, R.knee - 14) : true) && H.y <= R.topH + 0.05 * body,
-      down: () => H.y - R.topH > 0.12 * body || (legsSeen && knee < 125),
-    },
-    panca: {
-      locked: () => elbLocked && W.y <= R.topW + 0.12 * arm,
-      down: () => W.y > R.topW + 0.3 * arm,
-      chest: () => W.y > R.topW + 0.3 * arm,
-    },
-    stacco: {
-      lifted: () => W.y < R.floorW - 0.1 * body,
-      locked: () => W.y < R.floorW - 0.1 * body && knee >= Math.min(160, R.knee - 12) && hip >= Math.min(160, R.hip - 12),
-    },
-    trazioni: { hang: () => hangLocked, pulled: () => S.y < R.hangS - 0.15 * arm },
-    dip: { locked: () => elbLocked && S.y <= R.topS + 0.1 * arm, down: () => S.y > R.topS + 0.2 * arm },
-    muscleup: { hang: () => hangLocked, top: () => S.y < W.y - 0.1 * arm && elb >= Math.min(150, R.elb - 15) },
-  }[state.lift];
-  const pts = { squat: [H, A], panca: [W, S], stacco: [W, H], trazioni: [S, H], dip: [S, H], muscleup: [S, H] }[state.lift];
-  const tol = ['squat', 'stacco'].includes(state.lift) ? 0.03 * body : 0.045 * arm;
-
-  if (L.step >= seq.length) { if (t - L.doneAt > 4) { L.step = 0; L.since = null; } return; }
-  const st = seq[L.step];
-  if (!cond[st.c]()) { L.since = null; return; }
-  if (!st.hold) { L.step++; L.since = null; return; }
-  // fermo: il tempo riparte se uno dei punti si sposta più della tolleranza
-  if (!L.since || pts.some((p, k) => Math.abs(p.x - L.box[k].x) > tol || Math.abs(p.y - L.box[k].y) > tol)) {
-    L.since = t; L.box = pts.map(p => ({ x: p.x, y: p.y }));
-    return;
-  }
-  if (t - L.since >= st.hold - 0.03) {
-    say(st.say); flashCommand(st.say);
-    L.step++; L.since = null;
-    if (L.step >= seq.length) L.doneAt = t;
-  }
 }
 
 function pickMime() {
@@ -820,10 +694,9 @@ function toggleRec() {
   const L = state.live; if (!L) return;
   if (!L.rec) {
     if (!window.MediaRecorder) { $('live-error').textContent = 'Questo browser non può registrare video. Usa "Carica un video".'; return; }
-    if ($('voice').checked) unlockVoice(); // sblocca l'audio su iPhone (serve un tocco dell'utente)
     const mimeType = pickMime();
     const rec = new MediaRecorder(L.stream, mimeType ? { mimeType } : undefined);
-    L.chunks = []; L.rec = rec; L.step = 0; L.since = null; L.ref = null; L.track = [];
+    L.chunks = []; L.rec = rec; L.track = [];
     rec.ondataavailable = e => e.data.size && L.chunks.push(e.data);
     rec.onstop = () => {
       const blob = new Blob(L.chunks, { type: rec.mimeType || mimeType || 'video/webm' });
@@ -873,7 +746,6 @@ $('file').addEventListener('change', e => {
   analyzeVideo(url);
 });
 $('rec').addEventListener('click', toggleRec);
-$('voice').addEventListener('change', e => { if (e.target.checked) unlockVoice(); });
 $('flip').addEventListener('click', () => {
   if (state.live?.rec) return; // non durante la registrazione
   state.facing = state.facing === 'user' ? 'environment' : 'user';
