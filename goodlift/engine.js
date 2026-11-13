@@ -38,7 +38,11 @@ export function analyzeSquat(frames, width, height, cfg = SQUAT) {
   // quei fotogrammi si buttano e la buca si ricostruisce dal movimento prima e dopo.
   const lenRef = (P, Q) => { const v = t.map((_, i) => P[i] && Q[i] ? dist(P[i], Q[i]) : NaN).filter(Number.isFinite).sort((x, y) => x - y); return v.length ? v[Math.floor(v.length * 0.75)] : NaN; };
   const shinRef = lenRef(K, A), thighRef = lenRef(H, K);
-  for (let i = 0; i < t.length; i++) {
+  // Ripresa da davanti o da dietro: le due anche sono ben separate. Si giudica lo stesso.
+  const bodyLen0 = median(t.map((_, i) => H[i] && A[i] ? dist(H[i], A[i]) * 1.9 : NaN));
+  const frontal = hipSpread > 0.15 * bodyLen0;
+  // da davanti il femore in buca punta verso il telefono e sembra corto: è normale, non un errore
+  for (let i = 0; i < t.length && !frontal; i++) {
     if (!K[i]) continue;
     const badShin = A[i] && dist(K[i], A[i]) < 0.6 * shinRef;
     const badThigh = H[i] && dist(H[i], K[i]) < 0.45 * thighRef;
@@ -55,7 +59,12 @@ export function analyzeSquat(frames, width, height, cfg = SQUAT) {
   const bodyLen = median(t.map((_, i) => H[i] && A[i] ? dist(H[i], A[i]) * 1.9 : NaN));
   const kneeAng = t.map((_, i) => H[i] && K[i] && A[i] ? angleAt(H[i], K[i], A[i]) : NaN);
   // Femore rispetto all'orizzontale: positivo = anca sotto il ginocchio.
-  const femur = t.map((_, i) => H[i] && K[i] ? deg(Math.atan2(H[i].y - K[i].y, Math.abs(H[i].x - K[i].x))) : NaN);
+  // Di lato si misura l'angolo direttamente. Da davanti il femore in buca punta verso il telefono:
+  // conta solo quanto l'anca sta sopra o sotto il ginocchio (in verticale si vede da ogni lato),
+  // rapportato alla lunghezza del femore (misurata da in piedi).
+  const femur = t.map((_, i) => !H[i] || !K[i] ? NaN : frontal
+    ? deg(Math.asin(Math.max(-1, Math.min(1, (H[i].y - K[i].y) / thighRef))))
+    : deg(Math.atan2(H[i].y - K[i].y, Math.abs(H[i].x - K[i].x))));
   // Il bilanciere sta sulla schiena e sale e scende con l'anca, che a differenza delle spalle
   // non viene coperta dai dischi. Se l'anca scende durante la salita, è sceso anche il bilanciere.
   const bar = t.map((_, i) => H[i]?.y);
@@ -74,6 +83,7 @@ export function analyzeSquat(frames, width, height, cfg = SQUAT) {
     // Ripetizione vera = l'atleta la fa davvero: si vede mentre scende, si piega davvero
     // (ginocchio chiuso o femore quasi orizzontale) e, se il video non finisce prima, risale.
     ({ fd, bottom, up, end }) => {
+      while (end > fd && !frames[end].lm) end--; // persona sparita dopo la ripetizione: si conta fin lì
       let seen = 0, bent = false, after = 0;
       for (let i = fd; i <= end; i++) {
         if (frames[i].lm) { seen++; if (i > bottom) after++; } // persona presente (anche se in parte coperta)
@@ -159,15 +169,9 @@ export function analyzeSquat(frames, width, height, cfg = SQUAT) {
     return { checks, warnings, key };
   });
 
-  // Ripresa da dietro o davanti: le due anche sono ben separate e l'angolo del femore non dice
-  // niente sulla profondità. Meglio dirlo che sbagliare.
-  if (hipSpread > 0.15 * bodyLen) {
-    return unclear('Il video è ripreso da dietro o da davanti: per giudicare la profondità serve la ripresa di lato.');
-  }
   const warnings = [];
-  if (hipSpread > 0.09 * bodyLen) {
-    warnings.push('La ripresa sembra frontale o di tre quarti: per misurare bene la profondità riprendi esattamente di lato.');
-  }
+  if (frontal) warnings.push('Ripresa da davanti o da dietro: la profondità si misura lo stesso, ma per la massima precisione riprendi di lato, con il telefono all\'altezza dell\'anca.');
+  else if (hipSpread > 0.09 * bodyLen) warnings.push('La ripresa sembra di tre quarti: per misurare bene la profondità riprendi esattamente di lato.');
   return assemble('squat', b, judged, warnings, {
     femur, bar, bodyLen,
     path: { a: 'S', label: 'Traiettoria bilanciere' },

@@ -1,6 +1,7 @@
 // Test del giudice dello squat su ripetizioni sintetiche (vista laterale).
 // Esegui con:  node goodlift/tests/squat.test.mjs
 import { analyzeSquat, SQUAT } from '../engine.js';
+import { pickPerson } from '../core.js';
 
 const W = 1000, H = 1000, FPS = 20;
 
@@ -21,6 +22,26 @@ function pose(s, depthDeg, shiftX = 0, noise = 0) {
   put([23, 24], hip); put([25, 26], knee); put([27, 28], ankle);
   lm[12].x += 0.01; // spalle quasi sovrapposte (vista di profilo)
   return lm;
+}
+
+// vista da davanti: le due gambe separate, il femore in buca va verso il telefono (si vede solo in verticale)
+function frontPose(s, depthDeg) {
+  const lm = Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5, visibility: 0.2 }));
+  const shin = 0.2, thigh = 0.2, torso = 0.3;
+  const phi = (-90 + (depthDeg + 90) * s) * Math.PI / 180;
+  for (const [side, sx] of [[0, -1], [1, 1]]) {
+    const ankle = { x: 0.5 + sx * 0.1, y: 0.9 }, knee = { x: 0.5 + sx * (0.1 + 0.03 * s), y: 0.9 - shin * Math.cos(30 * s * Math.PI / 180) };
+    const hip = { x: 0.5 + sx * 0.08, y: knee.y + thigh * Math.sin(phi) }, sh = { x: 0.5 + sx * 0.12, y: hip.y - torso * Math.cos(30 * s * Math.PI / 180) };
+    const put = (id, p) => { lm[id + side] = { x: p.x + (Math.random() - 0.5) * 0.003, y: p.y + (Math.random() - 0.5) * 0.003, visibility: 0.95 }; };
+    put(11, sh); put(13, { x: sh.x + sx * 0.03, y: sh.y + 0.03 }); put(15, { x: sh.x + sx * 0.02, y: sh.y - 0.01 });
+    put(23, hip); put(25, knee); put(27, ankle);
+  }
+  return lm;
+}
+function frontClip(depthDeg) {
+  const out = []; let t = 0;
+  for (const [dur, a, b] of [[1.2, 0, 0], [1.2, 0, 1], [1.4, 1, 0], [1.2, 0, 0]]) { const n = Math.round(dur * FPS); for (let i = 0; i < n; i++) { out.push({ t, lm: frontPose(a + (b - a) * ease(i / n), depthDeg) }); t += 1 / FPS; } }
+  return out;
 }
 
 const ease = x => 0.5 - 0.5 * Math.cos(Math.PI * Math.max(0, Math.min(1, x)));
@@ -65,6 +86,11 @@ const cases = [
     r => r.reps?.length === 5 && r.verdict === 'good'],
   // fine serie: rimette il bilanciere e si riposa piegato, mani sulle ginocchia → non è una ripetizione
   ['2 ripetizioni, poi si riposa piegato', rest(clip([hold(1.4), down, up, hold(0.3), down, up, hold(1)], 6), 4.5), r => r.reps?.length === 2 && r.verdict === 'good'],
+  // ripresa da davanti: si giudica lo stesso (con una nota)
+  ['da davanti, valido', frontClip(8), r => r.verdict === 'good' && r.warnings.some(w => w.includes('davanti'))],
+  ['da davanti, squat alto', frontClip(SQUAT.depthMinDeg - 12), r => r.verdict === 'norep' && st(r, 'depth') === 'fail'],
+  // un giudice fermo, più grande e più vicino al telefono, che a metà passa davanti: si segue l'atleta
+  ['giudice in primo piano', withJudge(clip([hold(1.4), down, up, hold(0.3), down, up, hold(1.4)], 6)), r => r.reps?.length === 2 && r.verdict === 'good'],
   ['niente squat', clip([hold(3)], 6), r => r.verdict === 'unclear'],
 ];
 
@@ -89,6 +115,14 @@ function rest(frames, dur) {
     out.push({ t: t0 + i / FPS, lm });
   }
   return out;
+}
+function withJudge(frames) {
+  const multi = frames.map((f, i) => {
+    const jx = i > frames.length / 2 ? Math.max(-0.05, 0.35 - (i - frames.length / 2) * 0.01) : 0.35; // poi cammina verso l'atleta
+    const judge = pose(0, 6, 0).map(p => ({ ...p, x: (p.x - 0.5) * 1.4 + 0.5 - jx, y: (p.y - 0.9) * 1.4 + 0.95 }));
+    return { t: f.t, poses: i % 2 ? [f.lm, judge] : [judge, f.lm] };
+  });
+  return pickPerson(multi, 'squat', W, H);
 }
 function blank(frames, cond) { return frames.map(f => cond(f) ? { t: f.t, lm: null } : f); }
 function hideLower(frames, cond) {

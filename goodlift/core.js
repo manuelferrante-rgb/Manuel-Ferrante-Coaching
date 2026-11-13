@@ -152,8 +152,12 @@ export function unclear(message, lift = 'squat') {
 }
 
 
-// In palestra spesso nell'inquadratura c'è più di una persona (spotter, giudici, chi passa).
+// In palestra spesso nell'inquadratura c'è più di una persona (giudici, spotter, chi passa).
 // Il modello ne trova fino a 3 per fotogramma; qui si sceglie l'atleta e lo si segue nel tempo.
+// L'atleta non è per forza il più grande o il più vicino al telefono (un giudice davanti lo è):
+// è quello che fa l'alzata. Si collegano le persone da un fotogramma all'altro in "tracce" e si
+// sceglie la traccia che si muove di più su e giù, con la postura giusta (sdraiato in panca,
+// appeso con le mani sopra la testa a trazioni e muscle up).
 // frames: [{ t, poses: [lm, …] }] → [{ t, lm }]
 export function pickPerson(frames, lift, width = 1, height = 1) {
   if (!frames.some(f => f.poses)) return frames;
@@ -166,35 +170,50 @@ export function pickPerson(frames, lift, width = 1, height = 1) {
     const size = Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
     const sx = (lm[11].x + lm[12].x) / 2 * width, sy = (lm[11].y + lm[12].y) / 2 * height;
     const hx = (lm[23].x + lm[24].x) / 2 * width, hy = (lm[23].y + lm[24].y) / 2 * height;
+    const wy = (lm[15].y + lm[16].y) / 2 * height;
     const lying = Math.abs(sx - hx) / (Math.abs(sx - hx) + Math.abs(sy - hy) + 1e-6); // 1 = busto orizzontale
-    // sdraiato in panca: busto orizzontale; in tutte le altre alzate: busto verticale o quasi
-    const pose = lift === 'panca' ? (lying > 0.6 ? 2 : 0.4) : (lying < 0.75 ? 1 : 0.5);
-    return { lm, score: size * vis * pose, size, cx: (sx + hx) / 2, cy: (sy + hy) / 2 };
+    // sdraiato visto dai piedi o dalla testa: il busto sembra cortissimo rispetto alle spalle
+    const shoulderW = Math.abs(lm[11].x - lm[12].x) * width, torsoLen = Math.hypot(sx - hx, sy - hy);
+    const lyingEnd = shoulderW > 1.3 * torsoLen;
+    let pose = lift === 'panca' ? (lying > 0.6 || lyingEnd ? 2 : 0.4) : (lying < 0.75 ? 1 : 0.5);
+    // appeso alla sbarra (o sopra): mani all'altezza delle spalle o più in alto
+    if ((lift === 'trazioni' || lift === 'muscleup') && wy < sy + 0.05 * size) pose *= 2.5;
+    // il punto che fa l'alzata: le mani in panca e stacco, il busto nelle altre
+    const my = lift === 'panca' || lift === 'stacco' ? wy : (sy + hy) / 2;
+    return { lm, score: size * vis * pose, size, cx: (sx + hx) / 2, cy: (sy + hy) / 2, my };
   };
   const cands = frames.map(f => (f.poses || (f.lm ? [f.lm] : [])).map(info).filter(Boolean));
-  let anchor = -1, best = -1;
-  cands.forEach((cs, i) => cs.forEach(c => { if (c.score > best) { best = c.score; anchor = i; } }));
-  const chosen = new Array(frames.length).fill(null);
-  if (anchor < 0) return frames.map(f => ({ t: f.t, lm: null }));
-  chosen[anchor] = cands[anchor].reduce((a, c) => (c.score > a.score ? c : a));
-  const follow = (from, to, step) => {
-    let prev = chosen[from];
-    for (let i = from + step; i !== to; i += step) {
-      const cs = cands[i];
-      if (!cs.length) continue;
-      // il più vicino all'atleta del fotogramma prima; se nessuno è vicino, il più "da alzata"
-      let pick = null, dmin = Infinity;
-      for (const c of cs) { const d = Math.hypot(c.cx - prev.cx, c.cy - prev.cy); if (d < dmin) { dmin = d; pick = c; } }
-      if (dmin > 0.6 * prev.size) {
-        const top = cs.reduce((a, c) => (c.score > a.score ? c : a));
-        pick = top.score > 1.5 * pick.score ? top : (dmin > 1.2 * prev.size ? null : pick);
-      }
-      if (pick) { chosen[i] = pick; prev = pick; }
+  // tracce: ogni persona si collega a quella più vicina del fotogramma prima (anche con buchi brevi)
+  const tracks = [];
+  cands.forEach((cs, i) => {
+    // coppie persona-traccia dalla più vicina alla più lontana: chi passa davanti all'atleta
+    // non gli "ruba" la traccia
+    const pairs = [];
+    cs.forEach(c => tracks.forEach(tr => {
+      if (i - tr.lastI > 12) return;
+      const d = Math.hypot(c.cx - tr.last.cx, c.cy - tr.last.cy);
+      if (d < 0.6 * tr.last.size) pairs.push({ c, tr, d });
+    }));
+    pairs.sort((a, b) => a.d - b.d);
+    const doneC = new Set(), doneT = new Set();
+    for (const { c, tr } of pairs) {
+      if (doneC.has(c) || doneT.has(tr)) continue;
+      tr.items.set(i, c); tr.next = c; doneC.add(c); doneT.add(tr);
     }
+    for (const tr of doneT) { tr.last = tr.next; tr.lastI = i; }
+    for (const c of cs) if (!doneC.has(c)) tracks.push({ items: new Map([[i, c]]), last: c, lastI: i });
+  });
+  if (!tracks.length) return frames.map(f => ({ t: f.t, lm: null }));
+  const med = arr => { const v = arr.slice().sort((a, b) => a - b); return v[v.length >> 1]; };
+  const value = tr => {
+    const cs = [...tr.items.values()];
+    const ys = cs.map(c => c.my).sort((a, b) => a - b);
+    const range = ys[Math.floor(0.95 * (ys.length - 1))] - ys[Math.floor(0.05 * (ys.length - 1))];
+    const size = med(cs.map(c => c.size));
+    return cs.reduce((a, c) => a + c.score, 0) * (1 + 4 * Math.min(1, range / size));
   };
-  follow(anchor, frames.length, 1);
-  follow(anchor, -1, -1);
-  return frames.map((f, i) => ({ t: f.t, lm: chosen[i]?.lm ?? null }));
+  const best = tracks.reduce((a, tr) => (value(tr) > value(a) ? tr : a));
+  return frames.map((f, i) => ({ t: f.t, lm: best.items.get(i)?.lm ?? null }));
 }
 
 // Trova tutte le ripetizioni: discesa (downAt) → punto più profondo → ritorno in posizione (locked).
@@ -267,7 +286,10 @@ export function assemble(lift, b, reps, globalWarnings, overlay) {
   const verdict = judged.some(r => r.verdict === 'norep') ? 'norep' : 'good';
   const warnings = [...globalWarnings, ...new Set(reps.flatMap(r => r.warnings || []))];
   const missing = judged.reduce((a, r) => a + r.missing, 0);
-  if (verdict === 'good' && missing) warnings.push('Mancano alcuni dettagli nel video: per un giudizio completo riprendi anche 1–2 secondi prima e dopo l\'alzata.');
+  if (verdict === 'good' && missing) {
+    const what = [...new Set(judged.flatMap(r => r.checks.filter(c => c.status === 'unknown').map(c => c.label.toLowerCase())))];
+    warnings.push(`Non si vede bene, quindi non l'ho potuto controllare: ${what.join(', ')}. Tutto il resto è valido.`);
+  }
   const valid = judged.filter(r => r.verdict === 'good').length;
   // al limite: valida, ma da migliorare
   for (const r of reps) {

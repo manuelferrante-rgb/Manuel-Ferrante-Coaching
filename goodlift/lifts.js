@@ -75,13 +75,13 @@ export const MUSCLEUP = {
 
 // ── strumenti comuni ───────────────────────────────────────────────────
 const pct = (arr, p) => { const s = arr.filter(Number.isFinite).sort((a, b) => a - b); return s.length ? s[Math.min(s.length - 1, Math.floor(p * s.length))] : NaN; };
-const NOT_SEEN = lift => unclear('Non ti vedo nel video. Riprendi tutto il corpo, di lato, con il telefono fermo.', lift);
+const NOT_SEEN = lift => unclear('Non ti vedo nel video. Riprendi tutto il corpo, con il telefono fermo.', lift);
 
 function prepare(frames, width, height, lift, need) {
   if (frames.filter(f => f.lm).length < 8) return { error: NOT_SEEN(lift) };
   const b = buildSeries(frames, width, height, 0.3);
   const vis = Math.min(...need.map(k => b.visibility[k]));
-  if (!(vis >= 0.21)) return { error: unclear('Non vedo bene braccia e busto. Riprendi di lato, con tutto il corpo nell\'inquadratura.', lift) };
+  if (!(vis >= 0.21)) return { error: unclear('Non vedo bene braccia e busto. Riprendi tutto il corpo nell\'inquadratura.', lift) };
   const { S, E, W, H, K, A } = b.series;
   const t = b.t;
   const series = (P, Q) => t.map((_, i) => P[i] && Q[i] ? dist(P[i], Q[i]) : NaN);
@@ -93,6 +93,13 @@ function prepare(frames, width, height, lift, need) {
   b.hip = t.map((_, i) => S[i] && H[i] && K[i] ? angleAt(S[i], H[i], K[i]) : NaN);
   b.y = P => t.map((_, i) => P[i]?.y);
   b.present = frames.map(f => !!f.lm); // persona presente nel fotogramma (anche se in parte coperta)
+  // Ripresa da davanti o da dietro: le due spalle sono ben separate (di lato quasi coincidono).
+  // Si giudica lo stesso; quello che da davanti non si vede diventa una nota.
+  const shoulderSpread = median(frames.map(f => {
+    const l = f.lm?.[11], r = f.lm?.[12];
+    return l && r && l.visibility > 0.6 && r.visibility > 0.6 ? Math.abs(l.x - r.x) * width : NaN;
+  }));
+  b.frontal = shoulderSpread > 0.45 * b.torso;
   return b;
 }
 
@@ -125,10 +132,19 @@ function peakRate(t, a, from, to) {
 // Ripetizione vera: la persona c'è per buona parte del tempo e le braccia si piegano davvero.
 // Ripetizione vera = l'atleta la fa davvero: si vede per quasi tutto il movimento, le braccia
 // si piegano davvero e, se il video non finisce prima, torna indietro.
+// Da davanti il gomito piegato può sembrare quasi dritto: vale anche una corsa ampia delle spalle.
 const bentArms = (b, hasData, minElbow = 125) => ({ fd, bottom, up, end }) => {
-  let seen = 0, bent = false, after = 0;
-  for (let i = fd; i <= end; i++) { if (b.present[i]) { seen++; if (i > bottom) after++; } if (b.elbow[i] < minElbow) bent = true; }
-  return seen >= Math.max(3, 0.7 * (end - fd + 1)) && bent;
+  // se dopo la ripetizione la persona sparisce (esce, qualcuno le passa davanti), si conta fin lì
+  while (end > fd && !b.present[end]) end--;
+  let seen = 0, bent = false, lo = Infinity, hi = -Infinity;
+  for (let i = fd; i <= end; i++) {
+    if (b.present[i]) seen++;
+    if (b.elbow[i] < minElbow) bent = true;
+    const y = b.series.S[i]?.y; if (Number.isFinite(y)) { lo = Math.min(lo, y); hi = Math.max(hi, y); }
+  }
+  // corsa misurata anche un po' prima della ripetizione (da dove parte)
+  for (let i = Math.max(0, fd - Math.round(0.6 / b.dt)); i < fd; i++) { const y = b.series.S[i]?.y; if (Number.isFinite(y)) { lo = Math.min(lo, y); hi = Math.max(hi, y); } }
+  return seen >= Math.max(3, 0.7 * (end - fd + 1)) && (bent || (b.frontal && hi - lo >= 0.5 * b.arm));
 };
 // Fine serie: quando scendi dalla sbarra o dalle parallele, o lasci il bilanciere, e ti riposi
 // mentre il video continua, il corpo si abbassa e le braccia si piegano come in una ripetizione.
@@ -162,8 +178,13 @@ export function analyzeBench(frames, width, height, cfg = BENCH) {
   const reps = findReps(t.length, i => bar[i] > top + cfg.downRatio * arm, locked, (i, j) => bar[i] > (bar[j] ?? -Infinity),
     // al petto il bilanciere è sopra la spalla; a braccia lungo i fianchi (riposo) no
     both(bentArms(b, hasData), ({ bottom }) => handsOn(t, i => W[i] && S[i] ? W[i].y <= S[i].y + 0.15 * arm : null, bottom)));
-  if (!reps.length) return unclear('Non ho visto una panca: il bilanciere non scende abbastanza. Riprendi di lato, all\'altezza della panca.', 'panca');
-  const hum = t.map((_, i) => S[i] && E[i] ? deg(Math.atan2(E[i].y - S[i].y, Math.abs(E[i].x - S[i].x))) : NaN);
+  if (!reps.length) return unclear('Non ho visto una panca: il bilanciere non scende abbastanza. Riprendi con il telefono all\'altezza della panca.', 'panca');
+  // gomito rispetto alla spalla: di lato l'angolo del braccio; da davanti (piedi o testa) conta
+  // il dislivello gomito-spalla, rapportato alla lunghezza del braccio
+  const upper = pct(t.map((_, i) => S[i] && E[i] ? dist(S[i], E[i]) : NaN), 0.9);
+  const hum = t.map((_, i) => !S[i] || !E[i] ? NaN : b.frontal
+    ? deg(Math.asin(Math.max(-1, Math.min(1, (E[i].y - S[i].y) / upper))))
+    : deg(Math.atan2(E[i].y - S[i].y, Math.abs(E[i].x - S[i].x))));
   const hy = b.y(H);
   const foot = t.map((_, i) => (T[i] || A[i])?.y);
   const thr = cfg.stillRatio * arm;
@@ -308,7 +329,8 @@ export function analyzeDeadlift(frames, width, height, cfg = DEADLIFT) {
       ahead = median(vals);
     }
     aheads.push(ahead);
-    if (!Number.isFinite(ahead)) checks.push({ id: 'shoulder', label: 'Spalla dietro il bilanciere', status: 'unknown', detail: 'In chiusura non vedo bene spalla e bilanciere.' });
+    if (b.frontal) checks.push({ id: 'shoulder', label: 'Spalla dietro il bilanciere', status: 'unknown', detail: 'Da davanti non si vede se la spalla è dietro il bilanciere: per questo controllo riprendi di lato.' });
+    else if (!Number.isFinite(ahead)) checks.push({ id: 'shoulder', label: 'Spalla dietro il bilanciere', status: 'unknown', detail: 'In chiusura non vedo bene spalla e bilanciere.' });
     else checks.push(ahead > cfg.shoulderTolRatio * body
       ? { id: 'shoulder', label: 'Spalla dietro il bilanciere', status: 'fail', detail: 'In chiusura la spalla resta davanti al bilanciere.', t: [t[lockIdx], t[lockIdx]] }
       : { id: 'shoulder', label: 'Spalla dietro il bilanciere', status: 'pass', detail: 'In chiusura la spalla è dietro il bilanciere.', t: [t[lockIdx], t[lockIdx]] });
@@ -346,7 +368,7 @@ function hangPhases(b, cfg, allowAbove = false) {
   // nel muscle up la transizione è velocissima e il gomito piegato si vede poco: basta che le spalle
   // arrivino all'altezza delle mani
   const real = allowAbove
-    ? ({ fd, end }) => { let seen = 0, high = false; for (let i = fd; i <= end; i++) { if (b.present[i]) seen++; if (rel[i] < 0.2 * arm) high = true; } return seen >= Math.max(3, 0.7 * (end - fd + 1)) && high; }
+    ? ({ fd, end }) => { while (end > fd && !b.present[end]) end--; let seen = 0, high = false; for (let i = fd; i <= end; i++) { if (b.present[i]) seen++; if (rel[i] < 0.2 * arm) high = true; } return seen >= Math.max(3, 0.7 * (end - fd + 1)) && high; }
     : bentArms(b, hasData);
   const grip = median(wy.filter((_, i) => hang[i])); // le mani sulla sbarra
   const onBar = ({ bottom }) => !Number.isFinite(grip) || handsOn(t, i => Number.isFinite(wy[i]) ? Math.abs(wy[i] - grip) <= 0.3 * arm : null, bottom);
@@ -380,7 +402,7 @@ export function analyzePullup(frames, width, height, cfg = PULLUP) {
   const hasData = t.map((_, i) => !!(S[i] && E[i] && W[i]));
   const { sy, hang, reps } = hangPhases(b, cfg);
   const nextPull = k => (k + 1 < reps.length ? reps[k + 1].fd : t.length);
-  if (!reps.length) return unclear('Non ho visto una trazione: le spalle non salgono abbastanza. Riprendi di lato, con la sbarra nell\'inquadratura.', 'trazioni');
+  if (!reps.length) return unclear('Non ho visto una trazione: le spalle non salgono abbastanza. Riprendi con la sbarra nell\'inquadratura.', 'trazioni');
   const barY = median(b.y(W)) - cfg.barAboveWristRatio * arm;
   const chin = t.map((_, i) => M[i] && N[i] ? M[i].y + cfg.chinBelowMouth * Math.max(0, M[i].y - N[i].y) : N[i] ? N[i].y + 0.12 * arm : NaN);
   const thigh = t.map((_, i) => H[i] && K[i] ? deg(Math.atan2(K[i].x - H[i].x, K[i].y - H[i].y)) : NaN);
@@ -448,8 +470,13 @@ export function analyzeDip(frames, width, height, cfg = DIP) {
   const wy = b.y(W), grip = median(wy.filter((_, i) => locked[i])); // le mani sulle parallele
   const onBars = ({ bottom }) => !Number.isFinite(grip) || handsOn(t, i => Number.isFinite(wy[i]) ? Math.abs(wy[i] - grip) <= 0.3 * arm : null, bottom);
   const reps = findReps(t.length, i => sy[i] > top + cfg.downRatio * arm, locked, (i, j) => sy[i] > (sy[j] ?? -Infinity), both(bentArms(b, hasData), onBars));
-  if (!reps.length) return unclear('Non ho visto un dip: le spalle non scendono abbastanza. Riprendi di lato, con le parallele nell\'inquadratura.', 'dip');
-  const ang = t.map((_, i) => S[i] && E[i] ? deg(Math.atan2(S[i].y - E[i].y, Math.abs(S[i].x - E[i].x))) : NaN);
+  if (!reps.length) return unclear('Non ho visto un dip: le spalle non scendono abbastanza. Riprendi con le parallele nell\'inquadratura.', 'dip');
+  // spalla rispetto al gomito: di lato l'angolo del braccio; da davanti il braccio va indietro
+  // e conta solo il dislivello spalla-gomito, rapportato alla lunghezza del braccio
+  const upper = pct(t.map((_, i) => S[i] && E[i] ? dist(S[i], E[i]) : NaN), 0.9);
+  const ang = t.map((_, i) => !S[i] || !E[i] ? NaN : b.frontal
+    ? deg(Math.asin(Math.max(-1, Math.min(1, (S[i].y - E[i].y) / upper))))
+    : deg(Math.atan2(S[i].y - E[i].y, Math.abs(S[i].x - E[i].x))));
 
   const judged = reps.map(({ desc: descStart, fd: firstDown, bottom, up: upIdx, end: repEnd }, k) => {
     const checks = [], warnings = [];
@@ -478,7 +505,7 @@ export function analyzeDip(frames, width, height, cfg = DIP) {
     trail: 'S',
     focus: {
       a: 'S', b: 'E',
-      ref: i => S[i] && E[i] ? E[i].y - Math.tan(cfg.depthMinDeg * Math.PI / 180) * Math.abs(S[i].x - E[i].x) : null,
+      ref: i => !S[i] || !E[i] ? null : b.frontal ? E[i].y + Math.sin(cfg.depthMinDeg * Math.PI / 180) * upper : E[i].y - Math.tan(cfg.depthMinDeg * Math.PI / 180) * Math.abs(S[i].x - E[i].x),
       label: i => { const o = ang[i] - cfg.depthMinDeg; return !Number.isFinite(o) ? null : o >= cfg.depthBorderlineDeg ? ['PROFONDITÀ OK', false] : o >= 0 ? ['PROFONDITÀ AL LIMITE', false] : ['SPALLA SOPRA IL GOMITO', true]; },
     },
     dropText: 'SCENDI DI NUOVO',
@@ -494,7 +521,7 @@ export function analyzeMuscleUp(frames, width, height, cfg = MUSCLEUP) {
   const { t, series: { S, E, W }, arm, elbow, knee, hip } = b;
   const hasData = t.map((_, i) => !!(S[i] && E[i] && W[i]));
   const { sy, hang, reps: pulls } = hangPhases(b, cfg, true);
-  if (!pulls.length) return unclear('Non ho visto un muscle up: le spalle non salgono abbastanza. Riprendi di lato, con la sbarra nell\'inquadratura.', 'muscleup');
+  if (!pulls.length) return unclear('Non ho visto un muscle up: le spalle non salgono abbastanza. Riprendi con la sbarra nell\'inquadratura.', 'muscleup');
   const wy = b.y(W);
   const barY = median(wy.filter((_, i) => hang[i])) || median(wy); // la sbarra: dove stanno le mani da appeso
   const topElb = Math.min(cfg.topElbowDeg, pct(elbow, 0.9) - cfg.topRelDeg);

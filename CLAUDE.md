@@ -48,6 +48,11 @@ Regole decise con Manuel (non cambiarle senza chiedere):
   bilanciere.
 - Trazioni: niente kip, gambe fluide senza scatti, mento sopra la sbarra, ritorno a braccia tese. Muscle up: niente kip, anca fluida, ginocchio teso (5° di tolleranza).
   Dip: spalla sotto il gomito.
+- Si giudica da qualsiasi lato, anche da davanti (tutte le alzate). Da davanti profondità di squat,
+  dip e panca si misurano col dislivello verticale rapportato alla lunghezza del segmento; quello che
+  non si vede (es. spalla dietro il bilanciere nello stacco) diventa nota, non "non riesco".
+- In palestra ci sono giudici/spotter: l'analisi cerca fino a 3 persone per fotogramma (modello in
+  modalità IMAGE, che le ritrova ogni volta) e pickPerson sceglie la traccia che fa l'alzata.
 - Dettaglio non visibile → GOOD LIFT con nota. "Non riesco a giudicare" deve essere rarissimo.
 - Valida ma al limite → riquadro giallo "Da migliorare". No rep di poco → "No rep per poco" +
   "Come sistemarla". Mai i due insieme.

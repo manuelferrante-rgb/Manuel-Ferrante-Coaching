@@ -67,23 +67,27 @@ async function getModel(kind) {
   if (state.models[kind]) return state.models[kind];
   return (loading[kind] ??= createModel(kind).finally(() => { delete loading[kind]; }));
 }
-async function createModel(kind) {
+// Analisi: modalità "immagine", cioè ogni fotogramma cerca da capo tutte le persone. In modalità
+// "video" il modello insegue le persone già trovate e, se ce n'è più di una (giudici, spotter),
+// spesso perde l'atleta. La diretta resta in modalità video (più leggera).
+async function createModel(kind, mode = kind === 'lite' ? 'VIDEO' : 'IMAGE') {
   state.vision ??= await FilesetResolver.forVisionTasks(new URL('vendor/mediapipe/wasm', import.meta.url).href.replace(/\/$/, ''));
   const buf = await modelBuffer(kind);
   const opts = delegate => ({
     baseOptions: buf ? { modelAssetBuffer: buf, delegate } : { modelAssetPath: modelUrl(kind), delegate },
-    runningMode: 'VIDEO', numPoses: 1,
+    runningMode: mode, numPoses: 1,
     minPoseDetectionConfidence: 0.3, minPosePresenceConfidence: 0.3, minTrackingConfidence: 0.3,
   });
   let model;
   if (DELEGATE_OVERRIDE) model = await PoseLandmarker.createFromOptions(state.vision, opts(DELEGATE_OVERRIDE));
   else try { model = await PoseLandmarker.createFromOptions(state.vision, opts('GPU')); }
   catch { model = await PoseLandmarker.createFromOptions(state.vision, opts('CPU')); }
-  model.__numPoses = 1;
+  model.__numPoses = 1; model.__mode = mode;
   return (state.models[kind] = model);
 }
 let lastTs = 0;
 const nextTs = () => (lastTs = Math.max(lastTs + 1, Math.round(performance.now())));
+const detect = (model, video) => model.__mode === 'IMAGE' ? model.detect(video) : model.detectForVideo(video, nextTs());
 const toPoses = res => (res?.landmarks ?? []).map(lm => lm.map(p => ({ x: p.x, y: p.y, visibility: p.visibility ?? 1 })));
 
 // ── disegno ─────────────────────────────────────
@@ -225,9 +229,9 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
 
   // modello e video si preparano insieme
   const modelP = getModel('heavy').then(async m => {
-    // In panca c'è quasi sempre uno spotter in piedi: si cercano più persone e si sceglie quella sdraiata.
-    // Nelle altre alzate una sola: il modello la segue meglio da un fotogramma all'altro.
-    const want = state.lift === 'panca' ? 3 : 1;
+    // In palestra ci sono quasi sempre altre persone (giudici, spotter): si cercano fino a 3 persone
+    // e poi pickPerson sceglie chi fa l'alzata. Con una sola, il modello può agganciare un giudice.
+    const want = 3;
     if (m.__numPoses !== want) { await m.setOptions({ numPoses: want }); m.__numPoses = want; }
     return m;
   });
@@ -337,7 +341,7 @@ async function samplePlaying(video, model, from, to, onPose, gone) {
       if (t - lastT >= STEP * 0.75) {
         const c0 = performance.now();
         let poses = [];
-        try { poses = toPoses(model.detectForVideo(video, nextTs())); } catch (e) { console.warn(e); }
+        try { poses = toPoses(detect(model, video)); } catch (e) { console.warn(e); }
         cost = 0.7 * cost + 0.3 * (performance.now() - c0) / 1000;
         frames.push({ t, poses, gray: grabGray(video) });
         const lm = onPose(t, poses);
@@ -366,7 +370,7 @@ async function sampleSeeking(video, model, from, to, total, onPose, gone) {
     if (gone()) return false;
     await seekTo(video, Math.min(t, Math.max(0, total - 0.02)));
     let poses = [];
-    try { poses = toPoses(model.detectForVideo(video, nextTs())); } catch (e) { console.warn(e); }
+    try { poses = toPoses(detect(model, video)); } catch (e) { console.warn(e); }
     frames.push({ t: video.currentTime, poses, gray: grabGray(video) });
     onPose(video.currentTime, poses);
   }
