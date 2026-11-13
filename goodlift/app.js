@@ -158,10 +158,30 @@ function drawScan(canvas, lm) {
   corners(ctx, w, h, dpr);
   if (lm) {
     drawSkeleton(ctx, lm, w, h, { glow: 16, width: 2.6, dpr });
-    const s = sideOf(lm), vw = $('scan-video').videoWidth || w, vh = $('scan-video').videoHeight || h;
-    const knee = angle(lm[s.H], lm[s.K], lm[s.A], vw, vh), hip = angle(lm[s.S], lm[s.H], lm[s.K], vw, vh);
-    if (Number.isFinite(knee)) tag(ctx, `KNEE ${Math.round(knee)}°`, lm[s.K].x * w + 12 * dpr, lm[s.K].y * h, dpr);
-    if (Number.isFinite(hip)) tag(ctx, `HIP ${Math.round(hip)}°`, lm[s.H].x * w + 12 * dpr, lm[s.H].y * h, dpr);
+    // gli angoli che contano per l'alzata scelta
+    const left = (lm[11].visibility ?? 0) + (lm[23].visibility ?? 0) >= (lm[12].visibility ?? 0) + (lm[24].visibility ?? 0);
+    const id = left ? { S: 11, E: 13, W: 15, H: 23, K: 25, A: 27 } : { S: 12, E: 14, W: 16, H: 24, K: 26, A: 28 };
+    const vw = $('scan-video').videoWidth || w, vh = $('scan-video').videoHeight || h;
+    const ang = (a, b, c) => angle(lm[id[a]], lm[id[b]], lm[id[c]], vw, vh);
+    const TAGS = {
+      squat: [['KNEE', 'H', 'K', 'A'], ['HIP', 'S', 'H', 'K']],
+      stacco: [['HIP', 'S', 'H', 'K'], ['KNEE', 'H', 'K', 'A']],
+      panca: [['ELBOW', 'S', 'E', 'W']],
+      trazioni: [['ELBOW', 'S', 'E', 'W']],
+      dip: [['ELBOW', 'S', 'E', 'W']],
+      muscleup: [['ELBOW', 'S', 'E', 'W'], ['KNEE', 'H', 'K', 'A']],
+    }[state.lift] || [];
+    for (const [name, a, b, c] of TAGS) {
+      const v = ang(a, b, c), p = lm[id[b]];
+      if (Number.isFinite(v) && (p.visibility ?? 1) > 0.4) tag(ctx, `${name} ${Math.round(v)}°`, p.x * w + 12 * dpr, p.y * h, dpr);
+    }
+    // trazioni: il mento (sotto la bocca)
+    if (state.lift === 'trazioni' && (lm[0].visibility ?? 0) > 0.5) {
+      const m = lm[left ? 9 : 10], n = lm[0];
+      const cy = m.y + Math.max(0, m.y - n.y);
+      ctx.save(); ctx.fillStyle = GOLD; ctx.beginPath(); ctx.arc(m.x * w, cy * h, 4 * dpr, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      tag(ctx, 'CHIN', m.x * w + 12 * dpr, cy * h, dpr);
+    }
   }
 }
 
@@ -371,7 +391,7 @@ function showResult(result, frames, url, blob) {
     const bad = result.reps.find(r => r.verdict === 'norep');
     $('vsub').textContent = `${result.reps.length} ripetizioni: ${result.summary}.` + (bad ? ` ${bad.n}ª: ${bad.reason}` : '');
   } else {
-    $('vsub').textContent = result.verdict === 'good' ? (result.borderline ? `${name} valido, ma al limite.` : `${name} valido.`) : result.verdict === 'norep' ? firstFail.detail : result.warnings[0];
+    $('vsub').textContent = result.verdict === 'good' ? (result.borderline ? `${name}: alzata valida, ma al limite.` : `${name}: alzata valida.`) : result.verdict === 'norep' ? firstFail.detail : result.warnings[0];
   }
   $('vlimit').hidden = !(result.verdict === 'good' && result.borderline);
   $('vclose').hidden = !(result.verdict === 'norep' && result.close);
