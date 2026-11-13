@@ -174,13 +174,10 @@ function drawScan(canvas, lm) {
     }[state.lift] || [];
     // stacco: la spalla deve finire dietro il bilanciere (linea verticale del bilanciere = le mani)
     if (state.lift === 'stacco' && (lm[id.S].visibility ?? 0) > 0.4 && (lm[id.W].visibility ?? 0) > 0.4) {
-      const toe = lm[left ? 31 : 32], heel = lm[left ? 29 : 30];
-      const facing = Math.sign(toe.x - heel.x) || 1;
-      const ahead = (lm[id.S].x - lm[id.W].x) * facing * vw;
       const bx = lm[id.W].x * w;
       ctx.save(); ctx.setLineDash([6 * dpr, 6 * dpr]); ctx.strokeStyle = 'rgba(245,245,240,.6)'; ctx.lineWidth = 1.2 * dpr;
       ctx.beginPath(); ctx.moveTo(bx, 0); ctx.lineTo(bx, h); ctx.stroke(); ctx.restore();
-      tag(ctx, ahead > 0 ? 'SHOULDER IN FRONT' : 'SHOULDER BEHIND BAR', lm[id.S].x * w + 12 * dpr, lm[id.S].y * h, dpr);
+      tag(ctx, 'SHOULDER', lm[id.S].x * w + 12 * dpr, lm[id.S].y * h, dpr);
     }
     for (const [name, a, b, c] of TAGS) {
       const v = ang(a, b, c), p = lm[id[b]];
