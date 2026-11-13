@@ -3,6 +3,7 @@
 import { FilesetResolver, PoseLandmarker } from './vendor/mediapipe/vision_bundle.js';
 import { LIFTS, LM, SQUAT } from './engine.js';
 import { pickPerson } from './core.js';
+import { trackPlate } from './plates.js';
 
 const $ = id => document.getElementById(id);
 const GOLD = '#c9a35a', RED = '#e5484d', WHITE = '#f5f5f0';
@@ -255,6 +256,8 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
   const clean = pickPerson(raw, state.lift, vw, vh);
   state.raw = raw; // per ?debug
   const result = LIFTS[state.lift].analyze(clean, vw, vh);
+  try { attachPlate(result, raw, vw, vh); } catch (e) { console.warn(e); }
+  for (const f of raw) delete f.gray; // memoria: le immagini non servono più
   if (total >= MAX_SECONDS) result.warnings.unshift(`Ho analizzato solo i primi ${MAX_SECONDS} secondi: per i prossimi video taglia il pezzo con l'alzata.`);
   // replay: dall'inizio della prima ripetizione a poco dopo la fine dell'ultima
   const keys = (result.reps || (result.key ? [{ key: result.key }] : [])).map(r => r.key);
@@ -265,6 +268,43 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
 }
 
 const STEP = 1 / 12; // un fotogramma analizzato ogni 1/12 di secondo di video
+
+// Copia in piccolo e in scala di grigi del fotogramma: serve a trovare il disco nell'immagine.
+const GRAY_W = 180;
+let grayCanvas = null;
+function grabGray(video) {
+  try {
+    const gh = Math.round(GRAY_W * video.videoHeight / video.videoWidth);
+    grayCanvas ??= document.createElement('canvas');
+    if (grayCanvas.width !== GRAY_W || grayCanvas.height !== gh) { grayCanvas.width = GRAY_W; grayCanvas.height = gh; }
+    const ctx = grayCanvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(video, 0, 0, GRAY_W, gh);
+    const d = ctx.getImageData(0, 0, GRAY_W, gh).data, g = new Uint8Array(GRAY_W * gh);
+    for (let i = 0, j = 0; i < g.length; i++, j += 4) g[i] = (d[j] * 77 + d[j + 1] * 150 + d[j + 2] * 29) >> 8;
+    return g;
+  } catch { return null; }
+}
+
+// La traiettoria va disegnata dove sta davvero il bilanciere (la punta, sul lato vicino al telefono)
+// o il disco: lo si cerca nell'immagine come cerchio e lo si segue. Se non si trova (disco visto di
+// taglio, ripresa frontale) resta la stima dalla posizione del corpo.
+function attachPlate(result, raw, vw, vh) {
+  const R = result.replay; if (!R?.path || !raw.some(f => f.gray)) return;
+  const key = { squat: 'S', panca: 'W', stacco: 'W', trazioni: 'K', dip: 'K', muscleup: 'K' }[result.lift] || 'S';
+  const sc = GRAY_W / vw, gh = Math.round(GRAY_W * vh / vw);
+  const { H, A } = R.series;
+  const lens = R.t.map((_, i) => H[i] && A[i] ? Math.hypot(H[i].x - A[i].x, H[i].y - A[i].y) * 1.9 : NaN).filter(Number.isFinite).sort((a, b) => a - b);
+  const body = lens.length ? lens[lens.length >> 1] * sc : 0;
+  const frames = raw.map((f, i) => {
+    const p = R.series[key][i];
+    return { gray: f.gray, seed: p ? { x: p.x * sc, y: p.y * sc } : null };
+  });
+  const found = trackPlate(frames, GRAY_W, gh, body);
+  const n = found.filter(Boolean).length;
+  state.plate = { frames: raw.length, gray: frames.filter(f => f.gray).length, seeds: frames.filter(f => f.seed).length, body, found: n }; // per ?debug
+  if (n < 0.4 * raw.length) return;
+  R.path = { ...R.path, a: null, pts: found.map(c => c && { x: c.x / sc, y: c.y / sc }) };
+}
 
 // Analisi mentre il video scorre. Restituisce null se il browser non lo permette.
 async function samplePlaying(video, model, from, to, onPose, gone) {
@@ -285,7 +325,7 @@ async function samplePlaying(video, model, from, to, onPose, gone) {
         let poses = [];
         try { poses = toPoses(model.detectForVideo(video, nextTs())); } catch (e) { console.warn(e); }
         cost = 0.7 * cost + 0.3 * (performance.now() - c0) / 1000;
-        frames.push({ t, poses });
+        frames.push({ t, poses, gray: grabGray(video) });
         const lm = onPose(t, poses);
         // fermo o assente → si va più veloce; in movimento → ~12 fotogrammi al secondo
         const y = lm ? (lm[ids[0]].y + lm[ids[1]].y) / 2 : null;
@@ -313,7 +353,7 @@ async function sampleSeeking(video, model, from, to, total, onPose, gone) {
     await seekTo(video, Math.min(t, Math.max(0, total - 0.02)));
     let poses = [];
     try { poses = toPoses(model.detectForVideo(video, nextTs())); } catch (e) { console.warn(e); }
-    frames.push({ t: video.currentTime, poses });
+    frames.push({ t: video.currentTime, poses, gray: grabGray(video) });
     onPose(video.currentTime, poses);
   }
   return frames;
@@ -389,7 +429,7 @@ function showResult(result, frames, url, blob) {
   const name = LIFTS[result.lift].name;
   if (result.reps) {
     const bad = result.reps.find(r => r.verdict === 'norep');
-    $('vsub').textContent = `${result.reps.length} ripetizioni: ${result.summary}.` + (bad ? ` ${bad.n}ª: ${bad.reason}` : '');
+    $('vsub').textContent = `${result.reps.length} ripetizioni: ${result.summary}.` + (bad ? ` ${bad.n}º: ${bad.reason}` : '');
   } else {
     $('vsub').textContent = result.verdict === 'good' ? (result.borderline ? `${name}: alzata valida, ma al limite.` : `${name}: alzata valida.`) : result.verdict === 'norep' ? firstFail.detail : result.warnings[0];
   }
@@ -403,7 +443,7 @@ function showResult(result, frames, url, blob) {
   reps.hidden = !result.reps;
   if (result.reps) {
     reps.innerHTML = `<p class="sum">${result.reps.length} ripetizioni · ${result.summary}</p>` + result.reps.map(r =>
-      `<button class="rep ${r.verdict}" data-n="${r.n}" aria-label="${r.n}ª ripetizione">${r.n}<sup>a</sup><span class="ri">${r.verdict === 'good' ? '✓' : r.verdict === 'norep' ? '✕' : '?'}</span></button>`).join('');
+      `<button class="rep ${r.verdict}" data-n="${r.n}" aria-label="${r.n}ª ripetizione: ${r.verdict === 'good' ? 'valida' : r.verdict === 'norep' ? 'no rep' : 'non giudicabile'}">${r.n}º</button>`).join('');
     reps.querySelectorAll('.rep').forEach(btn => btn.addEventListener('click', () => selectRep(+btn.dataset.n, true)));
   }
   const warns = result.verdict === 'unclear' ? result.warnings.slice(1) : result.warnings;
@@ -535,20 +575,22 @@ function drawReplay(canvas, video, result, frames) {
       const k = keys[cur];
       const k0 = nearest(ts, k.start), kEnd = nearest(ts, (k.end ?? ts[ts.length - 1]) + 0.4);
       const upto = Math.min(i, kEnd);
-      ctx.save(); ctx.lineWidth = 3.5 * dpr; ctx.lineCap = 'round'; ctx.shadowBlur = 8 * dpr;
+      // linea sottile e netta, come una penna (con un filo scuro sotto per vederla su ogni sfondo)
+      ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       let prev = null;
       for (let q = k0; q <= upto; q++) {
         const p = pt(q); if (!p) { prev = null; continue; }
         if (prev) {
-          const up = p.y < prev.y;
-          ctx.strokeStyle = up ? GOLD : 'rgba(245,245,240,.9)'; ctx.shadowColor = ctx.strokeStyle;
+          ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.lineWidth = 3.6 * dpr;
+          ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+          ctx.strokeStyle = p.y < prev.y ? GOLD : '#ffffff'; ctx.lineWidth = 1.8 * dpr;
           ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(p.x, p.y); ctx.stroke();
         }
         prev = p;
       }
       ctx.restore();
       const c = pt(upto);
-      if (c) { ctx.save(); ctx.fillStyle = GOLD; ctx.shadowColor = GOLD; ctx.shadowBlur = 12 * dpr; ctx.beginPath(); ctx.arc(c.x, c.y, 6 * dpr, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+      if (c) { ctx.save(); ctx.fillStyle = GOLD; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.lineWidth = 1.5 * dpr; ctx.beginPath(); ctx.arc(c.x, c.y, 4 * dpr, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.restore(); }
     }
     if (PATH.bar) { const y = PATH.bar() * sy; line({ x: 0, y }, { x: w, y }, 'rgba(245,245,240,.6)', 1.5, true); }
   }
@@ -638,7 +680,9 @@ async function startLive() {
 // Se in audio/ ci sono le registrazioni dei comandi (start.mp3, rack.mp3, …) si usano quelle:
 // partono all'istante. Altrimenti si usa la voce sintetica del telefono.
 const VOICE_FILES = ['start', 'rack', 'press', 'down']; // registrazioni in audio/ (voce di Manuel)
-const voice = { ctx: null, buffers: {}, synth: null };
+// I file si suonano con <audio> e non con Web Audio: su iPhone Web Audio resta muto quando il
+// telefono è in silenzioso, mentre l'audio "da video" si sente sempre.
+const voice = { els: {}, synth: null };
 function pickSynthVoice() {
   const vs = window.speechSynthesis?.getVoices?.() || [];
   const pref = ['Daniel', 'Arthur', 'Aaron', 'Alex', 'Google UK English Male', 'Google US English'];
@@ -648,26 +692,23 @@ function pickSynthVoice() {
 window.speechSynthesis?.addEventListener?.('voiceschanged', () => { voice.synth = pickSynthVoice(); });
 // Da chiamare durante un tocco dell'utente: su iPhone l'audio si sblocca solo così.
 function unlockVoice() {
-  try {
-    voice.ctx ??= new (window.AudioContext || window.webkitAudioContext)();
-    voice.ctx.resume?.();
-    const src = voice.ctx.createBufferSource(); src.buffer = voice.ctx.createBuffer(1, 1, 22050); src.connect(voice.ctx.destination); src.start(0);
-  } catch { /* niente Web Audio */ }
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* Safari vecchio */ }
+  for (const k of VOICE_FILES) {
+    let el = voice.els[k];
+    if (!el) {
+      el = new Audio(new URL(`audio/${k}.wav`, import.meta.url).href);
+      el.preload = 'auto'; el.playsInline = true; el.setAttribute('playsinline', '');
+      voice.els[k] = el;
+    }
+    // sblocco: parte in muto e si ferma subito, dentro il tocco
+    el.muted = true;
+    const p = el.play();
+    if (p) p.then(() => { el.pause(); el.currentTime = 0; el.muted = false; }).catch(() => { el.muted = false; });
+  }
   try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch { /* niente sintesi */ }
   voice.synth ??= pickSynthVoice();
-  for (const k of VOICE_FILES) {
-    if (voice.buffers[k] !== undefined || !voice.ctx) continue;
-    voice.buffers[k] = null;
-    fetch(new URL(`audio/${k}.wav`, import.meta.url)).then(r => r.ok ? r.arrayBuffer() : Promise.reject())
-      .then(b => new Promise((res, rej) => voice.ctx.decodeAudioData(b, res, rej))).then(buf => { voice.buffers[k] = buf; })
-      .catch(() => { /* nessuna registrazione: voce sintetica */ });
-  }
 }
-function say(word) {
-  const buf = voice.buffers[word.toLowerCase()];
-  if (buf && voice.ctx) {
-    try { const src = voice.ctx.createBufferSource(); src.buffer = buf; src.connect(voice.ctx.destination); src.start(0); return; } catch { /* sotto: sintesi */ }
-  }
+function speak(word) {
   try {
     const u = new SpeechSynthesisUtterance(word + '!');
     if (voice.synth) u.voice = voice.synth;
@@ -675,6 +716,15 @@ function say(word) {
     if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
     speechSynthesis.speak(u);
   } catch { /* sintesi vocale non disponibile */ }
+}
+function say(word) {
+  const el = voice.els[word.toLowerCase()];
+  if (!el) return speak(word);
+  try {
+    el.muted = false; el.volume = 1; el.currentTime = 0;
+    const p = el.play();
+    if (p) p.catch(() => speak(word));
+  } catch { speak(word); }
 }
 // Il comando arriva quando sei a gambe tese e fermo da COMMAND_HOLD secondi (il giudizio poi
 // chiede 1 s di fermo prima della discesa: aspettando il comando ci si arriva sempre).

@@ -198,11 +198,13 @@ export function analyzeSquat(frames, width, height, cfg = SQUAT) {
     trail: 'H',
     focus: {
       a: 'H', b: 'K',
-      // linea del parallelo (all'altezza del ginocchio): il femore deve finire sotto
-      ref: i => H[i] && K[i] ? K[i].y + Math.tan(cfg.depthMinDeg * Math.PI / 180) * Math.abs(H[i].x - K[i].x) : null,
+      // niente linee di riferimento: conta il femore (anca–ginocchio) e il suo angolo col parallelo
       label: i => {
-        const o = femur[i] - cfg.depthMinDeg;
-        return !Number.isFinite(o) ? null : o >= cfg.depthBorderlineDeg ? ['PROFONDITÀ OK', false] : o >= 0 ? ['PROFONDITÀ AL LIMITE', false] : ['NON ROMPE IL PARALLELO', true];
+        const f = femur[i], o = f - cfg.depthMinDeg;
+        if (!Number.isFinite(f)) return null;
+        if (o >= cfg.depthBorderlineDeg) return [`FEMORE ${Math.round(f)}° SOTTO IL PARALLELO`, false];
+        if (o >= 0) return [`AL LIMITE: ${Math.max(1, Math.round(f))}° SOTTO IL PARALLELO`, false];
+        return f >= 0 ? ['FEMORE SUL PARALLELO', true] : [`FEMORE ${Math.max(1, Math.round(-f))}° SOPRA IL PARALLELO`, true];
       },
     },
     dropText: 'IL BILANCIERE SCENDE',

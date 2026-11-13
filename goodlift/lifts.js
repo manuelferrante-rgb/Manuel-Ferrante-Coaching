@@ -22,8 +22,8 @@ export const BENCH = {
   stillRatio: 0.035,                   // fermo: movimento massimo, in frazione del braccio
   elbowMinDeg: -3, elbowBorderlineDeg: 4, // gomito almeno all'altezza della spalla (provvisoria)
   dropRatio: 0.04, dropMinSec: 0.08,   // discesa del bilanciere durante la spinta
-  buttRiseRatio: 0.1,                  // il bacino non si alza più del 10% del busto (provvisoria)
-  feetRiseRatio: 0.1,                  // i piedi non si alzano più del 10% del busto (provvisoria)
+  buttRiseRatio: 0.15,                 // il bacino non si alza più del 15% del busto (provvisoria)
+  feetRiseRatio: 0.12,                 // i piedi non si alzano più del 12% del busto (provvisoria)
 };
 
 export const DEADLIFT = {
@@ -33,7 +33,7 @@ export const DEADLIFT = {
   liftRatio: 0.06,                     // il bilanciere si è staccato da terra
   topRatio: 0.05,                      // in chiusura: bilanciere vicino al punto più alto
   stillRatio: 0.025,
-  dropRatio: 0.02, dropMinSec: 0.08,
+  dropRatio: 0.03, dropMinSec: 0.1,
   shoulderTolRatio: 0.02,              // spalla al massimo così davanti al bilanciere (provvisoria)
 };
 
@@ -202,13 +202,21 @@ export function analyzeBench(frames, width, height, cfg = BENCH) {
       okText: d => `Fermo di ${fmt(d)} s in chiusura.`, failText: d => `Fermo di solo ${fmt(d)} s: serve 1 secondo prima del rack.`, edgeText: 'Il video finisce prima del secondo di fermo.' }));
     else checks.push({ id: 'lockout', label: 'Braccia tese', status: 'pass', detail: 'Braccia tese prima della ripetizione successiva.', t: [t[upIdx], t[upIdx]] });
 
-    // sedere e piedi: si confrontano con la posizione prima della discesa
+    // Sedere e piedi: dal secondo di fermo a braccia tese (con l'arco già impostato) fino alla
+    // chiusura devono restare giù. Il riferimento è la posizione durante quel fermo, quindi l'arco
+    // lombare non conta; conta solo un sollevamento vero, che dura almeno un quinto di secondo.
     const from = descStart >= 0 ? descStart : firstDown, to = upIdx >= 0 ? upIdx : repEnd;
+    const span = Math.max(1, Math.round(0.2 / dt));
     const riseOf = y => {
       const base = median(y.slice(Math.max(0, from - Math.round(0.6 / dt)), from + 1));
+      if (!Number.isFinite(base)) return null;
       let rise = 0, at = -1;
-      for (let i = from; i <= to; i++) if (Number.isFinite(y[i]) && base - y[i] > rise) { rise = base - y[i]; at = i; }
-      return Number.isFinite(base) ? { rise, at } : null;
+      for (let i = from; i + span - 1 <= to; i++) {
+        let low = -Infinity, ok = true;
+        for (let j = i; j < i + span; j++) { if (!Number.isFinite(y[j])) { ok = false; break; } low = Math.max(low, y[j]); }
+        if (ok && base - low > rise) { rise = base - low; at = i; }
+      }
+      return { rise, at };
     };
     const butt = b.visibility.H >= 0.5 ? riseOf(hy) : null;
     checks.push(!butt ? { id: 'butt', label: 'Sedere sempre sulla panca', status: 'unknown', detail: 'Non vedo bene il bacino.' }
@@ -253,9 +261,12 @@ export function analyzeDeadlift(frames, width, height, cfg = DEADLIFT) {
   const reps = [];
   let from = firstData;
   while (from >= 0 && from < t.length) {
-    const ls = firstFrom(bar, from, i => bar[i] < floor - cfg.liftRatio * body);
+    let ls = firstFrom(bar, from, i => bar[i] < floor - cfg.liftRatio * body);
     if (ls < 0) break;
     const lk = firstFrom(locked, ls, i => locked[i]);
+    // La tirata parte dall'ultimo istante in cui il bilanciere è a terra: i movimenti delle mani
+    // mentre ci si prepara (o un bilanciere che si stacca e si riappoggia) non sono "discese".
+    for (let i = (lk >= 0 ? lk : t.length - 1); i > ls; i--) if (onFloor[i]) { ls = i + 1; break; }
     let seen = 0; const stopAt = lk >= 0 ? lk : t.length - 1;
     for (let i = ls; i <= stopAt; i++) if (hasData[i]) seen++;
     // falso allarme (persona che esce dall'inquadratura, video senza nessuno): si ignora

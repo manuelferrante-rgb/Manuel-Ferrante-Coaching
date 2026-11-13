@@ -72,13 +72,15 @@ export function findCircle(gray, w, h, area, rMin, rMax) {
 export function trackPlate(frames, w, h, body, { minScore = 0.33 } = {}) {
   const out = frames.map(() => null);
   if (!frames.length || !(body > 0)) return out;
-  // 1) primo aggancio: il cerchio più netto vicino a dove ce lo aspettiamo, sui primi fotogrammi utili
+  // 1) primo aggancio: il cerchio più netto vicino a dove ce lo aspettiamo, provato su una dozzina
+  //    di fotogrammi sparsi (uno solo potrebbe essere mosso o coperto)
   let start = -1, found = null;
-  for (let i = 0; i < frames.length && start < 0; i++) {
-    const f = frames[i];
-    if (!f.seed || !f.gray) continue;
+  const cand = frames.map((f, i) => i).filter(i => frames[i].seed && frames[i].gray);
+  const stepK = Math.max(1, Math.floor(cand.length / 12));
+  for (let k = 0; k < cand.length; k += stepK) {
+    const i = cand[k], f = frames[i];
     const c = findCircle(f.gray, w, h, { x: f.seed.x, y: f.seed.y, r: 0.45 * body }, 0.07 * body, 0.24 * body);
-    if (c && c.score >= minScore) { start = i; found = c; }
+    if (c && c.score >= minScore && (!found || c.score > found.score)) { start = i; found = c; }
   }
   if (start < 0) return out;
   out[start] = found;
