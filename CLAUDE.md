@@ -58,6 +58,9 @@ Regole decise con Manuel (non cambiarle senza chiedere):
 - Trazioni: se il mento non si vede (ripresa da dietro o di tre quarti da dietro, testa coperta) si
   giudica "a impressione" da quanto le spalle arrivano vicino alle mani: valida con nota.
 - Durante l'analisi la schermata mostra già le ripetizioni trovate (chip provvisori).
+- Niente intelligenza artificiale online a pagamento per i casi difficili (decisione di Manuel,
+  novembre 2026: "per ora no"). Tutto resta nel telefono. Se il modello non trova il segmento che
+  conta (es. squat con busto coperto dai dischi: sbaglia l'anca), si spiega il perché.
 - Dettaglio non visibile → GOOD LIFT con nota. "Non riesco a giudicare" deve essere rarissimo.
 - Valida ma al limite → riquadro giallo "Da migliorare". No rep di poco → "No rep per poco" +
   "Come sistemarla". Mai i due insieme.
