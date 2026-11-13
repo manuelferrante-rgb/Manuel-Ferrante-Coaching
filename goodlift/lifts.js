@@ -20,7 +20,9 @@ export const BENCH = {
   downRatio: 0.3,                      // "è scesa": bilanciere sceso del 30% del braccio
   chestNearRatio: 0.06,                // al petto: entro il 6% del braccio dal punto più basso
   stillRatio: 0.035,                   // fermo: movimento massimo, in frazione del braccio
-  elbowMinDeg: -3, elbowBorderlineDeg: 4, // gomito almeno all'altezza della spalla (provvisoria)
+  // Gomito all'altezza della spalla: regola accessoria. Sdraiati la misura è meno precisa, quindi
+  // è no rep solo se il gomito resta chiaramente sopra la spalla; vicino alla soglia è "al limite".
+  elbowMinDeg: -3, elbowBorderlineDeg: 4, elbowFailDeg: -12,
   dropRatio: 0.04, dropMinSec: 0.08,   // discesa del bilanciere durante la spinta
   buttRiseRatio: 0.15,                 // il bacino non si alza più del 15% del busto (provvisoria)
   feetRiseRatio: 0.12,                 // i piedi non si alzano più del 12% del busto (provvisoria)
@@ -162,6 +164,7 @@ export function analyzeBench(frames, width, height, cfg = BENCH) {
   const hy = b.y(H);
   const foot = t.map((_, i) => (T[i] || A[i])?.y);
   const thr = cfg.stillRatio * arm;
+  const pauses = [];
 
   const judged = reps.map(({ desc: descStart, fd: firstDown, bottom, up: upIdx, end: repEnd }, k) => {
     const isFirst = k === 0, isLast = k === reps.length - 1;
@@ -181,16 +184,19 @@ export function analyzeBench(frames, width, height, cfg = BENCH) {
       ? { id: 'chestHold', label: 'Fermo al petto (1 s)', status: 'pass', detail: `Fermo di ${fmt(pause)} s al petto prima della spinta.`, t: [t[pa], t[pb] + dt] }
       : { id: 'chestHold', label: 'Fermo al petto (1 s)', status: 'fail', close: pause >= cfg.holdSec - cfg.holdToleranceSec - 0.25, detail: pause < 0.25 ? 'Nessun fermo al petto: il bilanciere rimbalza.' : `Fermo al petto di solo ${fmt(pause)} s: serve 1 secondo prima del press.`, t: [t[pa], t[pb] + dt] });
 
-    // gomito almeno all'altezza della spalla
+    pauses.push({ a: t[pa], b: t[pb] + dt, dur: pause });
+    const key = { start: descStart >= 0 ? t[descStart] : t[firstDown], focus: (t[pa] + t[pb]) / 2, end: upIdx >= 0 ? t[upIdx] : null };
+
+    // gomito almeno all'altezza della spalla (regola accessoria)
     let depth = -Infinity, depthIdx = bottom;
     for (let i = firstDown; i <= repEnd; i++) if ((Math.abs(t[i] - t[bottom]) <= 0.3 || (i >= pa && i <= pb)) && hum[i] > depth) { depth = hum[i]; depthIdx = i; }
-    const key = { start: descStart >= 0 ? t[descStart] : t[firstDown], focus: t[depthIdx], end: upIdx >= 0 ? t[upIdx] : null };
-    if (!Number.isFinite(depth)) return { unclear: 'Al petto non vedo bene spalla e gomito. Riprendi esattamente di lato, all\'altezza della panca.', checks, warnings, key };
     const over = depth - cfg.elbowMinDeg;
-    if (over >= 0) {
-      checks.push({ id: 'depth', label: 'Gomito all\'altezza della spalla', status: 'pass', detail: over < cfg.elbowBorderlineDeg ? 'Al limite: il gomito arriva appena all\'altezza della spalla.' : 'Il gomito scende all\'altezza della spalla.', t: [t[depthIdx], t[depthIdx]], value: depth });
-      if (over < cfg.elbowBorderlineDeg) warnings.push('Discesa al limite: un giudice severo potrebbe darla no rep.');
-    } else checks.push({ id: 'depth', label: 'Gomito all\'altezza della spalla', status: 'fail', close: -over < cfg.elbowBorderlineDeg, detail: 'Discesa corta: il gomito resta sopra la spalla.', t: [t[depthIdx], t[depthIdx]], value: depth });
+    if (!Number.isFinite(depth)) checks.push({ id: 'depth', label: 'Gomito all\'altezza della spalla', status: 'unknown', detail: 'Al petto non vedo bene spalla e gomito.' });
+    else if (over >= 0) checks.push({ id: 'depth', label: 'Gomito all\'altezza della spalla', status: 'pass', detail: 'Il gomito scende all\'altezza della spalla.', t: [t[depthIdx], t[depthIdx]], value: depth });
+    else if (depth >= cfg.elbowFailDeg) {
+      checks.push({ id: 'depth', label: 'Gomito all\'altezza della spalla', status: 'pass', detail: 'Al limite: il gomito arriva appena all\'altezza della spalla.', t: [t[depthIdx], t[depthIdx]], value: depth });
+      warnings.push('Gomito al limite: porta il bilanciere bene al petto.');
+    } else checks.push({ id: 'depth', label: 'Gomito all\'altezza della spalla', status: 'fail', close: depth >= cfg.elbowFailDeg - cfg.elbowBorderlineDeg, detail: 'Discesa corta: il gomito resta sopra la spalla.', t: [t[depthIdx], t[depthIdx]], value: depth });
 
     const drop = reversal(t, bar, pb, repEnd, cfg.dropRatio * arm, cfg.dropMinSec);
     checks.push(drop >= 0
@@ -233,9 +239,13 @@ export function analyzeBench(frames, width, height, cfg = BENCH) {
     path: { a: 'W', label: 'Traiettoria bilanciere' },
     trail: 'W',
     focus: {
-      a: 'S', b: 'E',
-      ref: i => S[i] && E[i] ? S[i].y + Math.tan(cfg.elbowMinDeg * Math.PI / 180) * Math.abs(E[i].x - S[i].x) : null,
-      label: i => { const o = hum[i] - cfg.elbowMinDeg; return !Number.isFinite(o) ? null : o >= cfg.elbowBorderlineDeg ? ['GOMITO OK', false] : o >= 0 ? ['GOMITO AL LIMITE', false] : ['GOMITO SOPRA LA SPALLA', true]; },
+      // la cosa che conta in panca: il fermo al petto
+      point: i => W[i] || null,
+      label: i => {
+        const p = pauses.find(q => t[i] >= q.a - 0.45 && t[i] <= q.b + 0.45);
+        if (!p) return null;
+        return p.dur >= cfg.holdSec - cfg.holdToleranceSec ? [`FERMO AL PETTO ${fmt(p.dur)} s`, false] : p.dur < 0.25 ? ['NESSUN FERMO AL PETTO', true] : [`FERMO AL PETTO SOLO ${fmt(p.dur)} s`, true];
+      },
     },
     dropText: 'IL BILANCIERE SCENDE',
   });

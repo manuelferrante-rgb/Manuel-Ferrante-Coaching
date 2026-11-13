@@ -168,10 +168,20 @@ function drawScan(canvas, lm) {
       squat: [['KNEE', 'H', 'K', 'A'], ['HIP', 'S', 'H', 'K']],
       stacco: [['HIP', 'S', 'H', 'K'], ['KNEE', 'H', 'K', 'A']],
       panca: [['ELBOW', 'S', 'E', 'W']],
-      trazioni: [['ELBOW', 'S', 'E', 'W']],
+      trazioni: [['ELBOW', 'S', 'E', 'W'], ['KNEE', 'H', 'K', 'A']],
       dip: [['ELBOW', 'S', 'E', 'W']],
-      muscleup: [['ELBOW', 'S', 'E', 'W'], ['KNEE', 'H', 'K', 'A']],
+      muscleup: [['KNEE', 'H', 'K', 'A'], ['ELBOW', 'S', 'E', 'W']],
     }[state.lift] || [];
+    // stacco: la spalla deve finire dietro il bilanciere (linea verticale del bilanciere = le mani)
+    if (state.lift === 'stacco' && (lm[id.S].visibility ?? 0) > 0.4 && (lm[id.W].visibility ?? 0) > 0.4) {
+      const toe = lm[left ? 31 : 32], heel = lm[left ? 29 : 30];
+      const facing = Math.sign(toe.x - heel.x) || 1;
+      const ahead = (lm[id.S].x - lm[id.W].x) * facing * vw;
+      const bx = lm[id.W].x * w;
+      ctx.save(); ctx.setLineDash([6 * dpr, 6 * dpr]); ctx.strokeStyle = 'rgba(245,245,240,.6)'; ctx.lineWidth = 1.2 * dpr;
+      ctx.beginPath(); ctx.moveTo(bx, 0); ctx.lineTo(bx, h); ctx.stroke(); ctx.restore();
+      tag(ctx, ahead > 0 ? 'SHOULDER IN FRONT' : 'SHOULDER BEHIND BAR', lm[id.S].x * w + 12 * dpr, lm[id.S].y * h, dpr);
+    }
     for (const [name, a, b, c] of TAGS) {
       const v = ang(a, b, c), p = lm[id[b]];
       if (Number.isFinite(v) && (p.visibility ?? 1) > 0.4) tag(ctx, `${name} ${Math.round(v)}°`, p.x * w + 12 * dpr, p.y * h, dpr);
@@ -622,8 +632,9 @@ function drawReplay(canvas, video, result, frames) {
     ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke(); ctx.restore();
   }
   if (near && F.point) { const p = F.point(i); if (p) { ctx.save(); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(p.x * sx, p.y * sy, 6 * dpr, 0, Math.PI * 2); ctx.fill(); ctx.restore(); } }
-  if (lab && (A || B)) {
-    const ref = A && B ? { x: Math.min(A.x, B.x), y: Math.max(A.y, B.y) } : (A || B);
+  const pt0 = near && F.point ? F.point(i) : null;
+  if (lab && (A || B || pt0)) {
+    const ref = A && B ? { x: Math.min(A.x, B.x), y: Math.max(A.y, B.y) } : (A || B || { x: pt0.x * sx, y: pt0.y * sy });
     tag(ctx, lab[0], Math.max(8 * dpr, Math.min(ref.x, w - 200 * dpr)), Math.min(h - 20 * dpr, ref.y + 26 * dpr), dpr, col);
   }
 }
