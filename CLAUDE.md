@@ -80,3 +80,22 @@ Regole decise con Manuel (non cambiarle senza chiedere):
   convertire i video in webm VP9 con ffmpeg. I video in `videos/` sono clip montate del sito,
   spesso non di lato: non vanno bene per tarare le soglie (servono video veri di Manuel, di lato,
   validi e no rep).
+
+## Lavoro in corso (novembre 2026): squat con busto coperto dai dischi
+
+Manuel vuole che alzate come lo squat di Jasmin (`videos/jasmin-squat-200kg.mp4`: busto e testa
+coperti dai dischi, femore ben visibile, chiaramente sotto il parallelo) siano giudicabili.
+"Non puoi non giudicare per una cosa che non influenza il giudizio": vale per tutte le alzate.
+- Problema verificato: MediaPipe (BlazePose) trova la persona partendo da faccia e busto. Coperti
+  quelli, sbaglia anca e ginocchio a caso (provato con 5 varianti per fotogramma: femore da -89° a
+  +59° sullo stesso fotogramma). Non è un problema di soglie.
+- Piano: provare un modello che trova le articolazioni una per una e regge le parti coperte
+  (RTMPose / RTMO di OpenMMLab in ONNX, con onnxruntime-web nel browser; detector di persona tipo
+  YOLOX-nano o RTMDet-nano). Prima verificare in Python (onnxruntime) sui fotogrammi di Jasmin che
+  anca e ginocchio siano giusti; solo dopo integrarlo in GoodLift come "secondo occhio" quando
+  MediaPipe non trova anca/ginocchio affidabili (o al posto suo, se è migliore e veloce).
+  Idea di Manuel: partire da caviglia e ginocchio (visibili) per arrivare all'anca.
+- Per scaricare i modelli serve l'ambiente cloud "manuel-ferrante-coaching" (creato apposta, con
+  download.openmmlab.com e huggingface.co aperti). La sessione vecchia non poteva spostarsi lì.
+- Niente servizi online a pagamento (decisione di Manuel): tutto deve girare nel telefono.
+
