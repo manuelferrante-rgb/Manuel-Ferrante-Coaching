@@ -51,8 +51,13 @@ Regole decise con Manuel (non cambiarle senza chiedere):
 - Si giudica da qualsiasi lato, anche da davanti (tutte le alzate). Da davanti profondità di squat,
   dip e panca si misurano col dislivello verticale rapportato alla lunghezza del segmento; quello che
   non si vede (es. spalla dietro il bilanciere nello stacco) diventa nota, non "non riesco".
-- In palestra ci sono giudici/spotter: l'analisi cerca fino a 3 persone per fotogramma (modello in
-  modalità IMAGE, che le ritrova ogni volta) e pickPerson sceglie la traccia che fa l'alzata.
+- In palestra ci sono giudici/spotter: l'analisi parte cercando fino a 3 persone per fotogramma
+  (modello in modalità IMAGE) e pickPerson sceglie la traccia che fa l'alzata. Se nei primi 6
+  fotogrammi c'è una persona sola, passa subito alla modalità veloce (VIDEO, 1 persona): la ricerca
+  non deve allungare l'analisi quando non serve.
+- Trazioni: se il mento non si vede (ripresa da dietro o di tre quarti da dietro, testa coperta) si
+  giudica "a impressione" da quanto le spalle arrivano vicino alle mani: valida con nota.
+- Durante l'analisi la schermata mostra già le ripetizioni trovate (chip provvisori).
 - Dettaglio non visibile → GOOD LIFT con nota. "Non riesco a giudicare" deve essere rarissimo.
 - Valida ma al limite → riquadro giallo "Da migliorare". No rep di poco → "No rep per poco" +
   "Come sistemarla". Mai i due insieme.

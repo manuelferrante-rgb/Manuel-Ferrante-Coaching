@@ -97,6 +97,11 @@ export function analyzeSquat(frames, width, height, cfg = SQUAT) {
       return !(hi + lo) || hi >= lo;
     });
   if (!reps.length) {
+    // l'anca scende e sale ma le ginocchia "non si piegano": il modello non vede bene le gambe
+    const hy = bar.filter(Number.isFinite).sort((a, b) => a - b);
+    if (hy.length && hy[Math.floor(0.95 * (hy.length - 1))] - hy[Math.floor(0.05 * (hy.length - 1))] > 0.08 * bodyLen) {
+      return unclear('Vedo che scendi e risali, ma dischi, rack o barre di sicurezza coprono anca e ginocchio e non riesco a vedere la profondità. Riprendi un po\' più da lontano, con tutto il corpo (anche la testa) nell\'inquadratura.');
+    }
     return unclear('Non ho visto uno squat: le ginocchia non si piegano abbastanza. Controlla di aver caricato il video giusto.');
   }
   const COVERED = 'Nel punto più basso anca e ginocchio sono coperti (dischi, rack o altre persone). Riprendi esattamente di lato, con il telefono all\'altezza dell\'anca.';

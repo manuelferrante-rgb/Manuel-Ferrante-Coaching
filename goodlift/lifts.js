@@ -50,6 +50,8 @@ export const PULLUP = {
   chinBelowMouth: 1.0,                 // mento ≈ bocca + 1× (bocca − naso) in verticale
   barAboveWristRatio: 0.06,            // la sbarra sta un po' sopra il polso (presa)
   chinMarginRatio: 0,                  // quanto il mento deve superare la sbarra (provvisoria)
+  chinGuessOkRatio: 0.4,               // mento non visibile: spalle entro 0,4 braccia sotto le mani = valida (provvisoria)
+  chinGuessFailRatio: 0.5,             // oltre 0,5 braccia = no rep a impressione (provvisoria)
 };
 
 export const DIP = {
@@ -100,6 +102,9 @@ function prepare(frames, width, height, lift, need) {
     return l && r && l.visibility > 0.6 && r.visibility > 0.6 ? Math.abs(l.x - r.x) * width : NaN;
   }));
   b.frontal = shoulderSpread > 0.45 * b.torso;
+  // da dietro la spalla sinistra sta a sinistra nell'immagine (da davanti a destra): la faccia non si vede
+  const lr = median(frames.map(f => f.lm && f.lm[11].visibility > 0.6 && f.lm[12].visibility > 0.6 ? (f.lm[11].x - f.lm[12].x) * width : NaN));
+  b.fromBehind = lr < -0.2 * b.torso; // anche di tre quarti da dietro
   return b;
 }
 
@@ -406,7 +411,7 @@ export function analyzePullup(frames, width, height, cfg = PULLUP) {
   const barY = median(b.y(W)) - cfg.barAboveWristRatio * arm;
   const chin = t.map((_, i) => M[i] && N[i] ? M[i].y + cfg.chinBelowMouth * Math.max(0, M[i].y - N[i].y) : N[i] ? N[i].y + 0.12 * arm : NaN);
   const thigh = t.map((_, i) => H[i] && K[i] ? deg(Math.atan2(K[i].x - H[i].x, K[i].y - H[i].y)) : NaN);
-  const margins = [];
+  const margins = [], guessed = [];
 
   const judged = reps.map(({ desc: hangStart, fd: pullStart, bottom: topIdx, up: downIdx }, k) => {
     const checks = [], warnings = [];
@@ -425,13 +430,30 @@ export function analyzePullup(frames, width, height, cfg = PULLUP) {
     let best = Infinity, chinIdx = topIdx;
     for (let i = pullStart; i < t.length && (downIdx < 0 || i <= downIdx); i++) if (Math.abs(t[i] - t[topIdx]) <= 0.3 && chin[i] < best) { best = chin[i]; chinIdx = i; }
     const key = { start: hangStart >= 0 ? t[hangStart] : t[pullStart], focus: t[chinIdx], end: downIdx >= 0 ? t[downIdx] : null };
-    if (!Number.isFinite(best)) return { unclear: 'In alto non vedo bene la testa. Riprendi di lato, con la sbarra e la testa nell\'inquadratura.', checks, warnings, key };
+    // Mento non visibile (ripresa da dietro, testa fuori o coperta): si giudica a impressione da
+    // quanto le spalle arrivano vicino alle mani. Mento alla sbarra ≈ spalle sotto le mani di circa
+    // un quarto di braccio. Valida con nota; no rep solo se le spalle restano chiaramente basse.
+    if (b.fromBehind || !Number.isFinite(best)) {
+      let rel = Infinity, at = topIdx;
+      for (let i = pullStart; i < t.length && (downIdx < 0 || i <= downIdx); i++) {
+        if (Math.abs(t[i] - t[topIdx]) > 0.3 || !S[i] || !W[i]) continue;
+        const r = (S[i].y - W[i].y) / arm; if (r < rel) { rel = r; at = i; }
+      }
+      key.focus = t[at];
+      guessed.push({ a: t[at] - 0.45, b: t[at] + 0.45, ok: rel <= cfg.chinGuessFailRatio });
+      if (!Number.isFinite(rel)) checks.push({ id: 'chin', label: 'Mento sopra la sbarra', status: 'unknown', detail: 'In alto non vedo né la testa né le spalle.' });
+      else if (rel <= cfg.chinGuessOkRatio) checks.push({ id: 'chin', label: 'Mento sopra la sbarra', status: 'pass', detail: 'Il mento non si vede bene, ma a impressione supera la sbarra: le spalle arrivano vicino alle mani.', t: [t[at], t[at]] });
+      else if (rel <= cfg.chinGuessFailRatio) checks.push({ id: 'chin', label: 'Mento sopra la sbarra', status: 'pass', detail: 'Al limite: il mento non si vede bene e a impressione arriva appena alla sbarra.', t: [t[at], t[at]] });
+      else checks.push({ id: 'chin', label: 'Mento sopra la sbarra', status: 'fail', close: rel <= cfg.chinGuessFailRatio + 0.1, detail: 'Il mento non si vede bene, ma le spalle restano lontane dalle mani: a impressione il mento non supera la sbarra.', t: [t[at], t[at]] });
+      warnings.push('Il mento non si vede bene nel video (ripresa da dietro o testa coperta): il giudizio sul mento è a impressione. Per un giudizio sicuro riprendi di lato, con la testa nell\'inquadratura.');
+    } else {
     const margin = barY - best; // positivo = mento sopra la sbarra
     margins.push(margin);
     checks.push(margin >= cfg.chinMarginRatio * arm
       ? { id: 'chin', label: 'Mento sopra la sbarra', status: 'pass', detail: margin < 0.04 * arm ? 'Al limite: il mento arriva appena sopra la sbarra.' : 'Il mento supera la sbarra.', t: [t[chinIdx], t[chinIdx]], value: margin / arm }
       : { id: 'chin', label: 'Mento sopra la sbarra', status: 'fail', close: margin > -0.04 * arm, detail: 'Il mento non supera la sbarra.', t: [t[chinIdx], t[chinIdx]], value: margin / arm });
     if (margin >= 0 && margin < 0.04 * arm) warnings.push('Mento al limite: un giudice severo potrebbe darla no rep.');
+    }
 
     // giù a braccia tese: tra il ritorno in basso e la tirata successiva
     const ext = downIdx < 0 ? -1 : firstFrom(hang, downIdx, i => hang[i] && i < nextPull(k));
@@ -450,7 +472,12 @@ export function analyzePullup(frames, width, height, cfg = PULLUP) {
     trail: 'S',
     focus: {
       a: 'M', b: 'N', hline: () => barY, point: i => Number.isFinite(chin[i]) && M[i] ? { x: M[i].x, y: chin[i] } : null,
-      label: i => { const m = barY - chin[i]; return !Number.isFinite(m) ? null : m >= cfg.chinMarginRatio * arm ? ['MENTO SOPRA LA SBARRA', false] : ['MENTO SOTTO LA SBARRA', true]; },
+      label: i => {
+        const g = guessed.find(q => t[i] >= q.a && t[i] <= q.b);
+        if (g) return g.ok ? ['MENTO SOPRA (A IMPRESSIONE)', false] : ['MENTO SOTTO (A IMPRESSIONE)', true];
+        if (b.fromBehind) return null;
+        const m = barY - chin[i]; return !Number.isFinite(m) ? null : m >= cfg.chinMarginRatio * arm ? ['MENTO SOPRA LA SBARRA', false] : ['MENTO SOTTO LA SBARRA', true];
+      },
     },
   });
 }

@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Manuel Ferrante Coaching — AGPL-3.0-or-later (vedi LICENSE).
 import { FilesetResolver, PoseLandmarker } from './vendor/mediapipe/vision_bundle.js';
 import { LIFTS, LM, SQUAT } from './engine.js';
-import { pickPerson } from './core.js';
+import { pickPerson, countPeople } from './core.js';
 import { trackPlate } from './plates.js';
 
 const $ = id => document.getElementById(id);
@@ -231,8 +231,9 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
   const modelP = getModel('heavy').then(async m => {
     // In palestra ci sono quasi sempre altre persone (giudici, spotter): si cercano fino a 3 persone
     // e poi pickPerson sceglie chi fa l'alzata. Con una sola, il modello può agganciare un giudice.
-    const want = 3;
-    if (m.__numPoses !== want) { await m.setOptions({ numPoses: want }); m.__numPoses = want; }
+    // Si parte cercando tutti (modalità immagine); se nei primi fotogrammi c'è una persona sola si
+    // passa subito alla modalità veloce (samplePlaying).
+    if (m.__numPoses !== 3 || m.__mode !== 'IMAGE') { await m.setOptions({ runningMode: 'IMAGE', numPoses: 3 }); m.__numPoses = 3; m.__mode = 'IMAGE'; }
     return m;
   });
   modelP.catch(() => {});
@@ -252,10 +253,26 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
   // Un solo giro sul video. Il video scorre (molto più veloce che saltare da un fotogramma
   // all'altro, soprattutto su iPhone) e la velocità si adatta: veloce quando sei fermo o non
   // c'è nessuno, più lento quando ti muovi, così l'alzata ha sempre ~12 fotogrammi al secondo.
-  const onPose = (t, poses) => {
+  // Mentre analizza, mostra già quello che trova: le ripetizioni viste finora e com'erano.
+  let lastPartial = -Infinity, lastHtml = '';
+  const partial = frames => {
+    try {
+      const raw = frames.filter((f, i) => i === 0 || f.t > frames[i - 1].t + 1e-4);
+      const r = LIFTS[state.lift].analyze(pickPerson(raw, state.lift, vw, vh), vw, vh);
+      const reps = r.reps || (r.verdict !== 'unclear' && r.key ? [{ n: 1, verdict: r.verdict }] : []);
+      if (!reps.length) return;
+      const ok = reps.filter(x => x.verdict === 'good').length;
+      const html = `<p class="sum">Finora: ${reps.length} ${reps.length === 1 ? 'ripetizione' : 'ripetizioni'} · ${ok} ${ok === 1 ? 'valida' : 'valide'} (provvisorio)</p>`
+        + reps.map(x => `<span class="rep ${x.verdict}">${x.n}º</span>`).join('');
+      if (html !== lastHtml) { $('scan-reps').innerHTML = html; lastHtml = html; } // si aggiorna solo se cambia
+    } catch { /* risultato parziale non disponibile */ }
+  };
+  $('scan-reps').innerHTML = '';
+  const onPose = (t, poses, frames) => {
     const lm = pickPerson([{ t: 0, poses }], state.lift, vw, vh)[0].lm;
     if (lm) lastLm = lm;
     setPct(100 * Math.min(1, (t - win[0]) / Math.max(0.01, win[1] - win[0])));
+    if (frames && t - lastPartial >= 0.8 && frames.length >= 10) { lastPartial = t; partial(frames); }
     return lm;
   };
   const gone = () => document.body.dataset.screen !== 'scan';
@@ -331,6 +348,10 @@ async function samplePlaying(video, model, from, to, onPose, gone) {
   return new Promise(resolve => {
     const frames = [];
     let lastT = -1, cost = 0.06, stillFor = 0, prev = null, done = false, rate = 1;
+    // Più persone? Si guarda nei primi fotogrammi: se c'è solo l'atleta, la ricerca di altre persone
+    // si spegne e l'analisi va veloce (il modello segue l'atleta da un fotogramma all'altro).
+    const probe = { left: 6, one: 0, many: false, switching: false };
+    state.people = { probe };
     const ids = MOVER[state.lift] || [23, 24];
     const finish = ok => { if (done) return; done = true; video.pause(); video.playbackRate = 1; resolve(ok ? frames : null); };
     const onFrame = (_, meta) => {
@@ -344,7 +365,12 @@ async function samplePlaying(video, model, from, to, onPose, gone) {
         try { poses = toPoses(detect(model, video)); } catch (e) { console.warn(e); }
         cost = 0.7 * cost + 0.3 * (performance.now() - c0) / 1000;
         frames.push({ t, poses, gray: grabGray(video) });
-        const lm = onPose(t, poses);
+        if (probe.left > 0 && model.__mode === 'IMAGE') {
+          const n = countPeople(poses, video.videoWidth, video.videoHeight);
+          if (n > 1) probe.many = true; else if (n === 1) probe.one++;
+          if (--probe.left === 0 && !probe.many && probe.one >= 4) probe.switching = true;
+        }
+        const lm = onPose(t, poses, frames);
         // fermo o assente → si va più veloce; in movimento → ~12 fotogrammi al secondo
         const y = lm ? (lm[ids[0]].y + lm[ids[1]].y) / 2 : null;
         const moving = y != null && prev != null && Math.abs(y - prev) / Math.max(1e-3, t - lastT) > 0.05;
@@ -353,6 +379,15 @@ async function samplePlaying(video, model, from, to, onPose, gone) {
         const base = Math.max(0.25, Math.min(2, 0.85 * STEP / cost));
         const want = stillFor > 0.6 ? Math.min(2, base * 2.5) : base;
         if (Math.abs(want - rate) / rate > 0.12) { rate = want; video.playbackRate = rate; }
+      }
+      if (probe.switching) {
+        probe.switching = false;
+        video.pause();
+        model.setOptions({ runningMode: 'VIDEO', numPoses: 1 })
+          .then(() => { model.__mode = 'VIDEO'; model.__numPoses = 1; state.people.single = true; })
+          .catch(e => console.warn(e))
+          .finally(() => { if (done) return; video.requestVideoFrameCallback(onFrame); video.play().catch(() => finish(false)); });
+        return;
       }
       video.requestVideoFrameCallback(onFrame);
     };
@@ -372,7 +407,7 @@ async function sampleSeeking(video, model, from, to, total, onPose, gone) {
     let poses = [];
     try { poses = toPoses(detect(model, video)); } catch (e) { console.warn(e); }
     frames.push({ t: video.currentTime, poses, gray: grabGray(video) });
-    onPose(video.currentTime, poses);
+    onPose(video.currentTime, poses, frames);
   }
   return frames;
 }

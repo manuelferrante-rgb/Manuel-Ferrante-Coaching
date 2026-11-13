@@ -165,6 +165,8 @@
   .rep.good{color:var(--accent)}.rep.norep{color:var(--red)}.rep.unclear{color:var(--grey)}
   .rep sup{font-size:.62em;margin-left:1px;text-decoration:underline;text-underline-offset:2px;align-self:flex-start;margin-top:1px}
   .rep .ri{margin-left:4px;font-size:.9em}
+  .scan-reps .rep{cursor:default;animation:pop .3s ease-out}
+  @keyframes pop{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
   .rep.sel{border-color:currentColor;box-shadow:0 0 0 1px currentColor inset}
   .result-actions{display:grid;gap:10px;margin-top:22px}
   .btn{display:block;text-align:center;padding:16px;border-radius:14px;font-weight:600;font-size:16px;text-decoration:none;border:1px solid var(--border);background:var(--bg2)}
@@ -255,6 +257,7 @@
     <div class="stage xray" id="scan-stage"><video id="scan-video" playsinline muted></video><canvas id="scan-canvas"></canvas></div>
     <div class="progress"><i id="scan-bar"></i></div>
     <div class="scan-text"><span id="scan-label">Preparo il giudice…</span><span id="scan-pct"></span></div>
+    <div class="reps scan-reps" id="scan-reps" aria-live="polite"></div>
     <p class="error" id="scan-error"></p>
   </section>
 

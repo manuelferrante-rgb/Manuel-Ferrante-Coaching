@@ -152,6 +152,28 @@ export function unclear(message, lift = 'squat') {
 }
 
 
+// A volte il modello trova la stessa persona due volte (scheletri quasi sovrapposti): si tiene il migliore.
+function dedupe(cs) {
+  const out = [];
+  for (const c of [...cs].sort((a, b) => b.score - a.score)) {
+    // stessa persona: quasi nello stesso punto e della stessa grandezza (chi passa davanti è più grande)
+    const same = o => Math.hypot(o.cx - c.cx, o.cy - c.cy) < 0.2 * Math.min(o.size, c.size) && Math.max(o.size, c.size) < 1.25 * Math.min(o.size, c.size);
+    if (!out.some(same)) out.push(c);
+  }
+  return out;
+}
+// Quante persone diverse ci sono in un fotogramma (per decidere se serve cercarne più di una).
+export function countPeople(poses, width = 1, height = 1) {
+  const cs = poses.map(lm => {
+    const pts = [11, 12, 23, 24, 25, 26].map(i => lm[i]).filter(p => (p.visibility ?? 1) > 0.3);
+    if (pts.length < 3) return null;
+    const xs = pts.map(p => p.x * width), ys = pts.map(p => p.y * height);
+    return { score: pts.length, size: Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)),
+      cx: xs.reduce((a, v) => a + v, 0) / xs.length, cy: ys.reduce((a, v) => a + v, 0) / ys.length };
+  }).filter(Boolean);
+  return dedupe(cs).length;
+}
+
 // In palestra spesso nell'inquadratura c'è più di una persona (giudici, spotter, chi passa).
 // Il modello ne trova fino a 3 per fotogramma; qui si sceglie l'atleta e lo si segue nel tempo.
 // L'atleta non è per forza il più grande o il più vicino al telefono (un giudice davanti lo è):
@@ -182,7 +204,7 @@ export function pickPerson(frames, lift, width = 1, height = 1) {
     const my = lift === 'panca' || lift === 'stacco' ? wy : (sy + hy) / 2;
     return { lm, score: size * vis * pose, size, cx: (sx + hx) / 2, cy: (sy + hy) / 2, my };
   };
-  const cands = frames.map(f => (f.poses || (f.lm ? [f.lm] : [])).map(info).filter(Boolean));
+  const cands = frames.map(f => dedupe((f.poses || (f.lm ? [f.lm] : [])).map(info).filter(Boolean)));
   // tracce: ogni persona si collega a quella più vicina del fotogramma prima (anche con buchi brevi)
   const tracks = [];
   cands.forEach((cs, i) => {
