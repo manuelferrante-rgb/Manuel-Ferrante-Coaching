@@ -281,7 +281,10 @@ export function pickPerson(frames, lift, width = 1, height = 1) {
 // Valido per tutte le alzate: per trazioni e muscle up "giù" vuol dire "su" (lontano dalla partenza).
 // isReal(rep) scarta i falsi allarmi: per esempio la persona che esce dall'inquadratura
 // dopo l'ultima ripetizione, o il video che continua senza nessuno.
-export function findReps(n, downAt, locked, deeper, isReal = () => true) {
+// level(i) (facoltativo): quanto è "giù" nel fotogramma i (più grande = più giù), t: i tempi.
+// Servono a riconoscere la fine serie: l'ultima "ripetizione" che scende e non prova più a risalire
+// mentre il video continua (si scende dalle parallele, si lascia il bilanciere) non è una ripetizione.
+export function findReps(n, downAt, locked, deeper, isReal = () => true, level = null, t = null) {
   const reps = [];
   let from = 0, prevUp = -1;
   while (from < n) {
@@ -301,7 +304,15 @@ export function findReps(n, downAt, locked, deeper, isReal = () => true) {
   }
   // il video parte nel punto più profondo di una ripetizione già in corso: quel pezzo non si giudica
   if (reps.length > 1 && reps[0].desc < 0 && reps[0].bottom - reps[0].fd <= 2) reps.shift();
-  return reps.filter(isReal);
+  const pushed = ({ desc, fd, bottom, up }) => {
+    if (up >= 0 || !level || !t || t[n - 1] - t[bottom] < 1.0) return true; // chiusa, o il video finisce subito
+    const from = desc >= 0 ? desc : fd, drop = level(bottom) - level(from);
+    if (!(drop > 0)) return true;
+    let high = level(bottom);
+    for (let i = bottom + 1; i < n; i++) { const v = level(i); if (Number.isFinite(v)) high = Math.min(high, v); }
+    return level(bottom) - high >= 0.3 * drop; // ha provato a risalire: è una ripetizione (magari no rep)
+  };
+  return reps.filter(r => pushed(r) && isReal(r));
 }
 
 // Mette insieme il verdetto. Una ripetizione: come in gara. Più ripetizioni: ognuna ha il suo

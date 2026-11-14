@@ -86,6 +86,13 @@ Regole decise con Manuel (non cambiarle senza chiedere):
   standard, semplice e veloce; correzioni in più solo quando servono. Giacomo trazioni ora valida.
 - Prova senza browser: salvare `state.raw` (poses per fotogramma) da `?debug&nosecond` e
   rifare pickPerson + analyze in Node: stesso input, confronto vecchio/nuovo deterministico.
+- Fine serie (Manuel l'ha chiesto più volte, per tutte le alzate): quello che succede dopo l'ultima
+  ripetizione NON è una ripetizione. Dip e trazioni: nelle ripetizioni vere i polsi restano fermi in
+  presa (spostamento ~0,01 del braccio); se si spostano più di 0,15 del braccio tra partenza e punto
+  chiave non è una ripetizione (video di Manuel: piedi a terra, lascia le parallele, si piega a
+  sganciare il disco → prima contava una 4ª no rep). Squat, panca, dip: l'ultima "ripetizione" che
+  scende e non prova più a risalire (meno del 30%) mentre il video continua almeno 1 s non conta.
+  Provate e scartate (sbagliavano su video veri): anca/caviglie che devono seguire le spalle.
 - Dettaglio non visibile → GOOD LIFT con nota. "Non riesco a giudicare" deve essere rarissimo.
 - Valida ma al limite → riquadro giallo "Da migliorare". No rep di poco → "No rep per poco" +
   "Come sistemarla". Mai i due insieme.
@@ -99,7 +106,8 @@ Regole decise con Manuel (non cambiarle senza chiedere):
 
 ## Prove
 
-- `node goodlift/tests/squat.test.mjs` (test sintetici, devono passare tutti).
+- `node goodlift/tests/squat.test.mjs` e `node goodlift/tests/fine-serie.test.mjs` (devono passare
+  tutti). Il secondo contiene anche lo scheletro del dip vero di Manuel (`tests/fixtures/`).
 - Server locale: `python3 -m http.server 8933` dalla radice; `?debug&delegate=CPU` nell'indirizzo
   (il modello heavy su GPU va in timeout nella sandbox). Chromium della sandbox non legge H.264:
   convertire i video in webm VP9 con ffmpeg. I video in `videos/` sono clip montate del sito,

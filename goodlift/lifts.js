@@ -166,6 +166,18 @@ const handsOn = (t, ok, at) => {
   return !seen || 2 * good >= seen;
 };
 const both = (f, g) => r => f(r) && g(r);
+// Ripetizione vera a dip e trazioni: le mani restano in presa, i polsi non si spostano (nei video
+// veri meno di un centesimo del braccio). A fine serie (piedi a terra, mani lasciate, ci si piega a
+// sganciare il disco o si scende dalla sbarra) le spalle si muovono ma i polsi si staccano.
+const handsStill = b => {
+  const wy = b.y(b.series.W);
+  return ({ desc, fd, bottom }) => {
+    const from = desc >= 0 ? desc : Math.max(0, fd - 3);
+    const ref = wy[from]; if (!Number.isFinite(ref)) return true;
+    for (let i = from; i <= bottom; i++) if (Number.isFinite(wy[i]) && Math.abs(wy[i] - ref) > 0.15 * b.arm) return false;
+    return true;
+  };
+};
 const firstFrom = (arr, from, cond) => { for (let i = Math.max(0, from); i < arr.length; i++) if (cond(i)) return i; return -1; };
 const lastBefore = (from, cond) => { for (let i = from; i >= 0; i--) if (cond(i)) return i; return -1; };
 
@@ -183,7 +195,7 @@ export function analyzeBench(frames, width, height, cfg = BENCH) {
   const locked = t.map((_, i) => elbow[i] >= lockElb && bar[i] <= top + cfg.topRatio * arm);
   const reps = findReps(t.length, i => bar[i] > top + cfg.downRatio * arm, locked, (i, j) => bar[i] > (bar[j] ?? -Infinity),
     // al petto il bilanciere è sopra la spalla; a braccia lungo i fianchi (riposo) no
-    both(bentArms(b, hasData), ({ bottom }) => handsOn(t, i => W[i] && S[i] ? W[i].y <= S[i].y + 0.15 * arm : null, bottom)));
+    both(bentArms(b, hasData), ({ bottom }) => handsOn(t, i => W[i] && S[i] ? W[i].y <= S[i].y + 0.15 * arm : null, bottom)), i => bar[i], t);
   if (!reps.length) return unclear('Non ho visto una panca completa: il bilanciere non scende al petto e risale. Riprendi tutta l\'alzata, fino alle braccia tese, con il telefono all\'altezza della panca.', 'panca');
   // gomito rispetto alla spalla: di lato l'angolo del braccio; da davanti (piedi o testa) conta
   // il dislivello gomito-spalla, rapportato alla lunghezza del braccio
@@ -380,7 +392,8 @@ function hangPhases(b, cfg, allowAbove = false) {
     : bentArms(b, hasData);
   const grip = median(wy.filter((_, i) => hang[i])); // le mani sulla sbarra
   const onBar = ({ bottom }) => !Number.isFinite(grip) || handsOn(t, i => Number.isFinite(wy[i]) ? Math.abs(wy[i] - grip) <= 0.3 * arm : null, bottom);
-  const reps = findReps(t.length, pulled, low, (i, j) => rel[i] < (rel[j] ?? Infinity), both(real, onBar));
+  // mani ferme in presa solo a trazioni (nel muscle up i polsi ruotano sopra la sbarra)
+  const reps = findReps(t.length, pulled, low, (i, j) => rel[i] < (rel[j] ?? Infinity), allowAbove ? both(real, onBar) : both(both(real, onBar), handsStill(b)));
   return { sy, hang, low, reps };
 }
 
@@ -499,7 +512,7 @@ export function analyzeDip(frames, width, height, cfg = DIP) {
   const locked = t.map((_, i) => elbow[i] >= lockElb && sy[i] <= top + cfg.topRatio * arm);
   const wy = b.y(W), grip = median(wy.filter((_, i) => locked[i])); // le mani sulle parallele
   const onBars = ({ bottom }) => !Number.isFinite(grip) || handsOn(t, i => Number.isFinite(wy[i]) ? Math.abs(wy[i] - grip) <= 0.3 * arm : null, bottom);
-  const reps = findReps(t.length, i => sy[i] > top + cfg.downRatio * arm, locked, (i, j) => sy[i] > (sy[j] ?? -Infinity), both(bentArms(b, hasData), onBars));
+  const reps = findReps(t.length, i => sy[i] > top + cfg.downRatio * arm, locked, (i, j) => sy[i] > (sy[j] ?? -Infinity), both(both(bentArms(b, hasData), onBars), handsStill(b)), i => sy[i], t);
   if (!reps.length) return unclear('Non ho visto un dip: le spalle non scendono abbastanza. Riprendi con le parallele nell\'inquadratura.', 'dip');
   // spalla rispetto al gomito: di lato l'angolo del braccio; da davanti il braccio va indietro
   // e conta solo il dislivello spalla-gomito, rapportato alla lunghezza del braccio

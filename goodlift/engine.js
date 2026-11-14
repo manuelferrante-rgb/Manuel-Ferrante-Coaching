@@ -97,7 +97,7 @@ export function analyzeSquat(frames, width, height, cfg = SQUAT) {
       let hi = 0, lo = 0;
       for (let i = 0; i < t.length; i++) if (Math.abs(t[i] - t[bottom]) <= 0.15 && W[i] && H[i]) { if (W[i].y < H[i].y) hi++; else lo++; }
       return !(hi + lo) || hi >= lo;
-    });
+    }, i => bar[i], t);
   if (!reps.length) {
     // l'anca scende e sale ma le ginocchia "non si piegano": il modello non vede bene le gambe
     const hy = bar.filter(Number.isFinite).sort((a, b) => a - b);
