@@ -418,8 +418,13 @@ export function detectLift(frames, width = 1, height = 1) {
         lying: Math.abs(S.x - H.x) > 1.3 * Math.abs(S.y - H.y) || Math.abs(lm[11].x - lm[12].x) * width > 1.3 * torso });
     }
     const arm = median(fs.map(f => f.arm)) || 1, torso = median(fs.map(f => f.torso)) || 1;
-    const frac = cond => fs.length ? fs.filter(cond).length / fs.length : 0;
-    return { fs, arm, torso, frac, n: fs.length };
+    // l'atleta è chi fa il movimento dell'alzata: un giudice o uno spotter fermo non la fa.
+    // Si misura quanto si sposta in verticale il punto che si muove in quell'alzata.
+    const span = key => { const v = fs.map(f => f[key].y).sort((a, b) => a - b); return v.length > 4 ? v[Math.floor(0.9 * (v.length - 1))] - v[Math.floor(0.1 * (v.length - 1))] : 0; };
+    const need = { squat: [['H'], 0.25], panca: [['W'], 0.25], stacco: [['W', 'H'], 0.15], trazioni: [['S'], 0.3], muscleup: [['S'], 0.3], dip: [['S'], 0.2] }[lift];
+    const moves = Math.max(...need[0].map(span)) >= need[1] * arm;
+    const frac = cond => fs.length && moves ? fs.filter(cond).length / fs.length : 0;
+    return { fs, arm, torso, frac, n: fs.length, moves };
   };
   const pan = look('panca'), pull = look('trazioni'), mu = look('muscleup'), sq = look('squat'), dp = look('dip'), st = look('stacco');
   // panca: sdraiato. Vista dai piedi il busto sembra dritto, ma la persona sembra "seduta" per tutto il
@@ -431,7 +436,7 @@ export function detectLift(frames, width = 1, height = 1) {
   // muscle up: appeso e poi spalle sopra le mani a braccia tese
   // (basta poco sotto le mani: nel dip le spalle non scendono mai sotto le mani)
   let hung = 0, above = 0;
-  for (const f of mu.fs) {
+  for (const f of mu.moves ? mu.fs : []) {
     if (f.W.y < f.S.y) hung++;
     else if (hung && f.S.y < f.W.y - 0.15 * mu.arm && f.elb > 140) above++;
   }

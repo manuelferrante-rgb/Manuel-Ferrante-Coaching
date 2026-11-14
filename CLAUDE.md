@@ -107,6 +107,17 @@ Regole decise con Manuel (non cambiarle senza chiedere):
   `?lift=squat` nell'indirizzo impone l'alzata (prove). Prove sui 18 video: 17/18 e 16/18 giusti;
   gli errori solo su video "non riesco" (dip di Nicolò con 10 fotogrammi nella sandbox, panca
   intera di Jasmin vista dai piedi), sempre con la domanda "Che alzata è?".
+- Spotter e panca (video di Manuel, IMG_8776, 14 nov): da quell'angolazione MediaPipe NON vede chi è
+  sdraiato, solo lo spotter in piedi (1 persona in tutti i fotogrammi) → prima giudicava lo spotter
+  come muscle up. Ora: (1) in detectLift l'atleta deve fare il movimento dell'alzata (spostamento
+  verticale minimo del punto che si muove: anca nello squat, polsi in panca, spalle a trazioni/
+  muscle up/dip); uno spotter fermo non è nessuna alzata → "non riesco" → secondo occhio, che trova
+  tutte le persone (anche sdraiate). (2) Se il primo giudizio è "non riesco", il secondo occhio
+  guarda tutto il video (non il pezzo stimato dai punti di MediaPipe), a 8 fotogrammi/s se il pezzo
+  è lungo più di 10 s. (3) Pillola: se con l'alzata scelta non c'è niente da giudicare si riprova
+  con i punti del secondo occhio, o lo si fa partire ("Riguardo il video con più attenzione…").
+  Risultato su IMG_8776: panca, 5 ripetizioni, tutte no rep per fermo al petto ~0,4-0,5 s
+  (verificato a parte seguendo il disco: fermo vero ~0,4-0,6 s).
 - Dettaglio non visibile → GOOD LIFT con nota. "Non riesco a giudicare" deve essere rarissimo.
 - Valida ma al limite → riquadro giallo "Da migliorare". No rep di poco → "No rep per poco" +
   "Come sistemarla". Mai i due insieme.

@@ -294,19 +294,22 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
   // Secondo occhio: se MediaPipe non riesce a giudicare, o nello squat la sua anca/ginocchio in buca
   // non tornano con quelli dell'altro modello (busto coperto dai dischi), si rifà l'analisi con
   // l'altro modello, che trova le articolazioni una per una e regge le parti coperte.
-  state.second = null;
+  state.second = null; state.prep2 = null; state.raw2 = null;
   if (!QS.has('nosecond')) {
     try {
       const why = result.verdict === 'unclear' ? (result.warnings[0] === endMessage(state.lift) ? null : 'unclear') : state.lift === 'squat' ? await depthDisagrees(video, result, clean, vw, vh, gone) : null;
       state.second = { why };
       if (why) {
         $('scan-label').textContent = 'Controllo più preciso…';
-        const w2 = clean.some(f => f.lm) ? activeWindow(clean, state.lift, total) : win;
+        // se il primo modello non ha trovato l'atleta (es. vede solo lo spotter) il pezzo con l'alzata
+        // non si può stimare dai suoi punti: si guarda tutto il video
+        const w2 = why === 'depth' && clean.some(f => f.lm) ? activeWindow(clean, state.lift, total) : win;
         const f2 = await sampleSecond(video, Math.max(win[0], w2[0]), Math.min(win[1], w2[1]), total, (t, from, to) => setPct(100 * Math.min(1, (t - from) / Math.max(0.01, to - from))), lm => { if (lm) lastLm = lm; }, gone);
         if (f2 === false) { alive = false; return; }
         // con i punti del secondo occhio anche l'alzata si riconosce meglio
         const before = { lift: state.lift, ask: state.ask };
         const prep2 = prepare(f2, vw, vh);
+        state.prep2 = prep2; state.raw2 = f2; // tenuti per la pillola: se si cambia alzata si prova anche con questi punti
         const { clean: c2, result: r2 } = judge(prep2, FORCED || recognizeLift(prep2, vw, vh), vw, vh);
         state.second.verdict = r2.verdict; state.second.frames = c2; // per ?debug
         if (r2.verdict !== 'unclear') { raw = f2; prep = prep2; clean = c2; result = r2; state.second.used = true; }
@@ -318,7 +321,7 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
   alive = false; cancelAnimationFrame(raf);
   state.raw = raw; // per ?debug
   // tutto quello che serve per rigiudicare subito con un'altra alzata (pillola "SQUAT ▾")
-  state.last = { raw, prep, url, blob, vw, vh, total, win };
+  state.last = { raw, prep, prep2: state.prep2, raw2: state.raw2, url, blob, vw, vh, total, win };
   finish(result, clean);
   state.timing.plate = performance.now() - T0;
 }
@@ -337,11 +340,36 @@ function finish(result, clean) {
 }
 
 // Rigiudica lo stesso video con un'altra alzata: niente nuova analisi, solo il giudizio (istantaneo).
-function rejudge(lift) {
-  if (!state.last) return;
+// Se con quell'alzata non si trova niente (es. panca: il primo modello vede solo lo spotter in piedi,
+// non chi è sdraiato) si guarda di nuovo il video con il secondo occhio, che trova tutte le persone.
+async function rejudge(lift) {
+  const L = state.last; if (!L) return;
   state.ask = null; state.chosen = true; // scelta dalla persona: niente più domande
-  const { clean, result } = judge(state.last.prep, lift, state.last.vw, state.last.vh);
-  finish(result, clean);
+  const lost = r => r.verdict === 'unclear' && r.warnings[0] !== endMessage(lift);
+  let out = judge(L.prep, lift, L.vw, L.vh);
+  if (lost(out.result) && L.prep2) { const o2 = judge(L.prep2, lift, L.vw, L.vh); if (!lost(o2.result)) { out = o2; L.raw = L.raw2 || L.raw; } }
+  if (lost(out.result) && !L.prep2 && !QS.has('nosecond')) {
+    show('scan');
+    $('scan-error').textContent = ''; $('scan-reps').innerHTML = '';
+    $('scan-label').textContent = 'Riguardo il video con più attenzione…';
+    const setPct = p => { $('scan-bar').style.width = p + '%'; $('scan-pct').textContent = Math.round(p) + '%'; };
+    setPct(0);
+    const video = $('scan-video'), canvas = $('scan-canvas');
+    let lastLm = null, alive = true;
+    const anim = () => { if (!alive) return; drawScan(canvas, lastLm); requestAnimationFrame(anim); };
+    anim();
+    const gone = () => document.body.dataset.screen !== 'scan';
+    try {
+      const f2 = await sampleSecond(video, L.win[0], L.win[1], L.total, (t, a, b) => setPct(100 * Math.min(1, (t - a) / Math.max(0.01, b - a))), lm => { if (lm) lastLm = lm; }, gone);
+      alive = false;
+      if (f2 === false) return;
+      L.prep2 = prepare(f2, L.vw, L.vh); L.raw2 = f2;
+      const o2 = judge(L.prep2, lift, L.vw, L.vh);
+      if (!lost(o2.result)) { out = o2; L.raw = f2; }
+      else state.lift = lift;
+    } catch (e) { alive = false; console.warn(e); }
+  }
+  finish(out.result, out.clean);
 }
 
 // Riconosce l'alzata (e il dubbio da proporre, es. "Era un muscle up?").
@@ -531,7 +559,9 @@ async function depthDisagrees(video, result, clean, vw, vh, gone) {
 async function sampleSecond(video, from, to, total, onProgress, onLm, gone) {
   const frames = [];
   resetSecondEye();
-  for (let t = from; t <= to + 1e-6; t += STEP) {
+  // video lunghi: un po' meno fotogrammi (8 al secondo bastano anche per il fermo al petto)
+  const step = to - from > 10 ? 1 / 8 : STEP;
+  for (let t = from; t <= to + 1e-6; t += step) {
     if (gone()) return false;
     await seekTo(video, Math.min(t, Math.max(0, total - 0.02)));
     let poses = [];
@@ -617,6 +647,7 @@ function seekTo(video, t) {
 // ── risultato + replay ──────────────────────────
 const TEXT = { good: 'GOOD LIFT', norep: 'NO REP', unclear: 'NON RIESCO A GIUDICARE' };
 const ICON = { pass: '✓', fail: '✕', unknown: '–' };
+const ARTICLE = { squat: 'uno squat', panca: 'una panca', stacco: 'uno stacco', trazioni: 'una trazione', dip: 'un dip', muscleup: 'un muscle up' };
 function showResult(result, frames, url, blob) {
   state.result = { result, frames };
   show('result');
@@ -642,7 +673,7 @@ function showResult(result, frames, url, blob) {
   $('lift-ask').hidden = !ask && !unsure;
   $('lift-ask').innerHTML = lost && !state.chosen && !FORCED ? `Che alzata è? <b>Toccala qui sopra</b> e la rigiudico subito.`
     : ask ? `Era un ${LIFTS[ask].name.toLowerCase()}? <b>Giudicalo come ${LIFTS[ask].name.toLowerCase()}</b>`
-    : unsure ? `È ${['a', 'e', 'i', 'o', 'u'].includes(name[0].toLowerCase()) ? 'un' : 'uno'} ${name.toLowerCase()}? Se no, <b>tocca l'alzata giusta qui sopra</b>.` : '';
+    : unsure ? `È ${ARTICLE[result.lift] || name.toLowerCase()}? Se no, <b>tocca l'alzata giusta qui sopra</b>.` : '';
   $('lift-ask').dataset.lift = lost ? '' : ask || '';
   if (unsure) openLiftMenu(result.lift);
   $('vlimit').hidden = !(result.verdict === 'good' && result.borderline);
