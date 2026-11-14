@@ -379,11 +379,7 @@ function hangPhases(b, cfg, allowAbove = false) {
     ? ({ fd, end }) => { while (end > fd && !b.present[end]) end--; let seen = 0, high = false; for (let i = fd; i <= end; i++) { if (b.present[i]) seen++; if (rel[i] < 0.2 * arm) high = true; } return seen >= Math.max(3, 0.7 * (end - fd + 1)) && high; }
     : bentArms(b, hasData);
   const grip = median(wy.filter((_, i) => hang[i])); // le mani sulla sbarra
-  // Se il telefono si muove (in mano) la sbarra si sposta nell'immagine e le mani sembrano lontane
-  // dalla presa: a trazioni, mani sopra le spalle nel punto più alto vuol dire comunque appeso
-  // (chi è sceso e si riposa ha le mani più in basso delle spalle).
-  const onBar = ({ bottom }) => !Number.isFinite(grip) || handsOn(t, i => Number.isFinite(wy[i]) ? Math.abs(wy[i] - grip) <= 0.3 * arm : null, bottom)
-    || (!allowAbove && handsOn(t, i => Number.isFinite(rel[i]) ? rel[i] > 0 : null, bottom));
+  const onBar = ({ bottom }) => !Number.isFinite(grip) || handsOn(t, i => Number.isFinite(wy[i]) ? Math.abs(wy[i] - grip) <= 0.3 * arm : null, bottom);
   const reps = findReps(t.length, pulled, low, (i, j) => rel[i] < (rel[j] ?? Infinity), both(real, onBar));
   return { sy, hang, low, reps };
 }

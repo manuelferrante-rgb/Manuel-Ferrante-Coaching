@@ -4,6 +4,7 @@ import { FilesetResolver, PoseLandmarker } from './vendor/mediapipe/vision_bundl
 import { LIFTS, LM, SQUAT } from './engine.js';
 import { pickPerson, countPeople, endMessage } from './core.js';
 import { trackPlate } from './plates.js';
+import { cameraShift, stabilize } from './motion.js';
 import { secondEye, resetSecondEye, stats as secondStats } from './second.js';
 
 const $ = id => document.getElementById(id);
@@ -283,9 +284,8 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
   if (frames === null) frames = await sampleSeeking(video, model, win[0], win[1], total, onPose, gone); // senza riproduzione: a salti
   if (!frames) { alive = false; return; } // l'utente è tornato indietro
   let raw = frames.filter((f, i) => i === 0 || f.t > frames[i - 1].t + 1e-4);
-  let clean = pickPerson(raw, state.lift, vw, vh);
   state.timing.sampled = performance.now() - T0;
-  let result = LIFTS[state.lift].analyze(clean, vw, vh);
+  let { clean, result } = judge(raw, vw, vh);
   state.timing.judged = performance.now() - T0;
 
   // Secondo occhio: se MediaPipe non riesce a giudicare, o nello squat la sua anca/ginocchio in buca
@@ -301,8 +301,7 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
         const w2 = clean.some(f => f.lm) ? activeWindow(clean, state.lift, total) : win;
         const f2 = await sampleSecond(video, Math.max(win[0], w2[0]), Math.min(win[1], w2[1]), total, (t, from, to) => setPct(100 * Math.min(1, (t - from) / Math.max(0.01, to - from))), lm => { if (lm) lastLm = lm; }, gone);
         if (f2 === false) { alive = false; return; }
-        const c2 = pickPerson(f2, state.lift, vw, vh);
-        const r2 = LIFTS[state.lift].analyze(c2, vw, vh);
+        const { clean: c2, result: r2 } = judge(f2, vw, vh);
         state.second.verdict = r2.verdict; state.second.frames = c2; // per ?debug
         if (r2.verdict !== 'unclear') { raw = f2; clean = c2; result = r2; state.second.used = true; }
       }
@@ -321,6 +320,21 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
     ? [Math.max(0, Math.min(...keys.map(k => k.start)) - 0.5), Math.min(total, Math.max(...keys.map(k => k.end ?? k.focus)) + 1.6)]
     : [win[0], win[1]];
   showResult(result, clean, url, blob);
+}
+
+// Giudizio: si sceglie l'atleta e si giudica. Se il telefono si è mosso (video fatto a mano),
+// prima si toglie il movimento dell'inquadratura, così non cambia il verdetto. Il replay rimette
+// lo spostamento (result.replay.shift) per disegnare le linee sopra il video vero.
+function judge(raw, vw, vh) {
+  const T = performance.now();
+  let shift = null;
+  try { shift = cameraShift(raw, GRAY_W, Math.round(GRAY_W * vh / vw)); } catch (e) { console.warn(e); }
+  state.timing.motion = performance.now() - T; state.shift = shift; // per ?debug
+  const clean = pickPerson(stabilize(raw, shift), state.lift, vw, vh);
+  const result = LIFTS[state.lift].analyze(clean, vw, vh);
+  if (result.replay) result.replay.shift = shift && shift.map(s => ({ x: s.dx * vw, y: s.dy * vh }));
+  // lo scheletro si disegna dove sta davvero nel video
+  return { clean: shift ? clean.map(f => ({ ...f, lm: f.lm?.orig ?? f.lm })) : clean, result };
 }
 
 const STEP = 1 / 12; // un fotogramma analizzato ogni 1/12 di secondo di video
@@ -352,8 +366,8 @@ function attachPlate(result, raw, vw, vh) {
   const lens = R.t.map((_, i) => H[i] && A[i] ? Math.hypot(H[i].x - A[i].x, H[i].y - A[i].y) * 1.9 : NaN).filter(Number.isFinite).sort((a, b) => a - b);
   const body = lens.length ? lens[lens.length >> 1] * sc : 0;
   const frames = raw.map((f, i) => {
-    const p = R.series[key][i];
-    return { gray: f.gray, seed: p ? { x: p.x * sc, y: p.y * sc } : null };
+    const p = R.series[key][i], o = R.shift?.[i] || { x: 0, y: 0 };
+    return { gray: f.gray, seed: p ? { x: (p.x + o.x) * sc, y: (p.y + o.y) * sc } : null };
   });
   const found = trackPlate(frames, GRAY_W, gh, body);
   const n = found.filter(Boolean).length;
@@ -694,6 +708,9 @@ function drawReplay(canvas, video, result, frames) {
   const now = video.currentTime, i = nearest(ts, now);
   const sx = w / video.videoWidth, sy = h / video.videoHeight;
   const P = p => p && { x: p.x * sx, y: p.y * sy };
+  // telefono che si muove: i punti del giudizio sono "fermi", per disegnarli si rimette lo spostamento
+  const off = k => R.shift?.[k] || { x: 0, y: 0 };
+  const Pk = (p, k) => p && { x: (p.x + off(k).x) * sx, y: (p.y + off(k).y) * sy };
   const line = (a, b, color, width, dash) => {
     ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = width * dpr; ctx.lineCap = 'round';
     if (dash) ctx.setLineDash([8 * dpr, 7 * dpr]);
@@ -708,10 +725,10 @@ function drawReplay(canvas, video, result, frames) {
   if (PATH) {
     const pt = k => {
       if (PATH.pts) return P(PATH.pts[k]);
-      const a = series[PATH.a][k]; if (!a) return null;
+      const a = series[PATH.a][k]; if (!a) return null; // (PATH.pts sopra: già nell'immagine vera)
       const b = PATH.b ? series[PATH.b][k] : null;
       const f = PATH.f || 0;
-      return P(b ? { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f } : a);
+      return Pk(b ? { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f } : a, k);
     };
     const keys = (result.reps || [{ key: result.key }]).map(r => r.key).filter(Boolean);
     let cur = -1;
@@ -737,7 +754,7 @@ function drawReplay(canvas, video, result, frames) {
       const c = pt(upto);
       if (c) { ctx.save(); ctx.fillStyle = GOLD; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.lineWidth = 1.5 * dpr; ctx.beginPath(); ctx.arc(c.x, c.y, 4 * dpr, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.restore(); }
     }
-    if (PATH.bar) { const y = PATH.bar() * sy; line({ x: 0, y }, { x: w, y }, 'rgba(245,245,240,.6)', 1.5, true); }
+    if (PATH.bar) { const y = (PATH.bar() + off(i).y) * sy; line({ x: 0, y }, { x: w, y }, 'rgba(245,245,240,.6)', 1.5, true); }
   }
 
   // discesa del bilanciere (o del corpo) durante la salita
@@ -745,7 +762,7 @@ function drawReplay(canvas, video, result, frames) {
   const allChecks = result.reps ? result.reps.flatMap(r => r.checks) : result.checks;
   for (const c of allChecks) {
     if (c.id !== 'noDrop' || c.status !== 'fail' || now < c.t[0] || now > c.t[0] + 1.5) continue;
-    const p = P(series[R.trail || 'H'][nearest(ts, c.t[0])]);
+    const di = nearest(ts, c.t[0]), p = Pk(series[R.trail || 'H'][di], di);
     if (!p) continue;
     ctx.save(); ctx.strokeStyle = RED; ctx.lineWidth = 3 * dpr; ctx.beginPath(); ctx.arc(p.x, p.y, 16 * dpr, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
     tag(ctx, R.dropText || 'SCENDE', p.x + 20 * dpr, p.y, dpr, RED);
@@ -754,22 +771,22 @@ function drawReplay(canvas, video, result, frames) {
   // posizione chiave: segmento, linea di riferimento, etichetta
   const F = R.focus; if (!F) return;
   const near = (R.focusTs || []).some(f => f != null && Math.abs(now - f) < 0.45);
-  const A = P(series[F.a]?.[i]), B = P(series[F.b]?.[i]);
+  const A = Pk(series[F.a]?.[i], i), B = Pk(series[F.b]?.[i], i);
   const lab = near && F.label ? F.label(i) : null;
   const col = lab?.[1] ? RED : GOLD;
   if (near) {
-    if (F.ref) { const y = F.ref(i); if (y != null) line({ x: 0, y: y * sy }, { x: w, y: y * sy }, 'rgba(245,245,240,.75)', 1.5, true); }
-    if (F.hline) { const y = F.hline() * sy; line({ x: 0, y }, { x: w, y }, 'rgba(245,245,240,.75)', 1.5, true); }
-    if (F.vline) { const x = F.vline(i); if (x != null) line({ x: x * sx, y: 0 }, { x: x * sx, y: h }, 'rgba(245,245,240,.75)', 1.5, true); }
+    if (F.ref) { let y = F.ref(i); if (y != null) { y = (y + off(i).y) * sy; line({ x: 0, y }, { x: w, y }, 'rgba(245,245,240,.75)', 1.5, true); } }
+    if (F.hline) { const y = (F.hline() + off(i).y) * sy; line({ x: 0, y }, { x: w, y }, 'rgba(245,245,240,.75)', 1.5, true); }
+    if (F.vline) { let x = F.vline(i); if (x != null) { x = (x + off(i).x) * sx; line({ x, y: 0 }, { x, y: h }, 'rgba(245,245,240,.75)', 1.5, true); } }
   }
   if (A && B && (near || result.lift === 'squat')) {
     ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 5 * dpr; ctx.lineCap = 'round'; ctx.shadowColor = col; ctx.shadowBlur = 10 * dpr;
     ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke(); ctx.restore();
   }
-  if (near && F.point) { const p = F.point(i); if (p) { ctx.save(); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(p.x * sx, p.y * sy, 6 * dpr, 0, Math.PI * 2); ctx.fill(); ctx.restore(); } }
-  const pt0 = near && F.point ? F.point(i) : null;
+  const pt0 = near && F.point ? Pk(F.point(i), i) : null;
+  if (pt0) { ctx.save(); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(pt0.x, pt0.y, 6 * dpr, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
   if (lab && (A || B || pt0)) {
-    const ref = A && B ? { x: Math.min(A.x, B.x), y: Math.max(A.y, B.y) } : (A || B || { x: pt0.x * sx, y: pt0.y * sy });
+    const ref = A && B ? { x: Math.min(A.x, B.x), y: Math.max(A.y, B.y) } : (A || B || pt0);
     tag(ctx, lab[0], Math.max(8 * dpr, Math.min(ref.x, w - 200 * dpr)), Math.min(h - 20 * dpr, ref.y + 26 * dpr), dpr, col);
   }
 }

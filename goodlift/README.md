@@ -7,6 +7,7 @@ Carichi un video (o ti registri dall'app) e lui analizza il movimento, ti mostra
 - **Privato**: il video non lascia mai il telefono. L'analisi avviene nel browser, con [MediaPipe Pose](https://developers.google.com/mediapipe/solutions/vision/pose_landmarker).
   Quando MediaPipe non vede bene (es. busto coperto dai dischi) interviene un "secondo occhio":
   YOLOX-nano + RTMPose-s di OpenMMLab, con onnxruntime-web (`second.js`), sempre nel telefono.
+  Se il telefono si muove durante il video, lo spostamento si toglie prima del giudizio (`motion.js`).
 - **Nessuna installazione**: è un sito che si apre dal telefono e si può aggiungere alla schermata Home.
 
 Ideato da **[Manuel Ferrante Coaching](https://www.manuelferrante.it)** · Instagram [@_manuelferrante](https://www.instagram.com/_manuelferrante/).
