@@ -168,6 +168,11 @@
   .scan-reps .rep{cursor:default;animation:pop .3s ease-out}
   @keyframes pop{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
   .rep.sel{border-color:currentColor;box-shadow:0 0 0 1px currentColor inset}
+  /* passo verso Manuel, subito sotto il verdetto */
+  .coach{margin:0 0 16px;padding:14px;border-radius:14px;background:rgba(var(--accent-rgb),.07);border:1px solid rgba(var(--accent-rgb),.35)}
+  .coach-title{font-family:var(--display);font-size:22px;letter-spacing:.02em;line-height:1.1;margin-bottom:12px}
+  .coach-btns{display:grid;gap:8px}
+  .coach .btn{padding:13px 12px;font-size:15px;border-radius:12px}
   .result-actions{display:grid;gap:10px;margin-top:22px}
   .btn{display:block;text-align:center;padding:16px;border-radius:14px;font-weight:600;font-size:16px;text-decoration:none;border:1px solid var(--border);background:var(--bg2)}
   .btn.primary{background:var(--accent);border-color:var(--accent);color:#141008}
@@ -187,7 +192,7 @@
   <!-- ══ HOME ══════════════════════════════════ -->
   <section class="screen" id="home">
     <header class="topbar">
-      <a class="byline" href="https://www.manuelferrante.it" target="_blank" rel="noopener">
+      <a class="byline" href="https://www.manuelferrante.it/?utm_source=goodlift&amp;utm_medium=app" target="_blank" rel="noopener">
         <img src="assets/mf-logo.jpg" alt="" width="34" height="34">
         <span>by<b>Manuel Ferrante Coaching</b></span>
       </a>
@@ -270,6 +275,13 @@
         <svg viewBox="0 0 100 100"><path class="ok" d="M22 53 L42 72 L80 30"/><path class="ko" d="M28 28 L72 72 M72 28 L28 72"/></svg>
       </div>
       <div><p class="vtext" id="vtext"></p><p class="vsub" id="vsub"></p><p class="badge limit" id="vlimit" hidden>Valida ma al limite</p><p class="badge close" id="vclose" hidden>No rep per poco</p><p class="badge" id="vbadge" hidden>Alcuni dettagli non visibili</p></div>
+    </div>
+    <div class="coach" id="coach">
+      <p class="coach-title" id="coach-title">Vuoi che sia io a guardare le tue alzate?</p>
+      <div class="coach-btns">
+        <a class="btn primary" href="https://wa.me/393386787740?text=Ciao%20Manuel%2C%20vengo%20da%20GoodLift%20e%20vorrei%20il%20programma%20gratuito" target="_blank" rel="noopener">Programma gratis su WhatsApp</a>
+        <a class="btn" href="https://www.manuelferrante.it/?utm_source=goodlift&amp;utm_medium=app#coaching-form" target="_blank" rel="noopener">Candidati al coaching</a>
+      </div>
     </div>
     <div class="reps" id="reps" hidden></div>
     <div class="advice" id="tips" hidden><b id="tips-title">Da migliorare</b><ul id="tips-list"></ul></div>
