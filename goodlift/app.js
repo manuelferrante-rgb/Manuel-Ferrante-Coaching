@@ -596,8 +596,6 @@ function showResult(result, frames, url, blob) {
   } else {
     $('vsub').textContent = result.verdict === 'good' ? (result.borderline ? `${name}: alzata valida, ma al limite.` : `${name}: alzata valida.`) : result.verdict === 'norep' ? firstFail.detail : result.warnings[0];
   }
-  // passo verso Manuel: dopo ogni analisi; con un no rep il titolo cambia
-  $('coach-title').textContent = result.verdict === 'norep' ? 'No rep per poco? Te la sistemo io.' : 'Vuoi che sia io a guardare le tue alzate?';
   $('vlimit').hidden = !(result.verdict === 'good' && result.borderline);
   $('vclose').hidden = !(result.verdict === 'norep' && result.close);
   $('vbadge').hidden = !(result.verdict === 'good' && result.missing);
