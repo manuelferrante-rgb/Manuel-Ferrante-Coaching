@@ -78,6 +78,9 @@ Regole decise con Manuel (non cambiarle senza chiedere):
   a trazioni/muscle up conta chi ha le mani all'altezza della sbarra (stimata dalle mani di chi è
   appeso), anche sopra la sbarra. Muscle up di Nicolò (`videos/nicolo-muscleup-2875kg.mp4`):
   su 4 prove salvate da 1 valida a 3 valide (la 4ª: no rep per ginocchio, transizione confusa).
+- Telefono in mano che si muove (trazioni di Giacomo): la sbarra si sposta nell'immagine e le mani
+  sembravano "fuori presa". A trazioni vale anche: mani sopra le spalle nel punto più alto = appeso.
+  Giacomo ora valida (con nota: video finisce prima del ritorno a braccia tese).
 - Prova senza browser: salvare `state.raw` (poses per fotogramma) da `?debug&nosecond` e
   rifare pickPerson + analyze in Node: stesso input, confronto vecchio/nuovo deterministico.
 - Dettaglio non visibile → GOOD LIFT con nota. "Non riesco a giudicare" deve essere rarissimo.
