@@ -341,6 +341,8 @@ export function analyzeDeadlift(frames, width, height, cfg = DEADLIFT) {
       ? { id: 'shoulder', label: 'Spalla dietro il bilanciere', status: 'fail', detail: 'In chiusura la spalla resta davanti al bilanciere.', t: [t[lockIdx], t[lockIdx]] }
       : { id: 'shoulder', label: 'Spalla dietro il bilanciere', status: 'pass', detail: 'In chiusura la spalla è dietro il bilanciere.', t: [t[lockIdx], t[lockIdx]] });
 
+    // chiusa ma il video finisce prima che il bilanciere torni a terra: valida, con una nota
+    if (lockIdx >= 0 && firstFrom(onFloor, lockIdx, i => onFloor[i]) < 0) warnings.push('Il video finisce prima che riporti il bilanciere a terra: non l\'ho potuto vedere, ma l\'alzata è già completa.');
     return { checks, warnings, key: { start: t[liftStart], focus: lockIdx >= 0 ? t[lockIdx] : t[liftStart], end: lockIdx >= 0 ? t[lockIdx] : null } };
   });
 
@@ -596,6 +598,8 @@ export function analyzeMuscleUp(frames, width, height, cfg = MUSCLEUP) {
     } else {
       checks.push({ id: 'top', label: 'Sopra la sbarra a braccia tese', status: 'pass', detail: 'Chiusura sopra la sbarra a braccia tese.', t: [t[topIdx], t[topIdx]] });
     }
+    // arrivato sopra a braccia tese ma il video finisce prima che torni giù: valida, con una nota
+    if (topIdx >= 0 && up < 0) warnings.push('Il video finisce prima che torni giù dalla sbarra: non l\'ho potuto vedere, ma l\'alzata è già completa.');
     // fine della ripetizione: quando torna giù dalla sbarra, o l'ultimo fotogramma in cui si vede
     let last = end; while (last > pullStart && !b.present[last]) last--;
     return { checks, warnings, key: { start: hangStart >= 0 ? t[hangStart] : t[pullStart], focus: topIdx >= 0 ? t[topIdx] : t[pullStart], end: up >= 0 ? t[up] : t[last] } };

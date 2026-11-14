@@ -68,6 +68,11 @@ Regole decise con Manuel (non cambiarle senza chiedere):
   Eccezione trazioni: se manca solo il ritorno a braccia tese (mento sopra già visto) → GOOD LIFT
   con nota "Il video finisce prima del ritorno a braccia tese: non l'ho potuto controllare"
   (Manuel: Elisabetta è valida).
+  Muscle up: valida dopo la chiusura sopra a braccia tese; se il video finisce prima che torni giù →
+  nota. Stacco: chiusura a gambe tese fondamentale; se finisce prima di riportare il bilanciere a
+  terra → valida con nota. Dip, panca (braccia tese) e squat (gambe tese): chiusura fondamentale.
+- Da verificare: il muscle up di Nicolò (frontale, con persone attorno) dà verdetti diversi da una
+  prova all'altra nella sandbox (valida / no rep per scatto d'anca / non riesco).
 - Dettaglio non visibile → GOOD LIFT con nota. "Non riesco a giudicare" deve essere rarissimo.
 - Valida ma al limite → riquadro giallo "Da migliorare". No rep di poco → "No rep per poco" +
   "Come sistemarla". Mai i due insieme.
