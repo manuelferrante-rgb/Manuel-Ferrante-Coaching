@@ -395,3 +395,72 @@ export function assemble(lift, b, reps, globalWarnings, overlay) {
     replay: { t: b.t, series: b.series, ...overlay, focusTs: reps.map(r => r.key.focus) },
   };
 }
+
+// ── Riconoscere l'alzata dal video (niente bottoni da scegliere) ──
+// Per ogni tipo di alzata si sceglie la persona come se fosse quella alzata (pickPerson usa il
+// contesto: sdraiato in panca, appeso a trazioni e muscle up…) e si guarda la sua postura:
+// sdraiato → panca; appeso con le mani sopra la testa → trazioni o muscle up (muscle up se passa
+// sopra la sbarra a braccia tese); in piedi con le mani alle spalle e le ginocchia che si piegano →
+// squat; mani vicino alle ginocchia → stacco; in appoggio con le mani all'anca e i gomiti che si
+// piegano → dip. `ask`: alzata alternativa da proporre quando c'è un dubbio (es. "Era un muscle up?").
+export function detectLift(frames, width = 1, height = 1) {
+  const look = lift => {
+    const fs = [];
+    for (const f of pickPerson(frames, lift, width, height)) {
+      const lm = f.lm; if (!lm) continue;
+      const v = i => lm[i]?.visibility ?? 0;
+      const L = v(11) + v(13) + v(15) + v(23) >= v(12) + v(14) + v(16) + v(24) ? 0 : 1;
+      if (v(11 + L) < 0.3 || v(15 + L) < 0.05 || v(23 + L) < 0.2) continue; // i polsi sulla sbarra si vedono poco
+      const P = i => ({ x: lm[i + L].x * width, y: lm[i + L].y * height });
+      const S = P(11), E = P(13), W = P(15), H = P(23), K = P(25), A = P(27);
+      const torso = dist(S, H);
+      fs.push({ S, E, W, H, K, A, torso, arm: dist(S, E) + dist(E, W), elb: angleAt(S, E, W), knee: v(25 + L) > 0.3 && v(27 + L) > 0.3 ? angleAt(H, K, A) : NaN,
+        lying: Math.abs(S.x - H.x) > 1.3 * Math.abs(S.y - H.y) || Math.abs(lm[11].x - lm[12].x) * width > 1.3 * torso });
+    }
+    const arm = median(fs.map(f => f.arm)) || 1, torso = median(fs.map(f => f.torso)) || 1;
+    const frac = cond => fs.length ? fs.filter(cond).length / fs.length : 0;
+    return { fs, arm, torso, frac, n: fs.length };
+  };
+  const pan = look('panca'), pull = look('trazioni'), mu = look('muscleup'), sq = look('squat'), dp = look('dip'), st = look('stacco');
+  // panca: sdraiato. Vista dai piedi il busto sembra dritto, ma la persona sembra "seduta" per tutto il
+  // video (coscia più orizzontale che verticale, anca sotto le spalle)
+  const lying = pan.frac(f => f.lying);
+  const seated = pan.frac(f => !f.lying && f.H.y > f.S.y && Math.abs(f.K.x - f.H.x) > Math.abs(f.K.y - f.H.y) && Math.abs(f.K.y - f.H.y) < 0.8 * pan.torso);
+  // appeso: mani sopra le spalle
+  const up = pull.frac(f => !f.lying && f.W.y < f.S.y - 0.15 * pull.arm);
+  // muscle up: appeso e poi spalle sopra le mani a braccia tese
+  // (basta poco sotto le mani: nel dip le spalle non scendono mai sotto le mani)
+  let hung = 0, above = 0;
+  for (const f of mu.fs) {
+    if (f.W.y < f.S.y) hung++;
+    else if (hung && f.S.y < f.W.y - 0.15 * mu.arm && f.elb > 140) above++;
+  }
+  const kneeMin = a => Math.min(...a.fs.map(f => f.knee).filter(Number.isFinite));
+  // ginocchia che si piegano molto (squat): non è un'alzata alla sbarra (lì le gambe restano tese)
+  const squat = sq.frac(f => !f.lying && Math.abs(f.W.y - f.S.y) < 0.45 * sq.arm) * (kneeMin(sq) < 125 ? 1 : 0.3);
+  const kneesBend = kneeMin(sq) < 110 && kneeMin(mu) < 110 && squat >= 0.15;
+  const low = st.frac(f => !f.lying && f.W.y > f.K.y - 0.3 * st.torso && f.elb > 140);
+  const dipBent = dp.frac(f => !f.lying && f.elb < 120 && f.W.y > f.S.y + 0.3 * dp.arm && f.W.y < f.H.y + 0.2 * dp.torso);
+  const scores = { lying, seated, up, hung, above, squat, low, dipBent, kneesBend };
+  // In ordine: appeso (trazioni / muscle up), sdraiato (panca), poi in piedi o in appoggio
+  // (squat, stacco, dip: si confrontano tra loro). La classifica serve se la prima non torna (engine.js).
+  // "seduto" (panca vista dai piedi) vale solo se non c'è chiaramente uno squat
+  const lies = lying >= 0.35 || (seated >= 0.6 && squat < 0.3);
+  const hanging = (up >= 0.2 || hung >= 3) && !(kneesBend && up < 0.5) && !(lies && up < 0.5);
+  const rank = [];
+  const isMU = hung >= 2 && above >= 3 && !kneesBend && !lies;
+  if (hanging || isMU) rank.push(isMU ? ['muscleup', 3] : ['trazioni', 3]);
+  if (lies) rank.push(['panca', 2.5]);
+  const rest = [['squat', squat / 0.4], ['stacco', low / 0.08], ['dip', dipBent / 0.08]].sort((a, b) => b[1] - a[1]);
+  rank.push(...rest);
+  if (!hanging && !isMU) rank.push(['trazioni', up / 0.2], ['muscleup', 0]);
+  if (!lies) rank.push(['panca', Math.max(lying / 0.35, seated / 0.6)]);
+  // spalle chiaramente sopra le mani ma senza chiusura sopra la sbarra: forse un muscle up non riuscito
+  // (nelle trazioni le spalle arrivano al massimo all'altezza delle mani, nel muscle up un braccio sopra)
+  const top = Math.min(...pull.fs.filter(f => !f.lying).map(f => (f.S.y - f.W.y) / pull.arm));
+  scores.top = top;
+  // sicuro? servono prove forti per l'alzata scelta; se no si chiede conferma (app.js)
+  const strong = { panca: lying >= 0.5 || (seated >= 0.75 && squat < 0.2), muscleup: hung >= 3 && above >= 5, trazioni: up >= 0.4,
+    squat: squat >= 0.6, stacco: low >= 0.15, dip: dipBent >= 0.2 }[rank[0][0]];
+  return { lift: rank[0][0], rank, scores, sure: !!strong, ask: rank[0][0] === 'trazioni' && top < -0.25 ? 'muscleup' : null };
+}

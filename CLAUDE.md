@@ -93,6 +93,20 @@ Regole decise con Manuel (non cambiarle senza chiedere):
   sganciare il disco → prima contava una 4ª no rep). Squat, panca, dip: l'ultima "ripetizione" che
   scende e non prova più a risalire (meno del 30%) mentre il video continua almeno 1 s non conta.
   Provate e scartate (sbagliavano su video veri): anca/caviglie che devono seguire le spalle.
+- **L'alzata non si sceglie più (14 nov, richiesta di Manuel):** GoodLift la riconosce dal video
+  (`detectLift` in core.js, `recognize` in engine.js). Per ogni alzata si sceglie la persona con
+  pickPerson e si guarda la postura: appeso (mani sopra le spalle) → trazioni, o muscle up se poi
+  le spalle passano sopra le mani a braccia tese; sdraiato (o "seduto" per tutto il video, panca
+  vista dai piedi) → panca; poi squat (mani alle spalle, ginocchia piegate), stacco (mani vicino
+  alle ginocchia a braccia tese), dip (gomiti piegati, mani all'anca). Se il giudice dell'alzata
+  scelta dice "non riesco" si provano le altre plausibili. Dopo il secondo occhio si riconosce di
+  nuovo con i suoi punti. Nel risultato: pillola "TRAZIONI ▾" (tocca → elenco → rigiudica subito,
+  senza rianalizzare) e una riga sotto il verdetto solo quando serve: "Era un muscle up?" (spalle
+  oltre le mani di più di 0,25 braccia ma senza chiusura), "È uno squat? Se no, tocca l'alzata
+  giusta" (prove deboli), "Che alzata è?" (non riesco a giudicare: elenco già aperto).
+  `?lift=squat` nell'indirizzo impone l'alzata (prove). Prove sui 18 video: 17/18 e 16/18 giusti;
+  gli errori solo su video "non riesco" (dip di Nicolò con 10 fotogrammi nella sandbox, panca
+  intera di Jasmin vista dai piedi), sempre con la domanda "Che alzata è?".
 - Dettaglio non visibile → GOOD LIFT con nota. "Non riesco a giudicare" deve essere rarissimo.
 - Valida ma al limite → riquadro giallo "Da migliorare". No rep di poco → "No rep per poco" +
   "Come sistemarla". Mai i due insieme.

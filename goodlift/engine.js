@@ -5,7 +5,7 @@
 // e restituisce il verdetto con i controlli effettuati. Non dipende dal DOM:
 // si può testare anche in Node.
 
-import { LM, deg, angleAt, dist, median, buildSeries, hiddenBottom, unclear, findReps, assemble } from './core.js';
+import { LM, deg, angleAt, dist, median, buildSeries, hiddenBottom, unclear, findReps, assemble, detectLift, pickPerson } from './core.js';
 import { analyzeBench, analyzeDeadlift, analyzePullup, analyzeDip, analyzeMuscleUp } from './lifts.js';
 export { LM };
 
@@ -206,3 +206,15 @@ export const LIFTS = {
   dip: { name: 'Dip', analyze: analyzeDip, ready: true },
   muscleup: { name: 'Muscle up', analyze: analyzeMuscleUp, ready: true },
 };
+
+// Riconosce l'alzata: la più probabile dalla postura (detectLift). Se il giudice di quell'alzata non
+// trova niente ("non riesco") si prova la seconda candidata, se è comunque plausibile.
+export function recognize(frames, width, height) {
+  const d = detectLift(frames, width, height);
+  const plausible = d.rank.filter(([, s], k) => k === 0 || s >= 0.3);
+  for (const [lift] of plausible.slice(0, 4)) {
+    const r = LIFTS[lift].analyze(pickPerson(frames, lift, width, height), width, height);
+    if (r.verdict !== 'unclear') return { ...d, lift, ask: lift === d.lift ? d.ask : null, sure: lift === d.lift && d.sure };
+  }
+  return d;
+}

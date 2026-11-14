@@ -1,8 +1,8 @@
 // ¿oodLift — interfaccia.
 // Copyright (C) 2026 Manuel Ferrante Coaching — AGPL-3.0-or-later (vedi LICENSE).
 import { FilesetResolver, PoseLandmarker } from './vendor/mediapipe/vision_bundle.js';
-import { LIFTS, LM, SQUAT } from './engine.js';
-import { pickPerson, countPeople, endMessage } from './core.js';
+import { LIFTS, LM, SQUAT, recognize } from './engine.js';
+import { pickPerson, countPeople, endMessage, detectLift } from './core.js';
 import { trackPlate } from './plates.js';
 import { cameraShift, stabilize } from './motion.js';
 import { secondEye, resetSecondEye, stats as secondStats } from './second.js';
@@ -15,7 +15,7 @@ const BONES = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 
 // Safari < 16 non ha roundRect: ripiego su un rettangolo semplice.
 if (!CanvasRenderingContext2D.prototype.roundRect) CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h) { this.rect(x, y, w, h); };
 
-const state = { lift: 'squat', vision: null, models: {}, live: null, result: null, urls: [], facing: 'environment' };
+const state = { lift: null, vision: null, models: {}, live: null, result: null, urls: [], facing: 'environment' };
 // Con ?debug nell'indirizzo i dati dell'analisi restano accessibili dalla console (utile per chi contribuisce).
 if (new URLSearchParams(location.search).has('debug')) window.__goodlift = state;
 
@@ -37,16 +37,14 @@ function goHome() {
 document.querySelectorAll('[data-home]').forEach(b => b.addEventListener('click', () => history.state ? history.back() : goHome()));
 window.addEventListener('popstate', goHome);
 
-// ── scelta dell'alzata ──────────────────────────
-function renderLifts() {
-  $('lifts').innerHTML = Object.entries(LIFTS).map(([id, l]) =>
-    `<button class="lift" data-lift="${id}" aria-pressed="${id === state.lift}" ${l.ready ? '' : 'disabled'}>${l.name}${l.ready ? '' : ' <small>presto</small>'}</button>`).join('');
-  $('lifts').querySelectorAll('.lift:not(:disabled)').forEach(b => b.addEventListener('click', () => { state.lift = b.dataset.lift; renderLifts(); }));
-}
-renderLifts();
+// L'alzata non si sceglie: la riconosce GoodLift dal video (detectLift / recognize). Durante
+// l'analisi state.lift è la stima provvisoria (serve solo per la schermata), alla fine quella vera.
+// Per le prove: ?lift=squat (o panca, stacco, trazioni, dip, muscleup) la impone.
+const guessLift = (frames, w, h) => { try { return detectLift(frames, w, h).lift; } catch { return null; } };
 
 // ── modelli MediaPipe (caricati solo quando servono) ──
 const QS = new URLSearchParams(location.search);
+const FORCED = LIFTS[QS.get('lift')] ? QS.get('lift') : null; // per le prove: alzata imposta
 const MODEL_OVERRIDE = QS.get('model');        // es. ?model=lite per i test
 const DELEGATE_OVERRIDE = QS.get('delegate');  // es. ?delegate=CPU
 // Il modello si salva nel telefono la prima volta: dalle volte dopo parte subito, anche offline.
@@ -247,6 +245,8 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
   const total = Math.min(MAX_SECONDS, await videoDuration(video, recordedSec));
 
   // Dove sta l'alzata: se ti sei registrato dall'app lo sappiamo già dalla diretta.
+  state.lift = FORCED || null; state.ask = null; state.sure = null; state.chosen = false;
+  if (track?.length > 10 && !state.lift) state.lift = guessLift(track, vw, vh);
   const win = track?.length > 10 ? activeWindow(track, state.lift, total) : [0, total];
 
   let model;
@@ -261,6 +261,8 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
   const partial = frames => {
     try {
       const raw = frames.filter((f, i) => i === 0 || f.t > frames[i - 1].t + 1e-4);
+      if (!FORCED) state.lift = guessLift(raw, vw, vh) || state.lift; // stima provvisoria
+      if (!state.lift) return;
       const r = LIFTS[state.lift].analyze(pickPerson(raw, state.lift, vw, vh), vw, vh);
       const reps = r.reps || (r.verdict !== 'unclear' && r.key ? [{ n: 1, verdict: r.verdict }] : []);
       if (!reps.length) return;
@@ -285,7 +287,8 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
   if (!frames) { alive = false; return; } // l'utente è tornato indietro
   let raw = frames.filter((f, i) => i === 0 || f.t > frames[i - 1].t + 1e-4);
   state.timing.sampled = performance.now() - T0;
-  let { clean, result } = judge(raw, vw, vh);
+  let prep = prepare(raw, vw, vh);
+  let { clean, result } = judge(prep, FORCED || recognizeLift(prep, vw, vh), vw, vh);
   state.timing.judged = performance.now() - T0;
 
   // Secondo occhio: se MediaPipe non riesce a giudicare, o nello squat la sua anca/ginocchio in buca
@@ -301,18 +304,29 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
         const w2 = clean.some(f => f.lm) ? activeWindow(clean, state.lift, total) : win;
         const f2 = await sampleSecond(video, Math.max(win[0], w2[0]), Math.min(win[1], w2[1]), total, (t, from, to) => setPct(100 * Math.min(1, (t - from) / Math.max(0.01, to - from))), lm => { if (lm) lastLm = lm; }, gone);
         if (f2 === false) { alive = false; return; }
-        const { clean: c2, result: r2 } = judge(f2, vw, vh);
+        // con i punti del secondo occhio anche l'alzata si riconosce meglio
+        const before = { lift: state.lift, ask: state.ask };
+        const prep2 = prepare(f2, vw, vh);
+        const { clean: c2, result: r2 } = judge(prep2, FORCED || recognizeLift(prep2, vw, vh), vw, vh);
         state.second.verdict = r2.verdict; state.second.frames = c2; // per ?debug
-        if (r2.verdict !== 'unclear') { raw = f2; clean = c2; result = r2; state.second.used = true; }
+        if (r2.verdict !== 'unclear') { raw = f2; prep = prep2; clean = c2; result = r2; state.second.used = true; }
+        else Object.assign(state, before);
       }
     } catch (e) { console.warn(e); }
     state.timing.second = performance.now() - T0; state.timing.secondEye = { ...secondStats };
   }
   alive = false; cancelAnimationFrame(raf);
   state.raw = raw; // per ?debug
-  try { attachPlate(result, raw, vw, vh); } catch (e) { console.warn(e); }
+  // tutto quello che serve per rigiudicare subito con un'altra alzata (pillola "SQUAT ▾")
+  state.last = { raw, prep, url, blob, vw, vh, total, win };
+  finish(result, clean);
   state.timing.plate = performance.now() - T0;
-  for (const f of raw) delete f.gray; // memoria: le immagini non servono più
+}
+
+// Ultimi ritocchi e risultato a schermo (anche quando si cambia alzata dalla pillola).
+function finish(result, clean) {
+  const { raw, url, blob, vw, vh, total, win } = state.last;
+  try { attachPlate(result, raw, vw, vh); } catch (e) { console.warn(e); }
   if (total >= MAX_SECONDS) result.warnings.unshift(`Ho analizzato solo i primi ${MAX_SECONDS} secondi: per i prossimi video taglia il pezzo con l'alzata.`);
   // replay: dall'inizio della prima ripetizione a poco dopo la fine dell'ultima
   const keys = (result.reps || (result.key ? [{ key: result.key }] : [])).map(r => r.key);
@@ -322,16 +336,37 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
   showResult(result, clean, url, blob);
 }
 
+// Rigiudica lo stesso video con un'altra alzata: niente nuova analisi, solo il giudizio (istantaneo).
+function rejudge(lift) {
+  if (!state.last) return;
+  state.ask = null; state.chosen = true; // scelta dalla persona: niente più domande
+  const { clean, result } = judge(state.last.prep, lift, state.last.vw, state.last.vh);
+  finish(result, clean);
+}
+
+// Riconosce l'alzata (e il dubbio da proporre, es. "Era un muscle up?").
+function recognizeLift(prep, vw, vh) {
+  try {
+    const r = recognize(prep.frames, vw, vh);
+    state.recognized = r; state.ask = r.ask; state.sure = r.sure; // per ?debug
+    return r.lift;
+  } catch (e) { console.warn(e); return state.lift || 'squat'; }
+}
+
 // Giudizio: si sceglie l'atleta e si giudica. Se il telefono si è mosso (video fatto a mano),
 // prima si toglie il movimento dell'inquadratura, così non cambia il verdetto. Il replay rimette
 // lo spostamento (result.replay.shift) per disegnare le linee sopra il video vero.
-function judge(raw, vw, vh) {
+function prepare(raw, vw, vh) {
   const T = performance.now();
   let shift = null;
   try { shift = cameraShift(raw, GRAY_W, Math.round(GRAY_W * vh / vw)); } catch (e) { console.warn(e); }
   state.timing.motion = performance.now() - T; state.shift = shift; // per ?debug
-  const clean = pickPerson(stabilize(raw, shift), state.lift, vw, vh);
-  const result = LIFTS[state.lift].analyze(clean, vw, vh);
+  return { frames: stabilize(raw, shift), shift };
+}
+function judge({ frames, shift }, lift, vw, vh) {
+  state.lift = lift;
+  const clean = pickPerson(frames, lift, vw, vh);
+  const result = LIFTS[lift].analyze(clean, vw, vh);
   if (result.replay) result.replay.shift = shift && shift.map(s => ({ x: s.dx * vw, y: s.dy * vh }));
   // lo scheletro si disegna dove sta davvero nel video
   return { clean: shift ? clean.map(f => ({ ...f, lm: f.lm?.orig ?? f.lm })) : clean, result };
@@ -596,6 +631,20 @@ function showResult(result, frames, url, blob) {
   } else {
     $('vsub').textContent = result.verdict === 'good' ? (result.borderline ? `${name}: alzata valida, ma al limite.` : `${name}: alzata valida.`) : result.verdict === 'norep' ? firstFail.detail : result.warnings[0];
   }
+  // alzata riconosciuta: pillola (tocca per cambiarla) e, se c'è un dubbio, la domanda
+  $('lift-name').textContent = name;
+  $('lift-menu').hidden = true; $('lift-pill').setAttribute('aria-expanded', 'false');
+  const ask = state.ask && state.ask !== result.lift ? state.ask : null;
+  // non riesco a giudicare (e non perché il video è tagliato): forse l'alzata non è quella giusta
+  const lost = result.verdict === 'unclear' && result.warnings[0] !== endMessage(result.lift);
+  // alzata riconosciuta con poche prove: si chiede conferma (sempre con un tocco solo)
+  const unsure = !FORCED && !state.chosen && (lost || state.sure === false);
+  $('lift-ask').hidden = !ask && !unsure;
+  $('lift-ask').innerHTML = lost && !state.chosen && !FORCED ? `Che alzata è? <b>Toccala qui sopra</b> e la rigiudico subito.`
+    : ask ? `Era un ${LIFTS[ask].name.toLowerCase()}? <b>Giudicalo come ${LIFTS[ask].name.toLowerCase()}</b>`
+    : unsure ? `È ${['a', 'e', 'i', 'o', 'u'].includes(name[0].toLowerCase()) ? 'un' : 'uno'} ${name.toLowerCase()}? Se no, <b>tocca l'alzata giusta qui sopra</b>.` : '';
+  $('lift-ask').dataset.lift = lost ? '' : ask || '';
+  if (unsure) openLiftMenu(result.lift);
   $('vlimit').hidden = !(result.verdict === 'good' && result.borderline);
   $('vclose').hidden = !(result.verdict === 'norep' && result.close);
   $('vbadge').hidden = !(result.verdict === 'good' && result.missing);
@@ -621,6 +670,19 @@ function showResult(result, frames, url, blob) {
   setupReplay(url, result, frames);
   selectRep(result.mainRep || 1, false);
 }
+
+// pillola dell'alzata: apre l'elenco; scegliendo un'alzata si rigiudica subito lo stesso video
+function openLiftMenu(cur) {
+  const m = $('lift-menu');
+  m.innerHTML = Object.entries(LIFTS).map(([id, l]) => `<button data-lift="${id}" aria-pressed="${id === cur}">${l.name}</button>`).join('');
+  m.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { if (b.dataset.lift !== cur) rejudge(b.dataset.lift); else m.hidden = true; }));
+  m.hidden = false; $('lift-pill').setAttribute('aria-expanded', 'true');
+}
+$('lift-pill').addEventListener('click', () => {
+  if ($('lift-menu').hidden) openLiftMenu(state.result?.result?.lift);
+  else { $('lift-menu').hidden = true; $('lift-pill').setAttribute('aria-expanded', 'false'); }
+});
+$('lift-ask').addEventListener('click', () => { const l = $('lift-ask').dataset.lift; if (l) rejudge(l); else openLiftMenu(state.result?.result?.lift); });
 
 function selectRep(n, seek) {
   const result = state.result?.result; if (!result) return;
