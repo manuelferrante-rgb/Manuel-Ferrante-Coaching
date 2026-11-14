@@ -203,9 +203,37 @@ export function pickPerson(frames, lift, width = 1, height = 1) {
     if (hanging) pose *= 2.5;
     // il punto che fa l'alzata: le mani in panca e stacco, il busto nelle altre
     const my = lift === 'panca' || lift === 'stacco' ? wy : (sy + hy) / 2;
-    return { lm, score: size * vis * pose, size, cx: (sx + hx) / 2, cy: (sy + hy) / 2, my, wy, hanging, armsUp: wy < sy - 0.15 * size };
+    const wvis = Math.min(lm[15]?.visibility ?? 0, lm[16]?.visibility ?? 0) >= 0.5 || Math.max(lm[15]?.visibility ?? 0, lm[16]?.visibility ?? 0) >= 0.7;
+    return { lm, score: size * vis * pose, size, cx: (sx + hx) / 2, cy: (sy + hy) / 2, my, wy, wvis, hanging, armsUp: wy < sy - 0.15 * size };
   };
   const cands = frames.map(f => dedupe((f.poses || (f.lm ? [f.lm] : [])).map(info).filter(Boolean)));
+  // Poster, foto, manichini: il modello li vede come persone, ma sono IDENTICI in tutti i fotogrammi
+  // (una persona vera, anche un giudice fermo, muove sempre un po' testa, mani, busto). Se la stessa
+  // figura, ferma al pixel, compare in gran parte del video, si scarta (se c'è qualcun altro).
+  {
+    const all = cands.flat();
+    const sig = c => [0, 11, 12, 15, 16, 23, 24].map(k => [c.lm[k].x * width, c.lm[k].y * height]);
+    const same = (a, b) => { const A = sig(a), B = sig(b); return A.every(([x, y], k) => Math.hypot(x - B[k][0], y - B[k][1]) < 0.06 * Math.min(a.size, b.size)); };
+    const withPeople = cands.filter(cs => cs.length).length;
+    const ghosts = new Set();
+    for (const c of all) {
+      if (ghosts.has(c)) continue;
+      const twins = all.filter(o => o !== c && same(c, o));
+      if (!(twins.length + 1 >= 0.4 * withPeople && twins.length >= 6)) continue;
+      // un atleta fermo tra una ripetizione e l'altra è "identico" per tanti fotogrammi, ma negli altri
+      // sta lì vicino in un'altra posizione (accosciato, piegato). Il poster invece non c'è e basta.
+      const group = new Set([c, ...twins]);
+      let occupied = 0, framesWith = 0;
+      for (const cs of cands) {
+        if (!cs.length || cs.some(o => group.has(o))) continue;
+        framesWith++;
+        if (cs.some(o => Math.hypot(o.cx - c.cx, o.cy - c.cy) < 0.5 * c.size)) occupied++;
+      }
+      if (occupied > 0.25 * framesWith && occupied >= 3) continue;
+      group.forEach(o => ghosts.add(o));
+    }
+    if (ghosts.size && ghosts.size < all.length) for (let i = 0; i < cands.length; i++) cands[i] = cands[i].filter(c => !ghosts.has(c));
+  }
   // Contesto: a trazioni e muscle up l'atleta ha le mani sulla sbarra, che sta ferma. Dove sta la
   // sbarra lo dicono le mani di chi è appeso; poi conta chi ha le mani lì, anche quando è già
   // sopra la sbarra (muscle up: spalle sopra le mani) e non è più "appeso".
@@ -227,7 +255,8 @@ export function pickPerson(frames, lift, width = 1, height = 1) {
       if (i - tr.lastI > 12) return;
       // conta anche dove stanno le mani: uno spotter proprio dietro l'atleta ha il busto nello
       // stesso punto, ma le mani da un'altra parte
-      const d = Math.hypot(c.cx - tr.last.cx, c.cy - tr.last.cy) + Math.abs(c.wy - tr.last.wy);
+      // (solo se le mani si vedono bene: coperte dai dischi il modello le "inventa")
+      const d = Math.hypot(c.cx - tr.last.cx, c.cy - tr.last.cy) + (c.wvis || tr.last.wvis ? Math.abs(c.wy - tr.last.wy) : 0);
       if (d < 0.6 * tr.last.size) pairs.push({ c, tr, d });
     }));
     pairs.sort((a, b) => a.d - b.d);
@@ -456,7 +485,9 @@ export function detectLift(frames, width = 1, height = 1) {
   const isMU = hung >= 2 && above >= 3 && !kneesBend && !lies;
   if (hanging || isMU) rank.push(isMU ? ['muscleup', 3] : ['trazioni', 3]);
   if (lies) rank.push(['panca', 2.5]);
-  const rest = [['squat', squat / 0.4], ['stacco', low / 0.08], ['dip', dipBent / 0.08]].sort((a, b) => b[1] - a[1]);
+  // ginocchia che si piegano molto con le mani alle spalle: è uno squat, non un dip (nel dip le gambe
+  // restano come sono)
+  const rest = [['squat', squat / 0.4 * (kneesBend ? 3 : 1)], ['stacco', low / 0.08], ['dip', dipBent / 0.08 * (kneesBend ? 0.3 : 1)]].sort((a, b) => b[1] - a[1]);
   rank.push(...rest);
   if (!hanging && !isMU) rank.push(['trazioni', up / 0.2], ['muscleup', 0]);
   if (!lies) rank.push(['panca', Math.max(lying / 0.35, seated / 0.6)]);

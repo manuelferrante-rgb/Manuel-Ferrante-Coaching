@@ -121,9 +121,15 @@ export async function secondEye(src, vw, vh, max = 3) {
     const T = performance.now();
     const found = await findPeople(m, src, vw, vh);
     stats.det += performance.now() - T;
-    const sure = found.filter(b => b.score >= 0.3);
+    // soglia bassa: un atleta coperto dai dischi può avere poca "sicurezza" (0,2); le figure in più
+    // (poster, persone sullo sfondo) le scarta pickPerson
+    const sure = found.filter(b => b.score >= 0.15);
     // persone sicure; se non ce ne sono, i riquadri di prima (o i meno sicuri)
-    boxes = (sure.length ? sure : prevBoxes.length ? prevBoxes : found).slice(0, max);
+    // chi c'era nel fotogramma prima e ora il detector non trova (es. squat in buca, coperto dai dischi)
+    // non è sparito: si continua a cercarlo nello stesso punto
+    const iou = (a, b) => { const w = Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)), h = Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0)); const i = w * h; return i / ((a.x1 - a.x0) * (a.y1 - a.y0) + (b.x1 - b.x0) * (b.y1 - b.y0) - i); };
+    const kept = prevBoxes.filter(p => !sure.some(b => iou(p, b) > 0.3));
+    boxes = (sure.length ? [...sure.slice(0, max), ...kept].slice(0, max + 1) : prevBoxes.length ? prevBoxes : found.slice(0, max));
     sinceDet = 0;
   }
   const poses = [];

@@ -297,7 +297,13 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
   state.second = null; state.prep2 = null; state.raw2 = null;
   if (!QS.has('nosecond')) {
     try {
-      const why = result.verdict === 'unclear' ? (result.warnings[0] === endMessage(state.lift) ? null : 'unclear') : state.lift === 'squat' ? await depthDisagrees(video, result, clean, vw, vh, gone) : null;
+      // il primo modello perde l'atleta in tanti fotogrammi (dischi davanti) o non riesce a giudicare
+      // una ripetizione: i suoi punti non bastano
+      const seen = clean.filter(f => f.lm).length / Math.max(1, clean.length);
+      const repLost = (result.reps || []).some(r => r.verdict === 'unclear');
+      const why = result.verdict === 'unclear' ? (result.warnings[0] === endMessage(state.lift) ? null : 'unclear')
+        : seen < 0.75 || repLost ? 'gaps'
+        : state.lift === 'squat' ? await depthDisagrees(video, result, clean, vw, vh, gone) : null;
       state.second = { why };
       if (why) {
         $('scan-label').textContent = 'Controllo più preciso…';

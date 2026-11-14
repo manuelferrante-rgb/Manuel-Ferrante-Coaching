@@ -118,6 +118,19 @@ Regole decise con Manuel (non cambiarle senza chiedere):
   con i punti del secondo occhio, o lo si fa partire ("Riguardo il video con più attenzione…").
   Risultato su IMG_8776: panca, 5 ripetizioni, tutte no rep per fermo al petto ~0,4-0,5 s
   (verificato a parte seguendo il disco: fermo vero ~0,4-0,6 s).
+- Squat di Manuel con disco grande davanti e poster di un bodybuilder sulla parete (IMG_8783, 14 nov):
+  il poster veniva preso per una persona e la traccia saltava tra lui e Manuel (dip, muscle up…).
+  Ora: (1) pickPerson scarta le "persone" identiche al pixel in gran parte del video quando, nei
+  fotogrammi in cui mancano, al loro posto non c'è nessuno (poster; un atleta fermo tra le
+  ripetizioni invece lì c'è, accosciato); (2) secondo occhio: soglia del detector 0,15 e chi c'era
+  un attimo prima e il detector non trova (in buca, coperto) si continua a cercarlo nello stesso
+  punto; (3) il secondo occhio parte anche se il primo modello perde l'atleta in più del 25% dei
+  fotogrammi o una ripetizione è "non riesco"; (4) nel controllo "mani sotto l'anca = riposo" e nel
+  collegare le tracce i polsi contano solo se visti bene (coperti, il modello li inventa).
+  Idea di Manuel: "beccarlo all'inizio e seguirlo mentre va su e giù" — è questo; non aggiungere altro.
+  Risultato: squat, 4-5 ripetizioni trovate su 5, valide (femore 2-8° sotto); la 1ª a volte "no rep
+  per poco" (0,6°) perché il secondo occhio a 8 fotogrammi/s può perdere il punto più basso
+  (a mano: ~4° sotto). Analisi lunga: ~3 min nella sandbox.
 - Dettaglio non visibile → GOOD LIFT con nota. "Non riesco a giudicare" deve essere rarissimo.
 - Valida ma al limite → riquadro giallo "Da migliorare". No rep di poco → "No rep per poco" +
   "Come sistemarla". Mai i due insieme.

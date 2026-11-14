@@ -95,7 +95,9 @@ export function analyzeSquat(frames, width, height, cfg = SQUAT) {
       // fine serie: senza bilanciere sulla schiena le mani scendono sotto l'anca (riposo, piegato
       // sulle ginocchia). In buca, con il bilanciere, le mani stanno sopra l'anca.
       let hi = 0, lo = 0;
-      for (let i = 0; i < t.length; i++) if (Math.abs(t[i] - t[bottom]) <= 0.15 && W[i] && H[i]) { if (W[i].y < H[i].y) hi++; else lo++; }
+      // solo polsi visti bene: in buca i dischi coprono le mani e il modello le "inventa" all'anca
+      const wristSeen = i => { const l = frames[i].lm; return !!l && Math.max(l[15]?.visibility ?? 0, l[16]?.visibility ?? 0) >= 0.5; };
+      for (let i = 0; i < t.length; i++) if (Math.abs(t[i] - t[bottom]) <= 0.15 && W[i] && H[i] && wristSeen(i)) { if (W[i].y < H[i].y) hi++; else lo++; }
       return !(hi + lo) || hi >= lo;
     }, i => bar[i], t);
   if (!reps.length) {
