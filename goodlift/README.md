@@ -5,6 +5,8 @@ Carichi un video (o ti registri dall'app) e lui analizza il movimento, ti mostra
 
 - **Gratis e open source**, licenza [AGPL-3.0](LICENSE).
 - **Privato**: il video non lascia mai il telefono. L'analisi avviene nel browser, con [MediaPipe Pose](https://developers.google.com/mediapipe/solutions/vision/pose_landmarker).
+  Quando MediaPipe non vede bene (es. busto coperto dai dischi) interviene un "secondo occhio":
+  YOLOX-nano + RTMPose-s di OpenMMLab, con onnxruntime-web (`second.js`), sempre nel telefono.
 - **Nessuna installazione**: è un sito che si apre dal telefono e si può aggiungere alla schermata Home.
 
 Ideato da **[Manuel Ferrante Coaching](https://www.manuelferrante.it)** · Instagram [@_manuelferrante](https://www.instagram.com/_manuelferrante/).
@@ -55,5 +57,6 @@ ma l'analisi dice cosa non si è potuto controllare.
 - Le soglie sono in cima a `engine.js` (`SQUAT`): vanno tarate su video reali di alzate valide e no rep.
 
 Librerie incluse: MediaPipe Tasks Vision (Apache-2.0, `vendor/mediapipe`), modelli Pose Landmarker (Apache-2.0, `models/`),
+onnxruntime-web (MIT, `vendor/onnxruntime`), modelli RTMPose-s e YOLOX-nano di OpenMMLab (Apache-2.0, `models/*.onnx`),
 font Bebas Neue, DM Sans, DM Mono (SIL Open Font License, `fonts/`).
 Comandi vocali in `audio/`: voce di Manuel Ferrante, inclusi nel progetto con la stessa licenza.

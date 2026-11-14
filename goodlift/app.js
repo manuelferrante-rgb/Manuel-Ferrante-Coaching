@@ -4,6 +4,7 @@ import { FilesetResolver, PoseLandmarker } from './vendor/mediapipe/vision_bundl
 import { LIFTS, LM, SQUAT } from './engine.js';
 import { pickPerson, countPeople } from './core.js';
 import { trackPlate } from './plates.js';
+import { loadSecondEye, secondEye, resetSecondEye, stats as secondStats } from './second.js';
 
 const $ = id => document.getElementById(id);
 const GOLD = '#c9a35a', RED = '#e5484d', WHITE = '#f5f5f0';
@@ -237,6 +238,8 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
     return m;
   });
   modelP.catch(() => {});
+  // Il secondo occhio serve a controllare la buca dello squat: si prepara mentre lavora MediaPipe.
+  if (state.lift === 'squat' && !QS.has('nosecond')) loadSecondEye().catch(e => console.warn(e));
   const T0 = performance.now(); state.timing = {}; // tempi (per ?debug)
   try { await loadVideo(video, url); }
   catch (e) { console.error(e); return stop('Questo video non si apre in questo browser. Prova con un video .mp4, oppure registrati direttamente dall\'app.'); }
@@ -281,13 +284,35 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
   let frames = await samplePlaying(video, model, win[0], win[1], onPose, gone);
   if (frames === null) frames = await sampleSeeking(video, model, win[0], win[1], total, onPose, gone); // senza riproduzione: a salti
   if (!frames) { alive = false; return; } // l'utente è tornato indietro
-  alive = false; cancelAnimationFrame(raf);
-  const raw = frames.filter((f, i) => i === 0 || f.t > frames[i - 1].t + 1e-4);
-  const clean = pickPerson(raw, state.lift, vw, vh);
-  state.raw = raw; // per ?debug
+  let raw = frames.filter((f, i) => i === 0 || f.t > frames[i - 1].t + 1e-4);
+  let clean = pickPerson(raw, state.lift, vw, vh);
   state.timing.sampled = performance.now() - T0;
-  const result = LIFTS[state.lift].analyze(clean, vw, vh);
+  let result = LIFTS[state.lift].analyze(clean, vw, vh);
   state.timing.judged = performance.now() - T0;
+
+  // Secondo occhio: se MediaPipe non riesce a giudicare, o nello squat la sua anca/ginocchio in buca
+  // non tornano con quelli dell'altro modello (busto coperto dai dischi), si rifà l'analisi con
+  // l'altro modello, che trova le articolazioni una per una e regge le parti coperte.
+  state.second = null;
+  if (!QS.has('nosecond')) {
+    try {
+      const why = result.verdict === 'unclear' ? 'unclear' : state.lift === 'squat' ? await depthDisagrees(video, result, clean, vw, vh, gone) : null;
+      state.second = { why };
+      if (why) {
+        $('scan-label').textContent = 'Controllo più preciso…';
+        const w2 = clean.some(f => f.lm) ? activeWindow(clean, state.lift, total) : win;
+        const f2 = await sampleSecond(video, Math.max(win[0], w2[0]), Math.min(win[1], w2[1]), total, (t, from, to) => setPct(100 * Math.min(1, (t - from) / Math.max(0.01, to - from))), lm => { if (lm) lastLm = lm; }, gone);
+        if (f2 === false) { alive = false; return; }
+        const c2 = pickPerson(f2, state.lift, vw, vh);
+        const r2 = LIFTS[state.lift].analyze(c2, vw, vh);
+        state.second.verdict = r2.verdict; state.second.frames = c2; // per ?debug
+        if (r2.verdict !== 'unclear') { raw = f2; clean = c2; result = r2; state.second.used = true; }
+      }
+    } catch (e) { console.warn(e); }
+    state.timing.second = performance.now() - T0; state.timing.secondEye = { ...secondStats };
+  }
+  alive = false; cancelAnimationFrame(raf);
+  state.raw = raw; // per ?debug
   try { attachPlate(result, raw, vw, vh); } catch (e) { console.warn(e); }
   state.timing.plate = performance.now() - T0;
   for (const f of raw) delete f.gray; // memoria: le immagini non servono più
@@ -406,6 +431,57 @@ async function samplePlaying(video, model, from, to, onPose, gone) {
     video.muted = true;
     video.play().catch(() => finish(false));
   });
+}
+
+// Femore in buca (di lato): positivo = anca sotto il ginocchio. Si usa il lato più visibile.
+function femurOf(lm) {
+  const v = i => lm[i]?.visibility ?? 0;
+  const [h, k] = v(23) + v(25) >= v(24) + v(26) ? [23, 25] : [24, 26];
+  if (v(h) < 0.3 || v(k) < 0.3) return NaN;
+  return Math.atan2(lm[h].y - lm[k].y, Math.abs(lm[h].x - lm[k].x)) * 180 / Math.PI;
+}
+// Controllo veloce dello squat: nel punto più basso di ogni ripetizione si guarda anche con il
+// secondo occhio (un fotogramma per ripetizione). Se anca e ginocchio non tornano, si rifà tutto.
+async function depthDisagrees(video, result, clean, vw, vh, gone) {
+  if (result.warnings.some(w => w.startsWith('Ripresa da davanti'))) return null; // da davanti si misura in altro modo
+  const reps = result.reps || [result];
+  for (const r of reps) {
+    const c = r.checks?.find(x => x.id === 'depth');
+    if (!c?.t) continue;
+    const t = c.t[0];
+    let best = null;
+    for (const f of clean) if (f.lm && (!best || Math.abs(f.t - t) < Math.abs(best.t - t))) best = f;
+    if (gone()) return null;
+    await seekTo(video, t);
+    resetSecondEye();
+    const poses = await secondEye(video, vw, vh, 3);
+    // la persona del secondo occhio è quella più vicina all'atleta scelto da MediaPipe (le anche)
+    const mid = lm => ({ x: (lm[23].x + lm[24].x) / 2, y: (lm[23].y + lm[24].y) / 2 });
+    const a = best && mid(best.lm);
+    const p = a ? poses.sort((p, q) => Math.hypot(mid(p).x - a.x, mid(p).y - a.y) - Math.hypot(mid(q).x - a.x, mid(q).y - a.y))[0] : poses[0];
+    if (!p) continue;
+    const f2 = femurOf(p), f1 = best ? femurOf(best.lm) : NaN;
+    (state.secondCheck ??= []).push({ t, mediapipe: f1, second: f2 });
+    if (!Number.isFinite(f2)) continue;
+    if (!Number.isFinite(f1) || Math.abs(f2 - f1) > 10) return 'depth';
+  }
+  return null;
+}
+
+// Analisi a salti con il secondo occhio, solo nel pezzo con l'alzata.
+async function sampleSecond(video, from, to, total, onProgress, onLm, gone) {
+  const frames = [];
+  resetSecondEye();
+  for (let t = from; t <= to + 1e-6; t += STEP) {
+    if (gone()) return false;
+    await seekTo(video, Math.min(t, Math.max(0, total - 0.02)));
+    let poses = [];
+    try { poses = await secondEye(video, video.videoWidth, video.videoHeight, 3); } catch (e) { console.warn(e); }
+    frames.push({ t: video.currentTime, poses, gray: grabGray(video) });
+    onLm(pickPerson([{ t: 0, poses }], state.lift, video.videoWidth, video.videoHeight)[0].lm);
+    onProgress(t, from, to);
+  }
+  return frames.filter((f, i) => i === 0 || f.t > frames[i - 1].t + 1e-4);
 }
 
 // Analisi a salti (browser senza requestVideoFrameCallback): più lenta ma funziona ovunque.

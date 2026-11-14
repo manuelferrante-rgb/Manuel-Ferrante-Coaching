@@ -31,7 +31,8 @@ posteriore o frontale) o si carica un video; analisi nel browser con
 MediaPipe Pose (modello `heavy` per l'analisi, `lite` per la diretta); verdetto GOOD LIFT / NO REP,
 spiegazione, replay con linee e traiettoria. Deve essere semplicissima ("anche mia nonna") e veloce.
 
-File: `index.html` (UI), `app.js` (fotocamera, analisi, replay, comandi), `core.js` (serie, fermi,
+File: `index.html` (UI), `app.js` (fotocamera, analisi, replay, comandi), `second.js` (secondo occhio:
+YOLOX-nano + RTMPose-s con onnxruntime-web), `core.js` (serie, fermi,
 ripetizioni, verdetto, consigli), `engine.js` (squat + elenco alzate), `lifts.js` (panca, stacco,
 trazioni, dip, muscle up), `plates.js` (trova e segue il disco nell'immagine, Hough),
 `tests/squat.test.mjs`.
@@ -108,7 +109,19 @@ coperti dai dischi, femore ben visibile, chiaramente sotto il parallelo) siano g
 - Però in buca (~2.0 s) il femore *in foto* è circa **18° sopra il parallelo** (anca ~30 px più
   alta del ginocchio). Ripresa di tre quarti dall'alto: il ginocchio è più vicino alla camera e
   sembra più basso; la correzione di prospettiva non è affidabile. Quindi il nuovo modello, così
-  com'è, darebbe NO REP a Jasmin: **non integrato**, in attesa della decisione di Manuel.
+  com'è, darebbe NO REP a Jasmin.
+- **Decisione di Manuel (14 nov):** lo squat di Jasmin è no rep di poco ("può essere anche
+  l'angolazione, ma accetto che sia no rep"). Quindi il nuovo modello è giusto ed è **integrato**.
+- Come funziona (`second.js` + `app.js`): MediaPipe fa il primo giro. Il secondo occhio rifà
+  l'analisi (a salti, solo nel pezzo con l'alzata) se (a) il risultato è "non riesco a giudicare"
+  (tutte le alzate) o (b) nello squat, nel punto più basso di ogni ripetizione, il femore di
+  MediaPipe e quello del secondo occhio differiscono di più di 10° (controllo su 1 fotogramma per
+  ripetizione, saltato da davanti). Si usa il nuovo risultato se non è "non riesco". Il detector
+  gira ogni 3 fotogrammi, negli altri il riquadro viene dai punti del fotogramma prima.
+  I modelli si caricano in anticipo solo per lo squat (prima volta ~37 MB, poi in cache).
+  `?nosecond` nell'indirizzo lo spegne (per confronti). Risultati: Jasmin NO REP (femore ~17°
+  sopra), Arianna squat da "non riesco" a no rep per poco (femore ~parallelo, anca dietro i
+  dischi); trazioni, dip, muscle up, stacco invariati.
 - Velocità (CPU desktop, 1 thread): RTMPose-s 10 ms + YOLOX-nano 12 ms; RTMO-s 160 ms (troppo lento).
   Se si integra: RTMPose-s + YOLOX-nano (~26 MB) con onnxruntime-web.
 - Trazioni di Elisabetta e muscle up frontale di Lorenzo: scheletro buono, non peggio di MediaPipe.
