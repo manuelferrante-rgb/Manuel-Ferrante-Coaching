@@ -169,9 +169,9 @@
   @keyframes pop{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
   .rep.sel{border-color:currentColor;box-shadow:0 0 0 1px currentColor inset}
   /* passo verso Manuel, subito sotto il verdetto */
-  .coach{margin:0 0 16px}
-  .coach-btns{display:grid;gap:8px}
-  .coach .btn{padding:13px 12px;font-size:15px;border-radius:12px}
+  .coach{margin:14px 0 4px}
+  .coach-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .coach .btn{padding:10px 8px;font-size:13px;border-radius:10px;line-height:1.25;display:flex;align-items:center;justify-content:center}
   .result-actions{display:grid;gap:10px;margin-top:22px}
   .btn{display:block;text-align:center;padding:16px;border-radius:14px;font-weight:600;font-size:16px;text-decoration:none;border:1px solid var(--border);background:var(--bg2)}
   .btn.primary{background:var(--accent);border-color:var(--accent);color:#141008}
@@ -275,12 +275,6 @@
       </div>
       <div><p class="vtext" id="vtext"></p><p class="vsub" id="vsub"></p><p class="badge limit" id="vlimit" hidden>Valida ma al limite</p><p class="badge close" id="vclose" hidden>No rep per poco</p><p class="badge" id="vbadge" hidden>Alcuni dettagli non visibili</p></div>
     </div>
-    <div class="coach" id="coach">
-      <div class="coach-btns">
-        <a class="btn primary" href="https://wa.me/393386787740?text=Ciao%20Manuel%2C%20vengo%20da%20GoodLift%20e%20vorrei%20il%20programma%20gratuito" target="_blank" rel="noopener">Programma gratis su WhatsApp</a>
-        <a class="btn" href="https://www.manuelferrante.it/?utm_source=goodlift&amp;utm_medium=app#coaching-form" target="_blank" rel="noopener">Candidati al coaching</a>
-      </div>
-    </div>
     <div class="reps" id="reps" hidden></div>
     <div class="advice" id="tips" hidden><b id="tips-title">Da migliorare</b><ul id="tips-list"></ul></div>
     <div class="stage" id="replay-stage"><video id="replay-video" playsinline muted></video><canvas id="replay-canvas"></canvas><p class="stage-msg" id="replay-msg"></p></div>
@@ -289,6 +283,12 @@
       <button class="pill toggle" id="rp-slow" aria-pressed="false">Rallenty</button>
       <button class="pill toggle" id="rp-path" aria-pressed="false">Traiettoria</button>
             <button class="pill" id="rp-key">Punto chiave</button>
+    </div>
+    <div class="coach" id="coach">
+      <div class="coach-btns">
+        <a class="btn primary" href="https://wa.me/393386787740?text=Ciao%20Manuel%2C%20vengo%20da%20GoodLift%20e%20vorrei%20il%20programma%20gratuito" target="_blank" rel="noopener">Programma gratis su WhatsApp</a>
+        <a class="btn" href="https://www.manuelferrante.it/?utm_source=goodlift&amp;utm_medium=app#coaching-form" target="_blank" rel="noopener">Candidati al coaching</a>
+      </div>
     </div>
     <ul class="checks" id="checks"></ul>
     <ul class="warns" id="warns"></ul>
