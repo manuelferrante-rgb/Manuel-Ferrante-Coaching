@@ -71,8 +71,15 @@ Regole decise con Manuel (non cambiarle senza chiedere):
   Muscle up: valida dopo la chiusura sopra a braccia tese; se il video finisce prima che torni giù →
   nota. Stacco: chiusura a gambe tese fondamentale; se finisce prima di riportare il bilanciere a
   terra → valida con nota. Dip, panca (braccia tese) e squat (gambe tese): chiusura fondamentale.
-- Da verificare: il muscle up di Nicolò (frontale, con persone attorno) dà verdetti diversi da una
-  prova all'altra nella sandbox (valida / no rep per scatto d'anca / non riesco).
+- Riconoscere l'atleta tra più persone (gare: giudici, spotter) vale per tutte le alzate e va fatto
+  "dal contesto" (Manuel). pickPerson (core.js): le tracce si collegano anche con la posizione
+  delle mani (uno spotter dietro l'atleta ha il busto nello stesso punto ma le mani altrove); i
+  pezzi di traccia spezzati da movimenti veloci si riattaccano (fine e inizio vicini, entro 0,5 s);
+  a trazioni/muscle up conta chi ha le mani all'altezza della sbarra (stimata dalle mani di chi è
+  appeso), anche sopra la sbarra. Muscle up di Nicolò (`videos/nicolo-muscleup-2875kg.mp4`):
+  su 4 prove salvate da 1 valida a 3 valide (la 4ª: no rep per ginocchio, transizione confusa).
+- Prova senza browser: salvare `state.raw` (poses per fotogramma) da `?debug&nosecond` e
+  rifare pickPerson + analyze in Node: stesso input, confronto vecchio/nuovo deterministico.
 - Dettaglio non visibile → GOOD LIFT con nota. "Non riesco a giudicare" deve essere rarissimo.
 - Valida ma al limite → riquadro giallo "Da migliorare". No rep di poco → "No rep per poco" +
   "Come sistemarla". Mai i due insieme.

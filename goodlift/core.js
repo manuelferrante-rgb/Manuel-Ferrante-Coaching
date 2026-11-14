@@ -199,12 +199,24 @@ export function pickPerson(frames, lift, width = 1, height = 1) {
     const lyingEnd = shoulderW > 1.3 * torsoLen;
     let pose = lift === 'panca' ? (lying > 0.6 || lyingEnd ? 2 : 0.4) : (lying < 0.75 ? 1 : 0.5);
     // appeso alla sbarra (o sopra): mani all'altezza delle spalle o più in alto
-    if ((lift === 'trazioni' || lift === 'muscleup') && wy < sy + 0.05 * size) pose *= 2.5;
+    const hanging = (lift === 'trazioni' || lift === 'muscleup') && wy < sy + 0.05 * size;
+    if (hanging) pose *= 2.5;
     // il punto che fa l'alzata: le mani in panca e stacco, il busto nelle altre
     const my = lift === 'panca' || lift === 'stacco' ? wy : (sy + hy) / 2;
-    return { lm, score: size * vis * pose, size, cx: (sx + hx) / 2, cy: (sy + hy) / 2, my };
+    return { lm, score: size * vis * pose, size, cx: (sx + hx) / 2, cy: (sy + hy) / 2, my, wy, hanging, armsUp: wy < sy - 0.15 * size };
   };
   const cands = frames.map(f => dedupe((f.poses || (f.lm ? [f.lm] : [])).map(info).filter(Boolean)));
+  // Contesto: a trazioni e muscle up l'atleta ha le mani sulla sbarra, che sta ferma. Dove sta la
+  // sbarra lo dicono le mani di chi è appeso; poi conta chi ha le mani lì, anche quando è già
+  // sopra la sbarra (muscle up: spalle sopra le mani) e non è più "appeso".
+  if (lift === 'trazioni' || lift === 'muscleup') {
+    // solo chi ha le mani chiaramente sopra la testa (non un giudice con le mani al petto)
+    const hw = cands.flat().filter(c => c.armsUp).map(c => c.wy).sort((a, b) => a - b);
+    if (hw.length >= 3) {
+      const barY = hw[hw.length >> 1];
+      for (const c of cands.flat()) if (!c.hanging && Math.abs(c.wy - barY) < 0.12 * c.size) c.score *= 2.5;
+    }
+  }
   // tracce: ogni persona si collega a quella più vicina del fotogramma prima (anche con buchi brevi)
   const tracks = [];
   cands.forEach((cs, i) => {
@@ -213,7 +225,9 @@ export function pickPerson(frames, lift, width = 1, height = 1) {
     const pairs = [];
     cs.forEach(c => tracks.forEach(tr => {
       if (i - tr.lastI > 12) return;
-      const d = Math.hypot(c.cx - tr.last.cx, c.cy - tr.last.cy);
+      // conta anche dove stanno le mani: uno spotter proprio dietro l'atleta ha il busto nello
+      // stesso punto, ma le mani da un'altra parte
+      const d = Math.hypot(c.cx - tr.last.cx, c.cy - tr.last.cy) + Math.abs(c.wy - tr.last.wy);
       if (d < 0.6 * tr.last.size) pairs.push({ c, tr, d });
     }));
     pairs.sort((a, b) => a.d - b.d);
@@ -227,6 +241,31 @@ export function pickPerson(frames, lift, width = 1, height = 1) {
   });
   if (!tracks.length) return frames.map(f => ({ t: f.t, lm: null }));
   const med = arr => { const v = arr.slice().sort((a, b) => a - b); return v[v.length >> 1]; };
+  // Movimenti veloci (muscle up: da appeso a sopra la sbarra in un attimo) o qualcuno proprio dietro
+  // l'atleta (spotter) spezzano la traccia in pezzi. Si riattaccano i pezzi che si susseguono:
+  // uno finisce e l'altro comincia subito dopo, non lontano. Il pezzo più vicino vince.
+  const span = tr => { const ks = [...tr.items.keys()]; return [Math.min(...ks), Math.max(...ks)]; };
+  for (const tr of tracks) [tr.s, tr.e] = span(tr);
+  const byStart = [...tracks].sort((a, b) => a.s - b.s);
+  const taken = new Set();
+  for (const tr of byStart) {
+    if (taken.has(tr)) continue;
+    let cur = tr;
+    for (;;) {
+      const end = cur.items.get(cur.e), sz = med([...cur.items.values()].map(c => c.size));
+      let pick = null, pd = Infinity;
+      for (const nx of byStart) {
+        if (nx === tr || taken.has(nx) || nx.s <= cur.e || frames[nx.s].t - frames[cur.e].t > 0.5) continue;
+        const st = nx.items.get(nx.s), d = Math.hypot(st.cx - end.cx, st.cy - end.cy);
+        if (d < 1.5 * sz && d < pd) { pick = nx; pd = d; }
+      }
+      if (!pick) break;
+      // il pezzo si unisce solo se nessun altro pezzo, nello stesso momento, è più vicino alla traccia
+      for (const [k, c] of pick.items) tr.items.set(k, c);
+      taken.add(pick); tr.e = pick.e; cur = { items: tr.items, e: pick.e };
+    }
+  }
+  for (const tr of taken) tracks.splice(tracks.indexOf(tr), 1);
   const value = tr => {
     const cs = [...tr.items.values()];
     const ys = cs.map(c => c.my).sort((a, b) => a - b);
