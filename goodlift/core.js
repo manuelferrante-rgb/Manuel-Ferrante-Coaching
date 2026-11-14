@@ -275,7 +275,7 @@ const TIPS = {
     panca: 'Porta il bilanciere fino al petto, con il gomito almeno all\'altezza della spalla.',
     dip: 'Scendi di più: la spalla deve andare chiaramente sotto il gomito.',
   },
-  chestHold: 'Al petto fermati un secondo, senza rimbalzare, poi spingi.',
+  chestHold: 'Al petto fermati quasi un secondo (0,8 s), senza rimbalzare, poi spingi.',
   butt: 'Tieni il sedere incollato alla panca: spingi con le gambe senza alzare il bacino.',
   feet: 'Tieni i piedi piantati a terra per tutta l\'alzata.',
   lockout: {
@@ -295,9 +295,20 @@ const TIPS = {
 };
 const tipFor = (lift, c) => { const v = TIPS[c.id]; return typeof v === 'object' ? v[lift] : v; };
 
+// Video tagliato prima della fine: quella ripetizione non si può giudicare (non è "valida").
+const END = {
+  squat: 'gambe tese', stacco: 'gambe e anche tese', panca: 'braccia tese', dip: 'braccia tese',
+  trazioni: 'braccia tese in basso', muscleup: 'braccia tese sopra la sbarra',
+};
+export const endMessage = lift => `Il video finisce prima della fine dell'alzata: riprendi tutta l'alzata, fino a ${END[lift] || 'chiusura completa'}.`;
+
 export function assemble(lift, b, reps, globalWarnings, overlay) {
   for (const [k, r] of reps.entries()) {
     r.n = k + 1;
+    // Finisce prima della chiusura: non si giudica. Restano no rep solo gli errori veri già visti
+    // (non il fermo o la discesa, che il taglio del video può falsare).
+    const cut = !r.unclear && r.checks.some(c => c.status === 'unknown' && /^Il video finisce prima/.test(c.detail));
+    if (cut && !r.checks.some(c => c.status === 'fail' && !['chestHold', 'noDrop'].includes(c.id))) r.unclear = endMessage(lift);
     r.verdict = r.unclear ? 'unclear' : r.checks.some(c => c.status === 'fail') ? 'norep' : 'good';
     r.missing = r.unclear ? 0 : r.checks.filter(c => c.status === 'unknown').length;
     r.reason = r.verdict === 'norep' ? r.checks.find(c => c.status === 'fail').detail : r.verdict === 'unclear' ? r.unclear : '';

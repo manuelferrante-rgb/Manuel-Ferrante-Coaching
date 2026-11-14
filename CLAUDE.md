@@ -42,7 +42,7 @@ Regole decise con Manuel (non cambiarle senza chiedere):
   rack e giù: nessun fermo iniziale o finale richiesto. Restano tutti gli altri criteri.
 - Squat severo e oggettivo: il femore deve rompere il parallelo (anca sotto il ginocchio).
   Niente linea tratteggiata nel replay: linea del femore + angolo ("FEMORE 3° SOTTO IL PARALLELO").
-- Panca: conta soprattutto il fermo di 1 s al petto (questo resta); il gomito all'altezza della spalla è regola
+- Panca: conta soprattutto il fermo al petto, **0,8 s** (deciso il 14 nov, prima era 1 s); il gomito all'altezza della spalla è regola
   accessoria (no rep solo se chiaramente sopra). Sedere e piedi giù dal fermo a braccia tese in poi
   (l'arco lombare non è "sedere che si alza").
 - Stacco: partenza libera, nessuna discesa del bilanciere, chiusura a gambe tese, spalla dietro il
@@ -62,6 +62,9 @@ Regole decise con Manuel (non cambiarle senza chiedere):
 - Niente intelligenza artificiale online a pagamento per i casi difficili (decisione di Manuel,
   novembre 2026: "per ora no"). Tutto resta nel telefono. Se il modello non trova il segmento che
   conta (es. squat con busto coperto dai dischi: sbaglia l'anca), si spiega il perché.
+- Video che finisce prima della chiusura (davvero: controllo "Il video finisce prima…") → quella
+  ripetizione non si giudica, messaggio "Il video finisce prima della fine dell'alzata: riprendi
+  tutta l'alzata, fino a …" (tutte le alzate; deciso con Manuel). Errori veri già visti restano no rep.
 - Dettaglio non visibile → GOOD LIFT con nota. "Non riesco a giudicare" deve essere rarissimo.
 - Valida ma al limite → riquadro giallo "Da migliorare". No rep di poco → "No rep per poco" +
   "Come sistemarla". Mai i due insieme.
@@ -118,7 +121,10 @@ coperti dai dischi, femore ben visibile, chiaramente sotto il parallelo) siano g
   MediaPipe e quello del secondo occhio differiscono di più di 10° (controllo su 1 fotogramma per
   ripetizione, saltato da davanti). Si usa il nuovo risultato se non è "non riesco". Il detector
   gira ogni 3 fotogrammi, negli altri il riquadro viene dai punti del fotogramma prima.
-  I modelli si caricano in anticipo solo per lo squat (prima volta ~37 MB, poi in cache).
+  Si scarica **solo se serve, per tutte le alzate** (richiesta di Manuel): nello squat il controllo
+  in buca parte solo se MediaPipe è incerto (anca/ginocchio con visibilità < 0.8, femore che salta
+  di oltre 12° rispetto ai fotogrammi vicini, buca ricostruita). Prima volta ~37 MB, poi in cache.
+  Non parte se il "non riesco" è perché il video finisce prima della chiusura.
   `?nosecond` nell'indirizzo lo spegne (per confronti). Risultati: Jasmin NO REP (femore ~17°
   sopra), Arianna squat da "non riesco" a no rep per poco (femore ~parallelo, anca dietro i
   dischi); trazioni, dip, muscle up, stacco invariati.

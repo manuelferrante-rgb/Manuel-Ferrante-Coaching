@@ -36,7 +36,7 @@ ma l'analisi dice cosa non si è potuto controllare.
 
 **Squat** — fermo di 1 s a gambe tese · la parte alta dell'anca scende sotto la parte alta del ginocchio (femore sotto il parallelo) · salita senza movimenti verso il basso del bilanciere · fermo di 1 s a gambe tese (= "rack").
 
-**Panca** — fermo di 1 s a braccia tese · al petto il gomito almeno all'altezza della testa dell'omero (omero parallelo al terreno) · fermo di 1 s al petto (= "press") · spinta senza movimenti verso il basso · fermo di 1 s a braccia tese (= "rack") · il sedere resta sempre a contatto con la panca.
+**Panca** — fermo di 1 s a braccia tese · al petto il gomito almeno all'altezza della testa dell'omero (omero parallelo al terreno) · fermo di 0,8 s al petto (= "press") · spinta senza movimenti verso il basso · fermo di 1 s a braccia tese (= "rack") · il sedere resta sempre a contatto con la panca.
 
 **Stacco** — partenza libera · nessun movimento verso il basso del bilanciere · chiusura a gambe tese con la spalla dietro il bilanciere · fermo di 1 s (= "down").
 

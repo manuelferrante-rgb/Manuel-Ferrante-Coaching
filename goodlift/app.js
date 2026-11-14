@@ -2,9 +2,9 @@
 // Copyright (C) 2026 Manuel Ferrante Coaching — AGPL-3.0-or-later (vedi LICENSE).
 import { FilesetResolver, PoseLandmarker } from './vendor/mediapipe/vision_bundle.js';
 import { LIFTS, LM, SQUAT } from './engine.js';
-import { pickPerson, countPeople } from './core.js';
+import { pickPerson, countPeople, endMessage } from './core.js';
 import { trackPlate } from './plates.js';
-import { loadSecondEye, secondEye, resetSecondEye, stats as secondStats } from './second.js';
+import { secondEye, resetSecondEye, stats as secondStats } from './second.js';
 
 const $ = id => document.getElementById(id);
 const GOLD = '#c9a35a', RED = '#e5484d', WHITE = '#f5f5f0';
@@ -238,8 +238,6 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
     return m;
   });
   modelP.catch(() => {});
-  // Il secondo occhio serve a controllare la buca dello squat: si prepara mentre lavora MediaPipe.
-  if (state.lift === 'squat' && !QS.has('nosecond')) loadSecondEye().catch(e => console.warn(e));
   const T0 = performance.now(); state.timing = {}; // tempi (per ?debug)
   try { await loadVideo(video, url); }
   catch (e) { console.error(e); return stop('Questo video non si apre in questo browser. Prova con un video .mp4, oppure registrati direttamente dall\'app.'); }
@@ -296,7 +294,7 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
   state.second = null;
   if (!QS.has('nosecond')) {
     try {
-      const why = result.verdict === 'unclear' ? 'unclear' : state.lift === 'squat' ? await depthDisagrees(video, result, clean, vw, vh, gone) : null;
+      const why = result.verdict === 'unclear' ? (result.warnings[0] === endMessage(state.lift) ? null : 'unclear') : state.lift === 'squat' ? await depthDisagrees(video, result, clean, vw, vh, gone) : null;
       state.second = { why };
       if (why) {
         $('scan-label').textContent = 'Controllo più preciso…';
@@ -440,6 +438,15 @@ function femurOf(lm) {
   if (v(h) < 0.3 || v(k) < 0.3) return NaN;
   return Math.atan2(lm[h].y - lm[k].y, Math.abs(lm[h].x - lm[k].x)) * 180 / Math.PI;
 }
+function suspicious(best, clean) {
+  const v = i => best.lm[i]?.visibility ?? 0;
+  const [h, k] = v(23) + v(25) >= v(24) + v(26) ? [23, 25] : [24, 26];
+  if (v(h) < 0.8 || v(k) < 0.8) return true;
+  const f0 = femurOf(best.lm);
+  const near = clean.filter(f => f !== best && f.lm && Math.abs(f.t - best.t) <= 0.25).map(f => femurOf(f.lm)).filter(Number.isFinite).sort((a, b) => a - b);
+  if (!near.length || !Number.isFinite(f0)) return true;
+  return Math.abs(f0 - near[near.length >> 1]) > 12;
+}
 // Controllo veloce dello squat: nel punto più basso di ogni ripetizione si guarda anche con il
 // secondo occhio (un fotogramma per ripetizione). Se anca e ginocchio non tornano, si rifà tutto.
 async function depthDisagrees(video, result, clean, vw, vh, gone) {
@@ -451,6 +458,9 @@ async function depthDisagrees(video, result, clean, vw, vh, gone) {
     const t = c.t[0];
     let best = null;
     for (const f of clean) if (f.lm && (!best || Math.abs(f.t - t) < Math.abs(best.t - t))) best = f;
+    // Il secondo occhio si scarica solo se serve: si controlla solo se MediaPipe in buca è incerto
+    // (anca o ginocchio poco visibili, femore che salta da un fotogramma all'altro, buca ricostruita).
+    if (best && !suspicious(best, clean) && !result.warnings.some(w => w.includes('ricostruita'))) continue;
     if (gone()) return null;
     await seekTo(video, t);
     resetSecondEye();

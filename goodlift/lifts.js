@@ -15,6 +15,7 @@ const HOLD = { holdSec: 1.0, holdToleranceSec: 0.12, holdSlackSec: 0.45 };
 
 export const BENCH = {
   ...HOLD,
+  holdSec: 0.8, holdToleranceSec: 0.08, // fermo al petto: 0,8 s (deciso con Manuel), un fotogramma di tolleranza
   lockElbowDeg: 155, lockRelDeg: 14,  // braccia tese: gomito oltre 155° o entro 14° dal più teso visto
   topRatio: 0.12,                      // in alto: bilanciere entro il 12% del braccio dal punto più alto
   downRatio: 0.3,                      // "è scesa": bilanciere sceso del 30% del braccio
@@ -169,7 +170,7 @@ const firstFrom = (arr, from, cond) => { for (let i = Math.max(0, from); i < arr
 const lastBefore = (from, cond) => { for (let i = from; i >= 0; i--) if (cond(i)) return i; return -1; };
 
 // ── PANCA ──────────────────────────────────────────────────────────────
-// Discesa · fermo di 1 s al petto · gomito almeno all'altezza della spalla · spinta senza
+// Discesa · fermo di 0,8 s al petto · gomito almeno all'altezza della spalla · spinta senza
 // discese · chiusura a braccia tese · sedere e piedi sempre giù. (Start e rack non si giudicano.)
 export function analyzeBench(frames, width, height, cfg = BENCH) {
   const b = prepare(frames, width, height, 'panca', ['S', 'E', 'W']);
@@ -183,7 +184,7 @@ export function analyzeBench(frames, width, height, cfg = BENCH) {
   const reps = findReps(t.length, i => bar[i] > top + cfg.downRatio * arm, locked, (i, j) => bar[i] > (bar[j] ?? -Infinity),
     // al petto il bilanciere è sopra la spalla; a braccia lungo i fianchi (riposo) no
     both(bentArms(b, hasData), ({ bottom }) => handsOn(t, i => W[i] && S[i] ? W[i].y <= S[i].y + 0.15 * arm : null, bottom)));
-  if (!reps.length) return unclear('Non ho visto una panca: il bilanciere non scende abbastanza. Riprendi con il telefono all\'altezza della panca.', 'panca');
+  if (!reps.length) return unclear('Non ho visto una panca completa: il bilanciere non scende al petto e risale. Riprendi tutta l\'alzata, fino alle braccia tese, con il telefono all\'altezza della panca.', 'panca');
   // gomito rispetto alla spalla: di lato l'angolo del braccio; da davanti (piedi o testa) conta
   // il dislivello gomito-spalla, rapportato alla lunghezza del braccio
   const upper = pct(t.map((_, i) => S[i] && E[i] ? dist(S[i], E[i]) : NaN), 0.9);
@@ -204,8 +205,8 @@ export function analyzeBench(frames, width, height, cfg = BENCH) {
     while (pb + 1 <= repEnd && near(pb + 1) && Math.max(hi, bar[pb + 1]) - Math.min(lo, bar[pb + 1]) <= thr) { pb++; lo = Math.min(lo, bar[pb]); hi = Math.max(hi, bar[pb]); }
     const pause = t[pb] - t[pa] + dt;
     checks.push(pause >= cfg.holdSec - cfg.holdToleranceSec
-      ? { id: 'chestHold', label: 'Fermo al petto (1 s)', status: 'pass', detail: `Fermo di ${fmt(pause)} s al petto prima della spinta.`, t: [t[pa], t[pb] + dt] }
-      : { id: 'chestHold', label: 'Fermo al petto (1 s)', status: 'fail', close: pause >= cfg.holdSec - cfg.holdToleranceSec - 0.25, detail: pause < 0.25 ? 'Nessun fermo al petto: il bilanciere rimbalza.' : `Fermo al petto di solo ${fmt(pause)} s: serve 1 secondo prima della spinta.`, t: [t[pa], t[pb] + dt] });
+      ? { id: 'chestHold', label: `Fermo al petto (${fmt(cfg.holdSec)} s)`, status: 'pass', detail: `Fermo di ${fmt(pause)} s al petto prima della spinta.`, t: [t[pa], t[pb] + dt] }
+      : { id: 'chestHold', label: `Fermo al petto (${fmt(cfg.holdSec)} s)`, status: 'fail', close: pause >= cfg.holdSec - cfg.holdToleranceSec - 0.25, detail: pause < 0.25 ? 'Nessun fermo al petto: il bilanciere rimbalza.' : `Fermo al petto di solo ${fmt(pause)} s: serve ${fmt(cfg.holdSec)} s prima della spinta.`, t: [t[pa], t[pb] + dt] });
 
     pauses.push({ a: t[pa], b: t[pb] + dt, dur: pause });
     const key = { start: descStart >= 0 ? t[descStart] : t[firstDown], focus: (t[pa] + t[pb]) / 2, end: upIdx >= 0 ? t[upIdx] : null };
