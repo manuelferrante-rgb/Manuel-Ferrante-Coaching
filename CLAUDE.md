@@ -65,6 +65,9 @@ Regole decise con Manuel (non cambiarle senza chiedere):
 - Video che finisce prima della chiusura (davvero: controllo "Il video finisce prima…") → quella
   ripetizione non si giudica, messaggio "Il video finisce prima della fine dell'alzata: riprendi
   tutta l'alzata, fino a …" (tutte le alzate; deciso con Manuel). Errori veri già visti restano no rep.
+  Eccezione trazioni: se manca solo il ritorno a braccia tese (mento sopra già visto) → GOOD LIFT
+  con nota "Il video finisce prima del ritorno a braccia tese: non l'ho potuto controllare"
+  (Manuel: Elisabetta è valida).
 - Dettaglio non visibile → GOOD LIFT con nota. "Non riesco a giudicare" deve essere rarissimo.
 - Valida ma al limite → riquadro giallo "Da migliorare". No rep di poco → "No rep per poco" +
   "Come sistemarla". Mai i due insieme.

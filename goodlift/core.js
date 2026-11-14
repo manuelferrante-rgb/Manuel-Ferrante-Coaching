@@ -307,7 +307,9 @@ export function assemble(lift, b, reps, globalWarnings, overlay) {
     r.n = k + 1;
     // Finisce prima della chiusura: non si giudica. Restano no rep solo gli errori veri già visti
     // (non il fermo o la discesa, che il taglio del video può falsare).
-    const cut = !r.unclear && r.checks.some(c => c.status === 'unknown' && /^Il video finisce prima/.test(c.detail));
+    // Nelle trazioni la parte che conta (salita, mento sopra la sbarra) è già vista: se manca solo
+    // il ritorno a braccia tese, l'alzata resta valida con una nota (deciso con Manuel).
+    const cut = !r.unclear && r.checks.some(c => c.status === 'unknown' && /^Il video finisce prima/.test(c.detail) && !(lift === 'trazioni' && c.id === 'lockout'));
     if (cut && !r.checks.some(c => c.status === 'fail' && !['chestHold', 'noDrop'].includes(c.id))) r.unclear = endMessage(lift);
     r.verdict = r.unclear ? 'unclear' : r.checks.some(c => c.status === 'fail') ? 'norep' : 'good';
     r.missing = r.unclear ? 0 : r.checks.filter(c => c.status === 'unknown').length;
@@ -321,7 +323,9 @@ export function assemble(lift, b, reps, globalWarnings, overlay) {
   const missing = judged.reduce((a, r) => a + r.missing, 0);
   if (verdict === 'good' && missing) {
     const what = [...new Set(judged.flatMap(r => r.checks.filter(c => c.status === 'unknown').map(c => c.label.toLowerCase())))];
-    warnings.push(`Non si vede bene, quindi non l'ho potuto controllare: ${what.join(', ')}. Tutto il resto è valido.`);
+    const ends = judged.flatMap(r => r.checks.filter(c => c.status === 'unknown' && /^Il video finisce prima/.test(c.detail)).map(c => c.detail));
+    if (ends.length) warnings.push(`${ends[0].replace(/\.$/, '')}: non l'ho potuto controllare. Tutto il resto è valido.`);
+    else warnings.push(`Non si vede bene, quindi non l'ho potuto controllare: ${what.join(', ')}. Tutto il resto è valido.`);
   }
   const valid = judged.filter(r => r.verdict === 'good').length;
   // al limite: valida, ma da migliorare
