@@ -63,9 +63,20 @@ export function analyzeSquat(frames, width, height, cfg = SQUAT) {
   // Di lato si misura l'angolo direttamente. Da davanti il femore in buca punta verso il telefono:
   // conta solo quanto l'anca sta sopra o sotto il ginocchio (in verticale si vede da ogni lato),
   // rapportato alla lunghezza del femore (misurata da in piedi).
+  // Di lato si usa, fotogramma per fotogramma, la gamba con il femore "intero": il femore non cambia
+  // lunghezza, quindi se in un fotogramma una coscia sembra molto più corta del solito il modello l'ha
+  // messa male (gamba lontana, coperta dal rack o dai dischi) e si misura sull'altra.
+  const legs = [[LM.L_HIP, LM.L_KNEE], [LM.R_HIP, LM.R_KNEE]];
+  const pt = (f, k) => f.lm && (f.lm[k]?.visibility ?? 0) >= cfg.minVisibility ? { x: f.lm[k].x * width, y: f.lm[k].y * height } : null;
+  const legRef = legs.map(([h, k]) => { const v = frames.map(f => { const a = pt(f, h), b = pt(f, k); return a && b ? dist(a, b) : NaN; }).filter(Number.isFinite).sort((x, y) => x - y); return v.length ? v[Math.floor(v.length * 0.75)] : NaN; });
+  const bestLeg = frames.map(f => {
+    let best = null;
+    legs.forEach(([h, k], s) => { const a = pt(f, h), b = pt(f, k); if (!a || !b || !(legRef[s] > 0)) return; const r = dist(a, b) / legRef[s]; if (!best || r > best.r) best = { r, a, b }; });
+    return best && best.r >= 0.6 ? deg(Math.atan2(best.a.y - best.b.y, Math.abs(best.a.x - best.b.x))) : NaN;
+  });
   const femur = t.map((_, i) => !H[i] || !K[i] ? NaN : frontal
     ? deg(Math.asin(Math.max(-1, Math.min(1, (H[i].y - K[i].y) / thighRef))))
-    : deg(Math.atan2(H[i].y - K[i].y, Math.abs(H[i].x - K[i].x))));
+    : Number.isFinite(bestLeg[i]) ? bestLeg[i] : deg(Math.atan2(H[i].y - K[i].y, Math.abs(H[i].x - K[i].x))));
   // Il bilanciere sta sulla schiena e sale e scende con l'anca, che a differenza delle spalle
   // non viene coperta dai dischi. Se l'anca scende durante la salita, è sceso anche il bilanciere.
   const bar = t.map((_, i) => H[i]?.y);
@@ -77,7 +88,12 @@ export function analyzeSquat(frames, width, height, cfg = SQUAT) {
   const standHipY = pct(bar, 0.08);
   const kneeLock = Math.min(cfg.lockoutKneeDeg, standKnee - cfg.lockoutRelDeg);
   // caviglia non vista: in piedi = anca tornata alla sua altezza più alta
-  const locked = t.map((_, i) => (Number.isFinite(kneeAng[i]) ? kneeAng[i] >= kneeLock : Number.isFinite(standKnee) ? false : true) && bar[i] <= standHipY + cfg.lockoutHipDropRatio * bodyLen);
+  // In piedi = ginocchio disteso e anca vicina alla posizione più alta. Tra una ripetizione e l'altra
+  // non ci si rimette sempre alla stessa altezza (piedi spostati, bilanciere che scivola): con il
+  // ginocchio disteso basta l'anca entro il triplo della tolleranza.
+  const locked = t.map((_, i) => Number.isFinite(kneeAng[i])
+    ? kneeAng[i] >= kneeLock && bar[i] <= standHipY + 3 * cfg.lockoutHipDropRatio * bodyLen
+    : !Number.isFinite(standKnee) && bar[i] <= standHipY + cfg.lockoutHipDropRatio * bodyLen);
   const hasData = kneeAng.map(Number.isFinite);
 
   const reps = findReps(t.length, i => bar[i] > standHipY + cfg.squatDropRatio * bodyLen, locked,
@@ -92,14 +108,36 @@ export function analyzeSquat(frames, width, height, cfg = SQUAT) {
         if (kneeAng[i] < 135 || femur[i] > -30) bent = true;
       }
       if (!(seen >= Math.max(3, 0.7 * (end - fd + 1)) && (bent || !!hiddenBottom({ t, femur, from: fd, to: end })))) return false;
-      // fine serie: senza bilanciere sulla schiena le mani scendono sotto l'anca (riposo, piegato
-      // sulle ginocchia). In buca, con il bilanciere, le mani stanno sopra l'anca.
-      let hi = 0, lo = 0;
-      // solo polsi visti bene: in buca i dischi coprono le mani e il modello le "inventa" all'anca
-      const wristSeen = i => { const l = frames[i].lm; return !!l && Math.max(l[15]?.visibility ?? 0, l[16]?.visibility ?? 0) >= 0.5; };
-      for (let i = 0; i < t.length; i++) if (Math.abs(t[i] - t[bottom]) <= 0.15 && W[i] && H[i] && wristSeen(i)) { if (W[i].y < H[i].y) hi++; else lo++; }
-      return !(hi + lo) || hi >= lo;
+      return true;
     }, i => bar[i], t);
+  // Fine serie: senza bilanciere sulla schiena le mani scendono sotto l'anca (riposo, piegato sulle
+  // ginocchia); in buca, con il bilanciere, stanno sopra. Vale solo in fondo: una "ripetizione" seguita
+  // da altre ripetizioni non è un riposo (e i polsi a volte il modello li mette male).
+  const handsUp = ({ bottom }) => {
+    const wristSeen = i => { const l = frames[i].lm; return !!l && Math.max(l[15]?.visibility ?? 0, l[16]?.visibility ?? 0) >= 0.5; };
+    let hi = 0, lo = 0;
+    for (let i = 0; i < t.length; i++) if (Math.abs(t[i] - t[bottom]) <= 0.15 && W[i] && H[i] && wristSeen(i)) { if (W[i].y < H[i].y) hi++; else lo++; }
+    return !(hi + lo) || hi >= lo;
+  };
+  // ...e per riposarsi si rimette il bilanciere nel rack: ci si sposta. Nello stesso punto delle altre
+  // ripetizioni è una ripetizione vera.
+  const hipX = i => H[i]?.x;
+  const moved = (a, b) => { const xa = hipX(a.bottom), xb = hipX(b.bottom); return !(Number.isFinite(xa) && Number.isFinite(xb)) || Math.abs(xa - xb) > 0.25 * bodyLen; };
+  // Anche il ritmo: il riposo è lento e lungo, una ripetizione vera dura come le altre della serie.
+  const dur = r => t[r.up >= 0 ? r.up : t.length - 1] - t[r.fd];
+  const likeOthers = k => { const prev = reps.slice(0, k).filter(handsUp).map(dur).sort((a, b) => a - b); return prev.length > 0 && reps[k].up >= 0 && dur(reps[k]) <= 1.5 * prev[prev.length >> 1]; };
+  while (reps.length && !handsUp(reps[reps.length - 1])) {
+    const k = reps.length - 1;
+    if (k > 0 && !moved(reps[k - 1], reps[k]) && likeOthers(k)) break;
+    reps.pop();
+  }
+  // Prendere il bilanciere dal rack o riappoggiarlo: un piegamento di poco (femore molto sopra il
+  // parallelo) in una serie dove gli squat veri arrivano in basso non è una ripetizione.
+  if (reps.length > 1) {
+    const deepest = r => { let m = -Infinity; for (let i = r.fd; i <= (r.end >= 0 ? r.end : t.length - 1); i++) if (Number.isFinite(femur[i])) m = Math.max(m, femur[i]); return m; };
+    const d = reps.map(deepest);
+    if (Math.max(...d) > -15) for (let k = reps.length - 1; k >= 0; k--) if (d[k] < -40) reps.splice(k, 1);
+  }
   if (!reps.length) {
     // l'anca scende e sale ma le ginocchia "non si piegano": il modello non vede bene le gambe
     const hy = bar.filter(Number.isFinite).sort((a, b) => a - b);

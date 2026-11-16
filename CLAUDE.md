@@ -152,6 +152,21 @@ Regole decise con Manuel (non cambiarle senza chiedere):
   spesso non di lato: non vanno bene per tarare le soglie (servono video veri di Manuel, di lato,
   validi e no rep).
 
+## Prova sui video di Manuel (16 nov 2026, cartella Drive "alzate")
+
+24 video (IMG_76xx–90xx, copy_*) + 2 della chat. Verità a occhio: squat 7646 7648 7650 7766 8785;
+panca 7644 7836 8776 8778(spotter) 8887; trazioni 7640 7832 8885 9051; dip 7642 7834 9045 B17F;
+muscle up 7636 7638 7828 25D6; A5B5 = montaggio di 3 persone; 8890 = curl coi manubri (non è un'alzata).
+Correzioni fatte dopo la prova:
+- Squat: il femore si misura sulla gamba vista meglio (lunghezza della coscia vicina alla sua
+  massima), non la media delle due (la gamba lontana, coperta, sbagliava di 20-30°).
+- Squat: "mani giù = riposo" solo in coda alla serie (prima scartava ripetizioni vere); lo stacco
+  dal rack (discesa piccola rispetto alle altre) non è una ripetizione.
+- Trazioni: sbarra in diagonale (ripresa di tre quarti) stimata dalle due mani.
+- Muscle up riconosciuto solo se le spalle passano sopra le mani **all'altezza della sbarra**.
+Limiti noti: trazioni riprese dal basso (7832, 9051) danno "mento sotto la sbarra" per prospettiva;
+riflesso nello specchio (7646) può rubare la traccia; analisi oltre 45 s tagliata.
+
 ## Lavoro in corso (novembre 2026): squat con busto coperto dai dischi
 
 Manuel vuole che alzate come lo squat di Jasmin (`videos/jasmin-squat-200kg.mp4`: busto e testa

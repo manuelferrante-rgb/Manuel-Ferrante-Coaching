@@ -464,10 +464,14 @@ export function detectLift(frames, width = 1, height = 1) {
   const up = pull.frac(f => !f.lying && f.W.y < f.S.y - 0.15 * pull.arm);
   // muscle up: appeso e poi spalle sopra le mani a braccia tese
   // (basta poco sotto le mani: nel dip le spalle non scendono mai sotto le mani)
+  // (e con le mani ancora sulla sbarra: chi è sceso e sta in piedi ha le spalle sopra le mani, ma le
+  // mani sono in basso, lungo i fianchi)
   let hung = 0, above = 0;
+  const hungW = mu.fs.filter(f => f.W.y < f.S.y).map(f => f.W.y).sort((a, b) => a - b);
+  const barY = hungW.length ? hungW[hungW.length >> 1] : NaN;
   for (const f of mu.moves ? mu.fs : []) {
     if (f.W.y < f.S.y) hung++;
-    else if (hung && f.S.y < f.W.y - 0.15 * mu.arm && f.elb > 140) above++;
+    else if (hung && f.S.y < f.W.y - 0.15 * mu.arm && f.elb > 140 && Math.abs(f.W.y - barY) < 0.5 * mu.arm) above++;
   }
   const kneeMin = a => Math.min(...a.fs.map(f => f.knee).filter(Number.isFinite));
   // ginocchia che si piegano molto (squat): non è un'alzata alla sbarra (lì le gambe restano tese)
@@ -482,7 +486,7 @@ export function detectLift(frames, width = 1, height = 1) {
   const lies = lying >= 0.35 || (seated >= 0.6 && squat < 0.3);
   const hanging = (up >= 0.2 || hung >= 3) && !(kneesBend && up < 0.5) && !(lies && up < 0.5);
   const rank = [];
-  const isMU = hung >= 2 && above >= 3 && !kneesBend && !lies;
+  const isMU = hung >= 2 && above >= 2 && !kneesBend && !lies;
   if (hanging || isMU) rank.push(isMU ? ['muscleup', 3] : ['trazioni', 3]);
   if (lies) rank.push(['panca', 2.5]);
   // ginocchia che si piegano molto con le mani alle spalle: è uno squat, non un dip (nel dip le gambe
@@ -493,7 +497,8 @@ export function detectLift(frames, width = 1, height = 1) {
   if (!lies) rank.push(['panca', Math.max(lying / 0.35, seated / 0.6)]);
   // spalle chiaramente sopra le mani ma senza chiusura sopra la sbarra: forse un muscle up non riuscito
   // (nelle trazioni le spalle arrivano al massimo all'altezza delle mani, nel muscle up un braccio sopra)
-  const top = Math.min(...pull.fs.filter(f => !f.lying).map(f => (f.S.y - f.W.y) / pull.arm));
+  const pw = pull.fs.filter(f => f.W.y < f.S.y).map(f => f.W.y).sort((a, b) => a - b), pBar = pw.length ? pw[pw.length >> 1] : NaN;
+  const top = Math.min(...pull.fs.filter(f => !f.lying && Math.abs(f.W.y - pBar) < 0.5 * pull.arm).map(f => (f.S.y - f.W.y) / pull.arm));
   scores.top = top;
   // sicuro? servono prove forti per l'alzata scelta; se no si chiede conferma (app.js)
   const strong = { panca: lying >= 0.5 || (seated >= 0.75 && squat < 0.2), muscleup: hung >= 3 && above >= 5, trazioni: up >= 0.4,

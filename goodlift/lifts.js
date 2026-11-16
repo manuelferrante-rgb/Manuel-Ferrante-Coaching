@@ -425,6 +425,15 @@ export function analyzePullup(frames, width, height, cfg = PULLUP) {
   const nextPull = k => (k + 1 < reps.length ? reps[k + 1].fd : t.length);
   if (!reps.length) return unclear('Non ho visto una trazione: le spalle non salgono abbastanza. Riprendi con la sbarra nell\'inquadratura.', 'trazioni');
   const barY = median(b.y(W)) - cfg.barAboveWristRatio * arm;
+  // La sbarra nell'immagine può essere inclinata (telefono più in basso e di lato): passa per le due
+  // mani. Il mento si confronta con la sbarra nel punto in cui sta il mento, non con un polso solo.
+  const hand = id => {
+    const ps = frames.filter(f => f.lm && (f.lm[id]?.visibility ?? 0) > 0.5 && f.lm[id].y < Math.min(f.lm[11].y, f.lm[12].y)).map(f => ({ x: f.lm[id].x * width, y: f.lm[id].y * height }));
+    return ps.length >= 5 ? { x: median(ps.map(p => p.x)), y: median(ps.map(p => p.y)) } : null;
+  };
+  const hl = hand(15), hr = hand(16);
+  const barAt = x => hl && hr && Math.abs(hr.x - hl.x) > 0.15 * arm && Number.isFinite(x)
+    ? hl.y + (hr.y - hl.y) * (x - hl.x) / (hr.x - hl.x) - cfg.barAboveWristRatio * arm : barY;
   const chin = t.map((_, i) => M[i] && N[i] ? M[i].y + cfg.chinBelowMouth * Math.max(0, M[i].y - N[i].y) : N[i] ? N[i].y + 0.12 * arm : NaN);
   const thigh = t.map((_, i) => H[i] && K[i] ? deg(Math.atan2(K[i].x - H[i].x, K[i].y - H[i].y)) : NaN);
   const margins = [], guessed = [];
@@ -463,7 +472,7 @@ export function analyzePullup(frames, width, height, cfg = PULLUP) {
       else checks.push({ id: 'chin', label: 'Mento sopra la sbarra', status: 'fail', close: rel <= cfg.chinGuessFailRatio + 0.1, detail: 'Il mento non si vede bene, ma le spalle restano lontane dalle mani: a impressione il mento non supera la sbarra.', t: [t[at], t[at]] });
       warnings.push('Il mento non si vede bene nel video (ripresa da dietro o testa coperta): il giudizio sul mento è a impressione. Per un giudizio sicuro riprendi di lato, con la testa nell\'inquadratura.');
     } else {
-    const margin = barY - best; // positivo = mento sopra la sbarra
+    const margin = barAt(M[chinIdx]?.x ?? N[chinIdx]?.x) - best; // positivo = mento sopra la sbarra
     margins.push(margin);
     checks.push(margin >= cfg.chinMarginRatio * arm
       ? { id: 'chin', label: 'Mento sopra la sbarra', status: 'pass', detail: margin < 0.04 * arm ? 'Al limite: il mento arriva appena sopra la sbarra.' : 'Il mento supera la sbarra.', t: [t[chinIdx], t[chinIdx]], value: margin / arm }
@@ -492,7 +501,7 @@ export function analyzePullup(frames, width, height, cfg = PULLUP) {
         const g = guessed.find(q => t[i] >= q.a && t[i] <= q.b);
         if (g) return g.ok ? ['MENTO SOPRA (A IMPRESSIONE)', false] : ['MENTO SOTTO (A IMPRESSIONE)', true];
         if (b.fromBehind) return null;
-        const m = barY - chin[i]; return !Number.isFinite(m) ? null : m >= cfg.chinMarginRatio * arm ? ['MENTO SOPRA LA SBARRA', false] : ['MENTO SOTTO LA SBARRA', true];
+        const m = barAt(M[i]?.x ?? N[i]?.x) - chin[i]; return !Number.isFinite(m) ? null : m >= cfg.chinMarginRatio * arm ? ['MENTO SOPRA LA SBARRA', false] : ['MENTO SOTTO LA SBARRA', true];
       },
     },
   });
