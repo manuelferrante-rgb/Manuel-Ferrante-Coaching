@@ -286,7 +286,11 @@ export function pickPerson(frames, lift, width = 1, height = 1) {
       for (const nx of byStart) {
         if (nx === tr || taken.has(nx) || nx.s <= cur.e || frames[nx.s].t - frames[cur.e].t > 0.5) continue;
         const st = nx.items.get(nx.s), d = Math.hypot(st.cx - end.cx, st.cy - end.cy);
-        if (d < 1.5 * sz && d < pd) { pick = nx; pd = d; }
+        if (!(d < 1.5 * sz && d < pd)) continue;
+        // un altro pezzo, finito anche lui poco prima, è più vicino al suo inizio: è il seguito di quello
+        const closer = tracks.some(o => o !== tr && o !== nx && !taken.has(o) && o.e < nx.s && o.e >= cur.e - 12 && frames[nx.s].t - frames[o.e].t <= 0.5
+          && Math.hypot(st.cx - o.items.get(o.e).cx, st.cy - o.items.get(o.e).cy) < 0.5 * d);
+        if (!closer) { pick = nx; pd = d; }
       }
       if (!pick) break;
       // il pezzo si unisce solo se nessun altro pezzo, nello stesso momento, è più vicino alla traccia
@@ -303,6 +307,27 @@ export function pickPerson(frames, lift, width = 1, height = 1) {
     return cs.reduce((a, c) => a + c.score, 0) * (1 + 4 * Math.min(1, range / size));
   };
   const best = tracks.reduce((a, tr) => (value(tr) > value(a) ? tr : a));
+  // La traccia scelta finisce prima del video, ma un'altra, nata mentre c'era ancora (il modello ha
+  // visto l'atleta due volte, quasi uguale, es. con le mani in due posti diversi), prosegue dallo
+  // stesso punto: è sempre lui, si continua con quella.
+  for (let guard = 0; guard < 20; guard++) {
+    const be = Math.max(...best.items.keys()), end = best.items.get(be);
+    let pick = null, pd = Infinity;
+    for (const tr of tracks) {
+      if (tr === best || Math.max(...tr.items.keys()) <= be + 2) continue;
+      // dove stavano tutte e due nello stesso fotogramma, poco prima della fine
+      const near = [...tr.items.keys()].filter(k => k <= be && frames[be].t - frames[k].t <= 1);
+      if (!near.length) continue;
+      // stessa persona: spalle e anca nello stesso punto (le mani possono essere altrove)
+      const k = Math.max(...near), c = tr.items.get(k), o = best.items.get(k) || end;
+      const P = (lm, a, b) => [(lm[a].x + lm[b].x) / 2 * width, (lm[a].y + lm[b].y) / 2 * height];
+      const gap = (a, b) => Math.hypot(P(c.lm, a, b)[0] - P(o.lm, a, b)[0], P(c.lm, a, b)[1] - P(o.lm, a, b)[1]);
+      const d = Math.max(gap(11, 12), gap(23, 24));
+      if (d < 0.15 * end.size && d < pd) { pick = tr; pd = d; }
+    }
+    if (!pick) break;
+    for (const [k, c] of pick.items) if (k > be) best.items.set(k, c);
+  }
   return frames.map((f, i) => ({ t: f.t, lm: best.items.get(i)?.lm ?? null }));
 }
 
@@ -466,12 +491,17 @@ export function detectLift(frames, width = 1, height = 1) {
   // (basta poco sotto le mani: nel dip le spalle non scendono mai sotto le mani)
   // (e con le mani ancora sulla sbarra: chi è sceso e sta in piedi ha le spalle sopra le mani, ma le
   // mani sono in basso, lungo i fianchi)
-  let hung = 0, above = 0;
+  // (bent: spalle ben sopra le mani alla sbarra anche a braccia piegate, es. muscle up col kip ripreso
+  // di lato: nelle trazioni le spalle non passano mai le mani)
+  let hung = 0, above = 0, bent = 0;
   const hungW = mu.fs.filter(f => f.W.y < f.S.y).map(f => f.W.y).sort((a, b) => a - b);
   const barY = hungW.length ? hungW[hungW.length >> 1] : NaN;
   for (const f of mu.moves ? mu.fs : []) {
     if (f.W.y < f.S.y) hung++;
-    else if (hung && f.S.y < f.W.y - 0.15 * mu.arm && f.elb > 140 && Math.abs(f.W.y - barY) < 0.5 * mu.arm) above++;
+    else if (hung && Math.abs(f.W.y - barY) < 0.5 * mu.arm) {
+      if (f.S.y < f.W.y - 0.15 * mu.arm && f.elb > 140) above++;
+      if (f.S.y < f.W.y - 0.3 * mu.arm) bent++;
+    }
   }
   const kneeMin = a => Math.min(...a.fs.map(f => f.knee).filter(Number.isFinite));
   // ginocchia che si piegano molto (squat): non è un'alzata alla sbarra (lì le gambe restano tese)
@@ -479,14 +509,14 @@ export function detectLift(frames, width = 1, height = 1) {
   const kneesBend = kneeMin(sq) < 110 && kneeMin(mu) < 110 && squat >= 0.15;
   const low = st.frac(f => !f.lying && f.W.y > f.K.y - 0.3 * st.torso && f.elb > 140);
   const dipBent = dp.frac(f => !f.lying && f.elb < 120 && f.W.y > f.S.y + 0.3 * dp.arm && f.W.y < f.H.y + 0.2 * dp.torso);
-  const scores = { lying, seated, up, hung, above, squat, low, dipBent, kneesBend };
+  const scores = { lying, seated, up, hung, above, bent, squat, low, dipBent, kneesBend };
   // In ordine: appeso (trazioni / muscle up), sdraiato (panca), poi in piedi o in appoggio
   // (squat, stacco, dip: si confrontano tra loro). La classifica serve se la prima non torna (engine.js).
   // "seduto" (panca vista dai piedi) vale solo se non c'è chiaramente uno squat
   const lies = lying >= 0.35 || (seated >= 0.6 && squat < 0.3);
   const hanging = (up >= 0.2 || hung >= 3) && !(kneesBend && up < 0.5) && !(lies && up < 0.5);
   const rank = [];
-  const isMU = hung >= 2 && above >= 2 && !kneesBend && !lies;
+  const isMU = !lies && ((hung >= 2 && above >= 2 && !kneesBend) || (up >= 0.25 && bent >= 4 && squat < 0.4));
   if (hanging || isMU) rank.push(isMU ? ['muscleup', 3] : ['trazioni', 3]);
   if (lies) rank.push(['panca', 2.5]);
   // ginocchia che si piegano molto con le mani alle spalle: è uno squat, non un dip (nel dip le gambe

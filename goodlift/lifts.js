@@ -473,11 +473,15 @@ export function analyzePullup(frames, width, height, cfg = PULLUP) {
       warnings.push('Il mento non si vede bene nel video (ripresa da dietro o testa coperta): il giudizio sul mento è a impressione. Per un giudizio sicuro riprendi di lato, con la testa nell\'inquadratura.');
     } else {
     const margin = barAt(M[chinIdx]?.x ?? N[chinIdx]?.x) - best; // positivo = mento sopra la sbarra
+    const faceAtBar = !!N[chinIdx] && barAt(N[chinIdx].x) - N[chinIdx].y >= -0.02 * arm; // naso alla sbarra o sopra
     margins.push(margin);
     checks.push(margin >= cfg.chinMarginRatio * arm
       ? { id: 'chin', label: 'Mento sopra la sbarra', status: 'pass', detail: margin < 0.04 * arm ? 'Al limite: il mento arriva appena sopra la sbarra.' : 'Il mento supera la sbarra.', t: [t[chinIdx], t[chinIdx]], value: margin / arm }
-      : { id: 'chin', label: 'Mento sopra la sbarra', status: 'fail', close: margin > -0.04 * arm, detail: 'Il mento non supera la sbarra.', t: [t[chinIdx], t[chinIdx]], value: margin / arm });
+      : { id: 'chin', label: 'Mento sopra la sbarra', status: 'fail', close: margin > -0.04 * arm || faceAtBar, detail: faceAtBar ? 'Il mento arriva alla sbarra ma non la supera: la sbarra passa davanti alla faccia.' : 'Il mento non supera la sbarra.', t: [t[chinIdx], t[chinIdx]], value: margin / arm });
     if (margin >= 0 && margin < 0.04 * arm) warnings.push('Mento al limite: un giudice severo potrebbe darla no rep.');
+    // la sbarra taglia la faccia (naso sopra, mento sotto): con il telefono più in basso della sbarra
+    // la testa, che sta dietro, sembra più bassa di quanto è. Il verdetto resta, ma si dice come riprendere.
+    if (faceAtBar && margin < cfg.chinMarginRatio * arm) warnings.push('La sbarra passa davanti alla faccia: se il telefono era più in basso della sbarra, il mento può sembrare più basso di quanto è. Per un giudizio sicuro riprendi di lato, con il telefono all\'altezza della sbarra.');
     }
 
     // giù a braccia tese: tra il ritorno in basso e la tirata successiva

@@ -2,14 +2,14 @@
 // Copyright (C) 2026 Manuel Ferrante Coaching — AGPL-3.0-or-later (vedi LICENSE).
 import { FilesetResolver, PoseLandmarker } from './vendor/mediapipe/vision_bundle.js';
 import { LIFTS, LM, SQUAT, recognize } from './engine.js';
-import { pickPerson, countPeople, endMessage, detectLift } from './core.js';
+import { pickPerson, countPeople, endMessage, detectLift, unclear } from './core.js';
 import { trackPlate } from './plates.js';
 import { cameraShift, stabilize } from './motion.js';
 import { secondEye, resetSecondEye, stats as secondStats } from './second.js';
 
 const $ = id => document.getElementById(id);
 const GOLD = '#c9a35a', RED = '#e5484d', WHITE = '#f5f5f0';
-const MAX_SECONDS = 45;
+const MAX_SECONDS = 75; // serie lunghe (es. 5 squat pesanti con pause) arrivano a ~65 s
 const BONES = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28], [27, 29], [29, 31], [27, 31], [28, 30], [30, 32], [28, 32]];
 
 // Safari < 16 non ha roundRect: ripiego su un rettangolo semplice.
@@ -301,7 +301,11 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
       // una ripetizione: i suoi punti non bastano
       const seen = clean.filter(f => f.lm).length / Math.max(1, clean.length);
       const repLost = (result.reps || []).some(r => r.verdict === 'unclear');
+      // nessuno fa davvero un'alzata (es. il primo modello vede solo lo spotter in piedi che segue il
+      // bilanciere con le mani, non chi è sdraiato in panca): prove troppo deboli
+      const weakScore = FORCED ? Infinity : state.recognized?.rank?.[0]?.[1] ?? Infinity;
       const why = result.verdict === 'unclear' ? (result.warnings[0] === endMessage(state.lift) ? null : 'unclear')
+        : weakScore < 0.5 ? 'weak'
         : seen < 0.75 || repLost ? 'gaps'
         : state.lift === 'squat' ? await depthDisagrees(video, result, clean, vw, vh, gone) : null;
       state.second = { why };
@@ -318,12 +322,17 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
         state.prep2 = prep2; state.raw2 = f2; // tenuti per la pillola: se si cambia alzata si prova anche con questi punti
         const { clean: c2, result: r2 } = judge(prep2, FORCED || recognizeLift(prep2, vw, vh), vw, vh);
         state.second.verdict = r2.verdict; state.second.frames = c2; // per ?debug
-        if (r2.verdict !== 'unclear') { raw = f2; prep = prep2; clean = c2; result = r2; state.second.used = true; }
+        const better = why !== 'weak' || (state.recognized?.rank?.[0]?.[1] ?? 0) > weakScore;
+        if (r2.verdict !== 'unclear' && better) { raw = f2; prep = prep2; clean = c2; result = r2; state.second.used = true; }
         else Object.assign(state, before);
       }
     } catch (e) { console.warn(e); }
     state.timing.second = performance.now() - T0; state.timing.secondEye = { ...secondStats };
   }
+  // anche dopo il secondo occhio nessuno fa una delle sei alzate (es. curl coi manubri): meglio
+  // chiedere che inventare un verdetto
+  if (!FORCED && result.verdict !== 'unclear' && (state.recognized?.rank?.[0]?.[1] ?? Infinity) < 0.5)
+    result = unclear('Non vedo nessuno fare squat, panca, stacco, trazioni, dip o muscle up. Se è una di queste, tocca l\'alzata giusta qui sopra.', state.lift);
   alive = false; cancelAnimationFrame(raf);
   state.raw = raw; // per ?debug
   // tutto quello che serve per rigiudicare subito con un'altra alzata (pillola "SQUAT ▾")

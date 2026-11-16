@@ -164,8 +164,18 @@ Correzioni fatte dopo la prova:
   dal rack (discesa piccola rispetto alle altre) non è una ripetizione.
 - Trazioni: sbarra in diagonale (ripresa di tre quarti) stimata dalle due mani.
 - Muscle up riconosciuto solo se le spalle passano sopra le mani **all'altezza della sbarra**.
-Limiti noti: trazioni riprese dal basso (7832, 9051) danno "mento sotto la sbarra" per prospettiva;
-riflesso nello specchio (7646) può rubare la traccia; analisi oltre 45 s tagliata.
+- Muscle up col kip (7636, 7638, 25D6): riconosciuti anche se sopra la sbarra le braccia restano
+  piegate (spalle 0,3 braccia sopra le mani alla sbarra, appeso ≥25%, poco squat); no rep per kip.
+- Prove deboli (nessuno fa davvero un'alzata, punteggio < 0,5: es. panca 8778 con solo lo spotter
+  visto dal primo modello) → secondo occhio su tutto il video; se resta debole (8890, curl) →
+  "Non vedo nessuno fare squat, panca…" e elenco alzate.
+- pickPerson: se la traccia scelta finisce ma un'altra, nata prima con spalle e anca nello stesso
+  punto (doppione del modello), continua → si prosegue con quella (7646: da 3 a 6 ripetizioni).
+- Video fino a 75 s (prima 45).
+- Trazioni con la sbarra davanti alla faccia (naso alla sbarra, mento sotto): resta no rep ma "per
+  poco", con nota sul telefono troppo in basso (9051). 7832: mento chiaramente sotto, no rep.
+- Panca 7644 e 7836 verificate seguendo il disco: fermo 0,2-0,5 s → no rep giusto.
+Limiti noti: panca vista da dietro il montante (7836): conta 5 ripetizioni su 7 (verdetti giusti).
 
 ## Lavoro in corso (novembre 2026): squat con busto coperto dai dischi
 
