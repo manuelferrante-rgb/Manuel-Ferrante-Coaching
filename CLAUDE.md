@@ -175,7 +175,20 @@ Correzioni fatte dopo la prova:
 - Trazioni con la sbarra davanti alla faccia (naso alla sbarra, mento sotto): resta no rep ma "per
   poco", con nota sul telefono troppo in basso (9051). 7832: mento chiaramente sotto, no rep.
 - Panca 7644 e 7836 verificate seguendo il disco: fermo 0,2-0,5 s → no rep giusto.
-Limiti noti: panca vista da dietro il montante (7836): conta 5 ripetizioni su 7 (verdetti giusti).
+- Trazioni di Manuel (7832 dal basso, 9051 sbarra davanti alla faccia): **nettamente valide** (Manuel).
+  Con la testa all'indietro MediaPipe (e anche RTMPose) mette naso/bocca sulla sbarra: se la faccia
+  arriva alla sbarra (naso entro 0,12 braccia), mento stimato entro 0,25 sotto e spalle entro 0,4
+  braccia dalle mani → valida "a impressione" con nota. Effetto collaterale accettato: le trazioni
+  alla fronte (7640, variante, non da gara) possono uscire valide. Ripresa da dietro: soglia -0,12.
+- Panca: mentre si analizza un video caricato l'alzata non si sa: la velocità si regola su anca,
+  mani e spalle (prima solo anca → in panca andava a 4× e saltava il fermo al petto, 7644 dava una
+  valida falsa). Se le mani si vedono male (≥15% o al petto) si segue il bilanciere nell'immagine
+  (plates.js trackPatch, correlazione, regge il disco visto di sbieco) partendo dal polso visto meglio
+  a braccia tese; tenuto se non trova meno ripetizioni (7836: 7 su 7 + a volte il ritorno sui ganci).
+  Ripetizioni ≥3: quelle con discesa < metà della mediana (ganci) non contano.
+- Muscle up: il ginocchio non si deve flettere per niente, l'anca un po' sì (Manuel, 16 nov).
+Limiti noti: il campionamento in tempo reale cambia un po' da una prova all'altra (panca 7644: 4–6
+ripetizioni trovate su 6, verdetti sempre no rep).
 
 ## Lavoro in corso (novembre 2026): squat con busto coperto dai dischi
 

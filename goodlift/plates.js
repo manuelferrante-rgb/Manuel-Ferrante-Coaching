@@ -98,3 +98,41 @@ export function trackPlate(frames, w, h, body, { minScore = 0.33 } = {}) {
   follow(start, -1, -1);
   return out;
 }
+
+// Segue un pezzo d'immagine (es. bilanciere, mani e disco in panca) da un fotogramma all'altro con la
+// correlazione normalizzata: regge anche un disco visto di sbieco (un'ovale, non un cerchio).
+// frames: [{ gray }]; start: indice del fotogramma di partenza; box: {x, y, w, h} in quel fotogramma
+// (scala dei grigi). Restituisce il centro del pezzo (o null) per fotogramma.
+export function trackPatch(frames, w, h, start, box, { search = 0.6, minScore = 0.5 } = {}) {
+  const out = frames.map(() => null);
+  const g0 = frames[start]?.gray; if (!g0) return out;
+  const bw = Math.round(box.w), bh = Math.round(box.h);
+  const bx = Math.round(box.x - bw / 2), by = Math.round(box.y - bh / 2);
+  if (bx < 0 || by < 0 || bx + bw > w || by + bh > h || bw < 6 || bh < 6) return out;
+  // modello (a passo 2 per andare veloce)
+  const pts = [];
+  for (let y = 0; y < bh; y += 2) for (let x = 0; x < bw; x += 2) pts.push([x, y, g0[(by + y) * w + bx + x]]);
+  const m0 = pts.reduce((a, p) => a + p[2], 0) / pts.length;
+  const s0 = Math.sqrt(pts.reduce((a, p) => a + (p[2] - m0) ** 2, 0)) || 1;
+  const score = (g, x0, y0) => {
+    let sum = 0, sq = 0, cross = 0;
+    for (const [x, y, v] of pts) { const u = g[(y0 + y) * w + x0 + x]; sum += u; sq += u * u; cross += u * (v - m0); }
+    const n = pts.length, varU = sq - sum * sum / n;
+    return varU > 0 ? cross / (Math.sqrt(varU) * s0) : 0;
+  };
+  const rx = Math.round(search * 0.3 * bw), ry = Math.round(search * bh);
+  const follow = step => {
+    let px = bx, py = by;
+    for (let i = start; i >= 0 && i < frames.length; i += step) {
+      const g = frames[i].gray; if (!g) continue;
+      let best = -1, bxx = px, byy = py;
+      for (let y = Math.max(0, py - ry); y <= Math.min(h - bh, py + ry); y++)
+        for (let x = Math.max(0, px - rx); x <= Math.min(w - bw, px + rx); x++) {
+          const s = score(g, x, y); if (s > best) { best = s; bxx = x; byy = y; }
+        }
+      if (best >= minScore) { out[i] = { x: bxx + bw / 2, y: byy + bh / 2, score: best }; px = bxx; py = byy; }
+    }
+  };
+  follow(1); follow(-1);
+  return out;
+}

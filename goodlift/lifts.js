@@ -192,10 +192,19 @@ export function analyzeBench(frames, width, height, cfg = BENCH) {
   const hasData = t.map((_, i) => !!(S[i] && E[i] && W[i]));
   const top = pct(bar, 0.08);
   const lockElb = Math.min(cfg.lockElbowDeg, pct(elbow, 0.9) - cfg.lockRelDeg);
-  const locked = t.map((_, i) => elbow[i] >= lockElb && bar[i] <= top + cfg.topRatio * arm);
+  // bilanciere seguito nell'immagine (app.js: mani coperte dal rack o dai dischi): i gomiti visti dal
+  // modello non sono affidabili, chiusura e ripetizione si leggono dal bilanciere
+  const tracked = !!frames.barTracked;
+  const locked = t.map((_, i) => (tracked || elbow[i] >= lockElb) && bar[i] <= top + cfg.topRatio * arm);
   const reps = findReps(t.length, i => bar[i] > top + cfg.downRatio * arm, locked, (i, j) => bar[i] > (bar[j] ?? -Infinity),
-    // al petto il bilanciere è sopra la spalla; a braccia lungo i fianchi (riposo) no
-    both(bentArms(b, hasData), ({ bottom }) => handsOn(t, i => W[i] && S[i] ? W[i].y <= S[i].y + 0.15 * arm : null, bottom)), i => bar[i], t);
+    tracked ? ({ fd, end }) => { let seen = 0; for (let i = fd; i <= end; i++) if (b.present[i]) seen++; return seen >= Math.max(3, 0.7 * (end - fd + 1)); }
+      // al petto il bilanciere è sopra la spalla; a braccia lungo i fianchi (riposo) no
+      : both(bentArms(b, hasData), ({ bottom }) => handsOn(t, i => W[i] && S[i] ? W[i].y <= S[i].y + 0.15 * arm : null, bottom)), i => bar[i], t);
+  // rimettere il bilanciere sui ganci a fine serie lo fa scendere un po' (non fino al petto): non conta
+  if (reps.length >= 3) {
+    const drops = reps.map(r => bar[r.bottom] - top), med = drops.slice().sort((p, q) => p - q)[drops.length >> 1];
+    for (let k = reps.length - 1; k >= 0; k--) if (drops[k] < 0.5 * med) reps.splice(k, 1);
+  }
   if (!reps.length) return unclear('Non ho visto una panca completa: il bilanciere non scende al petto e risale. Riprendi tutta l\'alzata, fino alle braccia tese, con il telefono all\'altezza della panca.', 'panca');
   // gomito rispetto alla spalla: di lato l'angolo del braccio; da davanti (piedi o testa) conta
   // il dislivello gomito-spalla, rapportato alla lunghezza del braccio
@@ -473,15 +482,24 @@ export function analyzePullup(frames, width, height, cfg = PULLUP) {
       warnings.push('Il mento non si vede bene nel video (ripresa da dietro o testa coperta): il giudizio sul mento è a impressione. Per un giudizio sicuro riprendi di lato, con la testa nell\'inquadratura.');
     } else {
     const margin = barAt(M[chinIdx]?.x ?? N[chinIdx]?.x) - best; // positivo = mento sopra la sbarra
-    const faceAtBar = !!N[chinIdx] && barAt(N[chinIdx].x) - N[chinIdx].y >= -0.02 * arm; // naso alla sbarra o sopra
+    // Faccia alla sbarra con la testa all'indietro: il modello mette naso e bocca troppo in basso
+    // (visto sui video di Manuel: mento nettamente sopra, punti sulla sbarra). Se la faccia arriva
+    // alla sbarra e le spalle vicino alle mani, il mento non si misura bene: valida con nota.
+    let rel = Infinity;
+    for (let i = pullStart; i < t.length && (downIdx < 0 || i <= downIdx); i++) {
+      if (Math.abs(t[i] - t[topIdx]) > 0.3 || !S[i] || !W[i]) continue;
+      rel = Math.min(rel, (S[i].y - W[i].y) / arm);
+    }
+    const faceAtBar = !!N[chinIdx] && barAt(N[chinIdx].x) - N[chinIdx].y >= -0.12 * arm && margin > -0.25 * arm && rel <= cfg.chinGuessOkRatio;
     margins.push(margin);
+    if (faceAtBar && margin < cfg.chinMarginRatio * arm) guessed.push({ a: t[chinIdx] - 0.45, b: t[chinIdx] + 0.45, ok: true });
     checks.push(margin >= cfg.chinMarginRatio * arm
       ? { id: 'chin', label: 'Mento sopra la sbarra', status: 'pass', detail: margin < 0.04 * arm ? 'Al limite: il mento arriva appena sopra la sbarra.' : 'Il mento supera la sbarra.', t: [t[chinIdx], t[chinIdx]], value: margin / arm }
-      : { id: 'chin', label: 'Mento sopra la sbarra', status: 'fail', close: margin > -0.04 * arm || faceAtBar, detail: faceAtBar ? 'Il mento arriva alla sbarra ma non la supera: la sbarra passa davanti alla faccia.' : 'Il mento non supera la sbarra.', t: [t[chinIdx], t[chinIdx]], value: margin / arm });
+      : faceAtBar
+        ? { id: 'chin', label: 'Mento sopra la sbarra', status: 'pass', detail: 'La faccia arriva alla sbarra con la testa all\'indietro: da questa ripresa il mento non si misura bene, a impressione la supera.', t: [t[chinIdx], t[chinIdx]], value: margin / arm }
+        : { id: 'chin', label: 'Mento sopra la sbarra', status: 'fail', close: margin > -0.04 * arm, detail: 'Il mento non supera la sbarra.', t: [t[chinIdx], t[chinIdx]], value: margin / arm });
     if (margin >= 0 && margin < 0.04 * arm) warnings.push('Mento al limite: un giudice severo potrebbe darla no rep.');
-    // la sbarra taglia la faccia (naso sopra, mento sotto): con il telefono più in basso della sbarra
-    // la testa, che sta dietro, sembra più bassa di quanto è. Il verdetto resta, ma si dice come riprendere.
-    if (faceAtBar && margin < cfg.chinMarginRatio * arm) warnings.push('La sbarra passa davanti alla faccia: se il telefono era più in basso della sbarra, il mento può sembrare più basso di quanto è. Per un giudizio sicuro riprendi di lato, con il telefono all\'altezza della sbarra.');
+    if (faceAtBar && margin < cfg.chinMarginRatio * arm) warnings.push('Con la testa all\'indietro il mento non si misura bene: l\'ho giudicato a impressione. Per un giudizio sicuro riprendi di lato, con il telefono all\'altezza della sbarra.');
     }
 
     // giù a braccia tese: tra il ritorno in basso e la tirata successiva

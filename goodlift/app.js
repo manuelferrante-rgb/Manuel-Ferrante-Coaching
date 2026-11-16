@@ -3,7 +3,7 @@
 import { FilesetResolver, PoseLandmarker } from './vendor/mediapipe/vision_bundle.js';
 import { LIFTS, LM, SQUAT, recognize } from './engine.js';
 import { pickPerson, countPeople, endMessage, detectLift, unclear } from './core.js';
-import { trackPlate } from './plates.js';
+import { trackPlate, trackPatch } from './plates.js';
 import { cameraShift, stabilize } from './motion.js';
 import { secondEye, resetSecondEye, stats as secondStats } from './second.js';
 
@@ -329,6 +329,11 @@ async function analyzeVideo(url, { recordedSec = null, blob = null, track = null
     } catch (e) { console.warn(e); }
     state.timing.second = performance.now() - T0; state.timing.secondEye = { ...secondStats };
   }
+  // panca: se le mani si vedono male (dietro il montante del rack o i dischi) le ripetizioni si perdono;
+  // il disco invece si vede bene: si segue lui per sapere dov'è il bilanciere
+  if (state.lift === 'panca' && result.verdict !== 'unclear') {
+    try { const r3 = benchWithPlate(raw, prep, clean, result, vw, vh); if (r3) ({ clean, result } = r3); } catch (e) { console.warn(e); }
+  }
   // anche dopo il secondo occhio nessuno fa una delle sei alzate (es. curl coi manubri): meglio
   // chiedere che inventare un verdetto
   if (!FORCED && result.verdict !== 'unclear' && (state.recognized?.rank?.[0]?.[1] ?? Infinity) < 0.5)
@@ -461,6 +466,56 @@ function attachPlate(result, raw, vw, vh) {
   R.path = { ...R.path, a: null, pts: found.map(c => c && { x: c.x / sc, y: c.y / sc }) };
 }
 
+// Panca con le mani poco visibili (dietro il montante del rack o i dischi): le ripetizioni si perdono.
+// Il bilanciere, con mani e disco, si segue nell'immagine (plates.js, trackPatch) partendo da un
+// fotogramma a braccia tese in cui le mani si vedono bene; i polsi si mettono lì e si rigiudica.
+// Si tiene solo se trova più ripetizioni.
+function benchWithPlate(raw, prep, clean, result, vw, vh) {
+  if (!raw.some(f => f.gray)) return null;
+  const vis = lm => Math.max(lm[15]?.visibility ?? 0, lm[16]?.visibility ?? 0);
+  const poor = clean.filter(f => !f.lm || vis(f.lm) < 0.5).length;
+  // mani viste male in tanti fotogrammi, o proprio al petto (dove si misura il fermo: coperte, il
+  // modello le lascia ferme e il fermo sembra lungo)
+  const tOf = clean.map(f => f.t);
+  const atChest = (result.reps || []).some(r => { const c = r.key?.focus; return Number.isFinite(c) && clean.some((f, i) => Math.abs(tOf[i] - c) <= 0.4 && (!f.lm || vis(f.lm) < 0.5)); });
+  if (poor < 0.15 * clean.length && !atChest) return null; // mani viste bene: non serve
+  const shift = prep.shift, sc = GRAY_W / vw, gh = Math.round(GRAY_W * vh / vw);
+  const sel = pickPerson(prep.frames, 'panca', vw, vh); // punti stabilizzati, stessi indici di raw
+  const o = i => shift?.[i] ? { x: shift[i].dx * vw, y: shift[i].dy * vh } : { x: 0, y: 0 };
+  // partenza: il polso visto meglio, a braccia tese (bilanciere in alto), nel fotogramma in cui si vede
+  // meglio (l'altro polso, coperto, il modello lo inventa)
+  const kOf = lm => ((lm[15]?.visibility ?? 0) >= (lm[16]?.visibility ?? 0) ? 15 : 16);
+  const cand = sel.map((f, i) => f.lm && raw[i]?.gray && vis(f.lm) > 0.6 ? i : -1).filter(i => i >= 0);
+  if (cand.length < 5) return null;
+  const ys = cand.map(i => sel[i].lm[kOf(sel[i].lm)].y).sort((p, q) => p - q), high = ys[Math.floor(0.3 * (ys.length - 1))];
+  const st = cand.filter(i => sel[i].lm[kOf(sel[i].lm)].y <= high).reduce((p, i) => (vis(sel[i].lm) > vis(sel[p].lm) ? i : p));
+  const L = sel[st].lm, K = kOf(L);
+  const arm = 2 * Math.hypot((L[11].x - L[13].x) * vw, (L[11].y - L[13].y) * vh) * sc;
+  const at = k => ({ x: (L[k].x * vw + o(st).x) * sc, y: (L[k].y * vh + o(st).y) * sc });
+  const w0 = at(K);
+  const tr = trackPatch(raw, GRAY_W, gh, st, { x: w0.x, y: w0.y, w: 0.8 * arm, h: 0.5 * arm });
+  if (tr.filter(Boolean).length < 0.8 * raw.length) return null;
+  const o15 = { x: w0.x - tr[st].x, y: w0.y - tr[st].y }, o16 = o15;
+  // dove il modello ha perso la persona (coperta) si tiene il corpo del fotogramma vicino: in panca
+  // l'atleta sdraiato si muove poco, conta il bilanciere
+  const near = i => { for (let k = 0; k < 24; k++) for (const j of [i - k, i + k]) if (sel[j]?.lm) return sel[j].lm; return null; };
+  const filled = sel.map((f, i) => {
+    const src = f.lm || near(i); if (!src || !tr[i]) return f;
+    const lm = src.map(p => ({ ...p }));
+    for (const [k, of] of [[15, o15], [16, o16]]) lm[k] = { x: ((tr[i].x + of.x) / sc - o(i).x) / vw, y: ((tr[i].y + of.y) / sc - o(i).y) / vh, visibility: 0.9 };
+    // per disegnare: i punti veri del video (con lo spostamento del telefono)
+    Object.defineProperty(lm, 'orig', { value: lm.map(p => ({ ...p, x: p.x + o(i).x / vw, y: p.y + o(i).y / vh })) });
+    return { ...f, lm };
+  });
+  filled.barTracked = true;
+  const r2 = LIFTS.panca.analyze(filled, vw, vh);
+  const n = r => r.reps ? r.reps.length : r.verdict === 'unclear' ? 0 : 1;
+  state.benchPlate = { poor, start: st, before: n(result), after: n(r2), arm: Math.round(arm), w0, track: tr.map(c => c && Math.round(c.y)), reps: (r2.reps || []).map(x => x.key?.focus) }; // per ?debug
+  if (r2.verdict === 'unclear' || n(r2) < n(result)) return null;
+  if (r2.replay) r2.replay.shift = shift && shift.map(s => ({ x: s.dx * vw, y: s.dy * vh }));
+  return { clean: filled.map(f => ({ ...f, lm: f.lm?.orig ?? f.lm })), result: r2 };
+}
+
 // Analisi mentre il video scorre. Restituisce null se il browser non lo permette.
 async function samplePlaying(video, model, from, to, onPose, gone) {
   if (!('requestVideoFrameCallback' in video)) return null;
@@ -495,8 +550,11 @@ async function samplePlaying(video, model, from, to, onPose, gone) {
         const lm = onPose(t, poses, frames);
         const tm = state.timing; tm.detect = (tm.detect || 0) + (c1 - c0); tm.gray = (tm.gray || 0) + (c2 - c1); tm.onPose = (tm.onPose || 0) + (performance.now() - c2); tm.n = (tm.n || 0) + 1;
         // fermo o assente → si va più veloce; in movimento → ~12 fotogrammi al secondo
-        const y = lm ? (lm[ids[0]].y + lm[ids[1]].y) / 2 : null;
-        const moving = y != null && prev != null && Math.abs(y - prev) / Math.max(1e-3, t - lastT) > 0.05;
+        // si guarda tutto ciò che si può muovere (anca, mani, spalle): con il video caricato l'alzata
+        // non si conosce ancora, e in panca il bilanciere che scende non va saltato a 4×
+        const pairs = [ids, [23, 24], [15, 16], [11, 12]];
+        const y = lm ? pairs.map(([a, b]) => (lm[a].y + lm[b].y) / 2) : null;
+        const moving = y != null && prev != null && y.some((v, k) => Math.abs(v - prev[k]) / Math.max(1e-3, t - lastT) > 0.05);
         stillFor = moving ? 0 : stillFor + (t - lastT > 0 ? t - lastT : 0);
         prev = y; lastT = t;
         const base = Math.max(0.25, Math.min(2, 0.85 * STEP / cost));
