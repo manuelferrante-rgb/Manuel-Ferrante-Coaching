@@ -251,7 +251,9 @@ export const LIFTS = {
 // trova niente ("non riesco") si prova la seconda candidata, se è comunque plausibile.
 export function recognize(frames, width, height) {
   const d = detectLift(frames, width, height);
-  const plausible = d.rank.filter(([, s], k) => k === 0 || s >= 0.3);
+  // prove forti per la prima (es. squat chiaro): se il suo giudice dice "non riesco" (anca coperta dai
+  // dischi) non si passa a un'altra alzata, si lascia "non riesco" così parte il secondo occhio
+  const plausible = d.sure ? d.rank.slice(0, 1) : d.rank.filter(([, s], k) => k === 0 || s >= 0.3);
   for (const [lift] of plausible.slice(0, 4)) {
     const r = LIFTS[lift].analyze(pickPerson(frames, lift, width, height), width, height);
     if (r.verdict !== 'unclear') return { ...d, lift, ask: lift === d.lift ? d.ask : null, sure: lift === d.lift && d.sure };

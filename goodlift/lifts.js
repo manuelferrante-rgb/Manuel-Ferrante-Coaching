@@ -105,7 +105,7 @@ function prepare(frames, width, height, lift, need) {
   b.frontal = shoulderSpread > 0.45 * b.torso;
   // da dietro la spalla sinistra sta a sinistra nell'immagine (da davanti a destra): la faccia non si vede
   const lr = median(frames.map(f => f.lm && f.lm[11].visibility > 0.6 && f.lm[12].visibility > 0.6 ? (f.lm[11].x - f.lm[12].x) * width : NaN));
-  b.fromBehind = lr < -0.2 * b.torso; // anche di tre quarti da dietro
+  b.fromBehind = lr < -0.12 * b.torso; // anche di tre quarti da dietro (8885: -0,2 al limite)
   return b;
 }
 

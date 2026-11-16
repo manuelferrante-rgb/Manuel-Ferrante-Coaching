@@ -516,7 +516,7 @@ export function detectLift(frames, width = 1, height = 1) {
   const lies = lying >= 0.35 || (seated >= 0.6 && squat < 0.3);
   const hanging = (up >= 0.2 || hung >= 3) && !(kneesBend && up < 0.5) && !(lies && up < 0.5);
   const rank = [];
-  const isMU = !lies && ((hung >= 2 && above >= 2 && !kneesBend) || (up >= 0.25 && bent >= 4 && squat < 0.4));
+  const isMU = !lies && ((hung >= 2 && above >= 2 && !kneesBend) || (((up >= 0.25 && bent >= 4) || (up >= 0.1 && bent >= 8)) && squat < 0.4));
   if (hanging || isMU) rank.push(isMU ? ['muscleup', 3] : ['trazioni', 3]);
   if (lies) rank.push(['panca', 2.5]);
   // ginocchia che si piegano molto con le mani alle spalle: è uno squat, non un dip (nel dip le gambe
@@ -531,7 +531,7 @@ export function detectLift(frames, width = 1, height = 1) {
   const top = Math.min(...pull.fs.filter(f => !f.lying && Math.abs(f.W.y - pBar) < 0.5 * pull.arm).map(f => (f.S.y - f.W.y) / pull.arm));
   scores.top = top;
   // sicuro? servono prove forti per l'alzata scelta; se no si chiede conferma (app.js)
-  const strong = { panca: lying >= 0.5 || (seated >= 0.75 && squat < 0.2), muscleup: hung >= 3 && above >= 5, trazioni: up >= 0.4,
+  const strong = { panca: lying >= 0.5 || (seated >= 0.75 && squat < 0.2), muscleup: hung >= 3 && (above >= 5 || bent >= 8), trazioni: up >= 0.4,
     squat: squat >= 0.6, stacco: low >= 0.15, dip: dipBent >= 0.2 }[rank[0][0]];
   return { lift: rank[0][0], rank, scores, sure: !!strong, ask: rank[0][0] === 'trazioni' && top < -0.25 ? 'muscleup' : null };
 }
